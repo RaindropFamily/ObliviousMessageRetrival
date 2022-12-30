@@ -176,17 +176,17 @@ int main() {
 
         case 22:
             numcores = 1;
-            GOMR1_ObliviousMultiplexer_BFV();
+            // GOMR1_ObliviousMultiplexer_BFV();
             break;
 
         case 23:
             numcores = 2;
-            GOMR1_ObliviousMultiplexer_BFV();
+            // GOMR1_ObliviousMultiplexer_BFV();
             break;
 
         case 24:
             numcores = 4;
-            GOMR1_ObliviousMultiplexer_BFV();
+            // GOMR1_ObliviousMultiplexer_BFV();
             break;
 
         case 25:

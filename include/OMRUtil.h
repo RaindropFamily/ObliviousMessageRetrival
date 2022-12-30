@@ -6,9 +6,7 @@
 #include "client.h"
 #include "LoadAndSaveUtils.h"
 #include "MathUtil.h"
-#include "OMRUtil.h"
 #include "global.h"
-#include "Scheme.h"
 #include <NTL/BasicThreadPool.h>
 #include <NTL/ZZ.h>
 #include <thread>
@@ -92,13 +90,13 @@ Ciphertext serverOperations1obtainPackedSIC(vector<PVWCiphertext>& SICPVW, vecto
 
 // Phase 1, obtaining PV's based on encrypted targetId
 // used in GOMR1/2_ObliviousMultiplexer_BFV
-Ciphertext serverOperations1obtainPackedSICWithCluePoly(vector<vector<uint64_t>>& cluePoly, vector<Ciphertext> switchingKey, const RelinKeys& relin_keys,
+Ciphertext serverOperations1obtainPackedSICWithCluePoly(agomr::AdGroupClue& clues, vector<Ciphertext> switchingKey, const RelinKeys& relin_keys,
                                                         const GaloisKeys& gal_keys, const size_t& degree, const SEALContext& context,
                                                         const PVWParam& params, const int numOfTransactions, uint64_t *total_plain_ntt) {
     Evaluator evaluator(context);
     
     vector<Ciphertext> packedSIC(params.ell);
-    computeBplusASPVWOptimizedWithCluePoly(packedSIC, cluePoly, switchingKey, relin_keys, gal_keys, context, params, total_plain_ntt);
+    computeBplusASPVWOptimizedWithCluePoly(packedSIC, clues, switchingKey, relin_keys, gal_keys, context, params, total_plain_ntt);
 
     int rangeToCheck = 850; // range check is from [-rangeToCheck, rangeToCheck-1]
     newRangeCheckPVW(packedSIC, rangeToCheck, relin_keys, degree, context, params);
@@ -471,7 +469,7 @@ bool verify(const PVWParam& params, const vector<int>& extended_id, int index, i
 
     vector<vector<int>> ids(1);
     ids[0] = extended_id;
-    vector<vector<int>> compressed_id = compressVector(params, seed, ids);
+    vector<vector<int>> compressed_id = compressVector(params, seed, ids, party_size_glb + secure_extra_length_glb);
 
     vector<vector<long>> cluePolynomial(params.n + params.ell, vector<long>(compressed_id[0].size()));
     vector<long> res(params.n + params.ell, 0);

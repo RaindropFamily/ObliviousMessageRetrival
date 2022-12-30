@@ -4,6 +4,7 @@
 #include<fstream>
 #include<string>
 #include "MRE.h"
+#include "Scheme.h"
 #include "MathUtil.h"
 using namespace std;
 
@@ -167,49 +168,47 @@ void loadClues(vector<PVWCiphertext>& clues, const int& start, const int& end, c
  * @param end 
  * @param payloadSize = clueLength * T', where T' = party_size + extra_secure_length
  */
-void loadOMClueWithRandomness(const PVWParam& params, vector<vector<uint64_t>>& cluePoly, const int& start, const int& end, int payloadSize = 306, int clueLength = 454) {
-    vector<uint64_t> temp(payloadSize - prng_seed_uint64_count);
-    vector<uint64_t> randomness(prng_seed_uint64_count);
-    cluePoly.resize(end-start);
-
-    int prng_seed_uint64_counter;
-    prng_seed_type seed;
+agomr::AdGroupClue loadOMClueWithRandomness(const PVWParam& params, const int& start, const int& end, int payloadSize, int clueLength = 454) {
+    vector<vector<uint64_t>> clues(end-start), randomness(end-start);
 
     for(int i = start; i < end; i++){
-        cluePoly[i].resize(454 * id_size_glb * party_size_glb);
+        clues[i-start].resize(payloadSize - prng_seed_uint64_count);
+        randomness[i-start].resize(prng_seed_uint64_count);
+
         ifstream datafile;
 
         datafile.open("../data/cluePoly/"+to_string(i)+".txt");
         datafile.seekg(0, ios::beg);
         for(int j = 0; j < payloadSize; j++){
             if (j < payloadSize - prng_seed_uint64_count) {
-                datafile >> temp[j];
+                datafile >> clues[i-start][j];
             } else {
-                datafile >> randomness[j - (payloadSize - prng_seed_uint64_count)];
+                datafile >> randomness[i-start][j - (payloadSize - prng_seed_uint64_count)];
             }
         }
         datafile.close();
 
-        prng_seed_uint64_counter = 0;
-        for (auto &i : seed) {
-            i = randomness[prng_seed_uint64_counter];
-            prng_seed_uint64_counter++;
-        }
+        // for (auto &i : seed) {
+        //     i = randomness[prng_seed_uint64_counter];
+        //     prng_seed_uint64_counter++;
+        // }
 
-        vector<vector<uint64_t>> random = generateRandomMatrixWithSeed(params, seed, id_size_glb * party_size_glb,
-                                                                       party_size_glb + secure_extra_length_glb);
+        // vector<vector<uint64_t>> random = generateRandomMatrixWithSeed(params, seed, id_size_glb * party_size_glb,
+        //                                                                party_size_glb + secure_extra_length_glb);
 
-        for (int c = 0; c < cluePoly[i].size(); c++) {
-            int row_index = c / (id_size_glb * party_size_glb);
-            int col_index = c % (id_size_glb * party_size_glb);
-            long tempClue = 0;
-            for (int k = 0; k < party_size_glb + secure_extra_length_glb; k++) {
-                tempClue = (tempClue + temp[row_index * (party_size_glb + secure_extra_length_glb) + k] * random[col_index][k]) % params.q;
-                tempClue = tempClue < 0 ? tempClue + params.q : tempClue;
-            }
-            cluePoly[i][c] = tempClue;
-        }
+        // for (int c = 0; c < cluePoly[i].size(); c++) {
+        //     int row_index = c / (id_size_glb * party_size_glb);
+        //     int col_index = c % (id_size_glb * party_size_glb);
+        //     long tempClue = 0;
+        //     for (int k = 0; k < party_size_glb + secure_extra_length_glb; k++) {
+        //         tempClue = (tempClue + temp[row_index * (party_size_glb + secure_extra_length_glb) + k] * random[col_index][k]) % params.q;
+        //         tempClue = tempClue < 0 ? tempClue + params.q : tempClue;
+        //     }
+        //     cluePoly[i][c] = tempClue;
+        // }
     }
+
+    return agomr::AdGroupClue(clues, randomness);
 }
 
 

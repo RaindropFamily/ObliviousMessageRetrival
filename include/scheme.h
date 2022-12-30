@@ -74,6 +74,16 @@ namespace agomr
     typedef vector<vector<long>> AdhocGroupClue;
     typedef vector<Ciphertext> AdhocDetectionKey;
 
+    struct AdGroupClue{
+        vector<vector<uint64_t>> cluePoly; // poly_degree's clues, each is a vector of size (param.n * T') 
+        vector<vector<uint64_t>> randomness; // poly_degree's randomness, each is a vector of size (prng_seed_uint64_count)
+
+        AdGroupClue() {}
+        AdGroupClue(vector<vector<uint64_t>>& cluePoly, vector<vector<uint64_t>>& randomness)
+        : cluePoly(cluePoly), randomness(randomness)
+        {}
+    };
+
     // add encrypted extended-targetID as the last switching key based on the original logic
     AdhocDetectionKey generateDetectionKey(const vector<int>& targetId, const SEALContext& context, const size_t& degree, 
                             const PublicKey& BFVpk, const SecretKey& BFVsk, const PVWsk& regSk, const PVWParam& params) {
