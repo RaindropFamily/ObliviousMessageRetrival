@@ -187,25 +187,6 @@ agomr::AdGroupClue loadOMClueWithRandomness(const PVWParam& params, const int& s
             }
         }
         datafile.close();
-
-        // for (auto &i : seed) {
-        //     i = randomness[prng_seed_uint64_counter];
-        //     prng_seed_uint64_counter++;
-        // }
-
-        // vector<vector<uint64_t>> random = generateRandomMatrixWithSeed(params, seed, id_size_glb * party_size_glb,
-        //                                                                party_size_glb + secure_extra_length_glb);
-
-        // for (int c = 0; c < cluePoly[i].size(); c++) {
-        //     int row_index = c / (id_size_glb * party_size_glb);
-        //     int col_index = c % (id_size_glb * party_size_glb);
-        //     long tempClue = 0;
-        //     for (int k = 0; k < party_size_glb + secure_extra_length_glb; k++) {
-        //         tempClue = (tempClue + temp[row_index * (party_size_glb + secure_extra_length_glb) + k] * random[col_index][k]) % params.q;
-        //         tempClue = tempClue < 0 ? tempClue + params.q : tempClue;
-        //     }
-        //     cluePoly[i][c] = tempClue;
-        // }
     }
 
     return agomr::AdGroupClue(clues, randomness);
@@ -311,4 +292,39 @@ void loadObliviousMultiplexerClues(vector<int> pertinent_msgs, vector<PVWCiphert
             clues[i-start].b[j] = res[res_ind];
         }
     }
+}
+
+uint64_t extractEntryFromRandomMatrix(const PVWParam& params, const vector<uint64_t>& randomness, const int r, const int c) {
+    prng_seed_type seed;
+    int prng_seed_uint64_counter = 0;
+    for (auto &i : seed) {
+        i = randomness[prng_seed_uint64_counter];
+        prng_seed_uint64_counter++;
+    }
+
+    vector<vector<uint64_t>> random_Z = generateRandomMatrixWithSeed(params, seed, party_size_glb * id_size_glb,
+                                                                     party_size_glb + secure_extra_length_glb);
+
+    return random_Z[c][r]; // transpose with the original random Matrix, which is of size (TI x T')
+}
+
+
+vector<vector<vector<uint64_t>>> batchLoadRandomMatrices(const PVWParam& param, const int start, const int end, const vector<vector<uint64_t>>& randomness) {
+    prng_seed_type seed;
+    int prng_seed_uint64_counter = 0;
+
+    vector<vector<vector<uint64_t>>> random_matrices(end-start);
+
+    for (int c = start; c < end; c++) {
+        prng_seed_uint64_counter = 0;
+        for (auto &i : seed) {
+            i = randomness[c][prng_seed_uint64_counter];
+            prng_seed_uint64_counter++;
+        }
+
+        random_matrices[c - start] = generateRandomMatrixWithSeed(param, seed, party_size_glb * id_size_glb,
+                                                                  party_size_glb + secure_extra_length_glb);
+    }
+
+    return random_matrices;
 }
