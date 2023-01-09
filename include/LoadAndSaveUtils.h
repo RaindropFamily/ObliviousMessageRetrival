@@ -20,7 +20,7 @@ void createDatabase(int num_of_transactions = 524288, int payloadSize = 306){
     }
 }
 
-vector<uint64_t> loadDataSingle(int i, const string folder = "payloads", int payloadSize = 306){
+vector<uint64_t> loadDataSingle(int i, const string folder = "payloads", int payloadSize = 306) {
     vector<uint64_t> ret;
 
     ret.resize(payloadSize);
@@ -95,7 +95,7 @@ void saveGroupClues(const vector<vector<long>>& cluePolynomial, prng_seed_type s
     datafile.close();
 }
 
-void saveCluesWithRandomness(const PVWCiphertext& clue, int transaction_num, prng_seed_type seed){
+void saveCluesWithRandomness(const PVWCiphertext& clue, const int transaction_num, prng_seed_type seed) {
     ofstream datafile;
     datafile.open ("../data/clues/"+to_string(transaction_num)+".txt");
 
@@ -110,7 +110,6 @@ void saveCluesWithRandomness(const PVWCiphertext& clue, int transaction_num, prn
     }
     datafile.close();
 }
-
 
 void loadData(vector<vector<uint64_t>>& msgs, const int& start, const int& end, string folder = "payloads", int payloadSize = 306, int partySize = 1){
     msgs.resize((end-start) * partySize);
@@ -161,14 +160,34 @@ void loadClues(vector<PVWCiphertext>& clues, const int& start, const int& end, c
  * one is randomness, and then use the randomness to generate a random matrix R of size (party_size * id_size) x party_size.
  * The resulted matrix CM*R^T, of size (clue_length) x (party_size * id_size).
  * Different from loadObliviousMultiplexerClues, this one does not multiply the result with target Id, since the later one is encrypted.
- * 
- * @param cluePoly 
+ *
+ * This function will save the processed matrix back to the file system
+ *
  * @param randomness 
  * @param start 
  * @param end 
  * @param payloadSize = clueLength * T', where T' = party_size + extra_secure_length
  */
-agomr::AdGroupClue loadOMClueWithRandomness(const PVWParam& params, const int& start, const int& end, int payloadSize, int clueLength = 454) {
+vector<vector<uint64_t>> loadOMClue_CluePoly(const PVWParam& params, const int& start, const int& end, int payloadSize, int clueLength = 454) {
+    vector<vector<uint64_t>> clues(end-start);
+
+    for(int i = start; i < end; i++){
+        clues[i-start].resize(payloadSize);
+
+        ifstream datafile;
+
+        datafile.open("../data/cluePoly/"+to_string(i)+".txt");
+        datafile.seekg(0, ios::beg);
+        for(int j = 0; j < payloadSize; j++){
+            datafile >> clues[i-start][j];
+        }
+        datafile.close();
+    }
+
+    return clues;
+}
+
+vector<vector<uint64_t>> loadOMClue_Randomness(const PVWParam& params, const int& start, const int& end, int payloadSize, int clueLength = 454) {
     vector<vector<uint64_t>> clues(end-start), randomness(end-start);
 
     for(int i = start; i < end; i++){
@@ -180,7 +199,7 @@ agomr::AdGroupClue loadOMClueWithRandomness(const PVWParam& params, const int& s
         datafile.open("../data/cluePoly/"+to_string(i)+".txt");
         datafile.seekg(0, ios::beg);
         for(int j = 0; j < payloadSize; j++){
-            if (j < payloadSize - prng_seed_uint64_count) {
+	    if (j < (int) (payloadSize - prng_seed_uint64_count)) {
                 datafile >> clues[i-start][j];
             } else {
                 datafile >> randomness[i-start][j - (payloadSize - prng_seed_uint64_count)];
@@ -189,7 +208,7 @@ agomr::AdGroupClue loadOMClueWithRandomness(const PVWParam& params, const int& s
         datafile.close();
     }
 
-    return agomr::AdGroupClue(clues, randomness);
+    return randomness;
 }
 
 
@@ -225,7 +244,7 @@ void loadFixedGroupClues(vector<PVWCiphertext>& clues, const int& start, const i
             clues[i-start].b[j] = temp;
         }
 
-        for (int j = 0; j < prng_seed_uint64_count; j++) {
+        for (int j = 0; j < (int)prng_seed_uint64_count; j++) {
             datafile >> randomness[j];
         }
 
@@ -278,7 +297,7 @@ void loadObliviousMultiplexerClues(vector<int> pertinent_msgs, vector<PVWCiphert
         clues[i-start].b = NativeVector(param.ell);
 
         for (int c = 0; c < clueLength; c++) {
-            for(int j = 0; j < compressed_id[0].size(); j++) {
+	  for(int j = 0; j < (int)compressed_id[0].size(); j++) {
                 res[c] = (res[c] + polyFlat[c * compressed_id[0].size() + j] * compressed_id[0][j]) % param.q;
                 res[c] = res[c] < 0 ? res[c] + param.q : res[c];
             }

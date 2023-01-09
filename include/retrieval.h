@@ -180,7 +180,7 @@ void randomizedIndexRetrieval_opt(vector<Ciphertext>& buckets, vector<Ciphertext
 
             size_t encoded_counter = encodeIndexWithPartySize(counter, partySize);
             size_t base_value = encoded_counter / 65537;
-            for (int s = 0; s < slots_per_bucket - 3; s++) {
+            for (int s = 0; s < (int) (slots_per_bucket - 3); s++) {
                 pod_matrices[the_scalar_mtx][index + (slots_per_bucket - 3 - s) * num_buckets] = base_value % 65537;
                 base_value /= 65537;
             }

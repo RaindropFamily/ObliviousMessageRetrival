@@ -11,8 +11,8 @@
 // Read in the a/b[i] part as a 1 x partySize RHS vector for Oblivious Multiplexer polynomial.
 void prepareClueRhs(vector<vector<int>>& rhs, const vector<PVWCiphertext> clues, bool prepare, const int clueLength) {
     for (int index = 0; index < clueLength; index ++) {
-        for (int i = 0; i < rhs.size(); i++) {
-            if (index >= clues[i].a.GetLength()) {
+        for (int i = 0; i < (int)rhs.size(); i++) {
+            if (index >= (int)clues[i].a.GetLength()) {
                 if (prepare) {
                     int temp = clues[i].b[index - clues[i].a.GetLength()].ConvertToInt() - 16384;
                     rhs[i][index] = temp < 0 ? temp + 65537 : temp % 65537;
@@ -115,13 +115,13 @@ namespace agomr
         ids[0] = targetId;
         vector<vector<int>> extended_ids = generateExponentialExtendedVector(params, ids);
 
-        if (switchingKey.size() > params.ell) {
-            for (tempn = 1; tempn < extended_ids[0].size(); tempn *= 2) {} // encrypted the exp-extended targetId for 1 x (id_size*party_size)
+        if ((int)switchingKey.size() > params.ell) {
+            for (tempn = 1; tempn < (int)extended_ids[0].size(); tempn *= 2) {} // encrypted the exp-extended targetId for 1 x (id_size*party_size)
             vector<uint64_t> skInt(degree);
             for (size_t i = 0; i < degree; i++) {
                 auto tempindex = i % uint64_t(tempn);
-                if(int(tempindex) >= extended_ids[0].size()) {                                                                                                                                                                                                              
-                    skInt[i] = 0;
+                if(int(tempindex) >= (int)extended_ids[0].size()) {
+		    skInt[i] = 0;
                 } else {
                     skInt[i] = uint64_t((extended_ids[0][tempindex]) % params.q);
                 }
@@ -184,7 +184,7 @@ namespace fgomr
         for(tempn = 1; tempn < a1_size + a2_size; tempn *= 2){}
 
         vector<vector<int>> old_a2(params.ell);
-        for (int i = 0; i < old_a2.size(); i++) {
+        for (int i = 0; i < (int)old_a2.size(); i++) {
             old_a2[i].resize(partialSize);
 
             for (int j = 0; j < partialSize; j++) {

@@ -92,11 +92,12 @@ Ciphertext serverOperations1obtainPackedSIC(vector<PVWCiphertext>& SICPVW, vecto
 // used in GOMR1/2_ObliviousMultiplexer_BFV
 Ciphertext serverOperations1obtainPackedSICWithCluePoly(agomr::AdGroupClue& clues, vector<Ciphertext> switchingKey, const RelinKeys& relin_keys,
                                                         const GaloisKeys& gal_keys, const size_t& degree, const SEALContext& context,
-                                                        const PVWParam& params, const int numOfTransactions, uint64_t *total_plain_ntt) {
+                                                        const PVWParam& params, const int numOfTransactions, uint64_t *total_plain_ntt,
+							                            uint64_t *total_load) {
     Evaluator evaluator(context);
     
     vector<Ciphertext> packedSIC(params.ell);
-    computeBplusASPVWOptimizedWithCluePoly(packedSIC, clues, switchingKey, relin_keys, gal_keys, context, params, total_plain_ntt);
+    computeBplusASPVWOptimizedWithCluePoly(packedSIC, clues, switchingKey, relin_keys, gal_keys, context, params, total_plain_ntt, total_load);
 
     int rangeToCheck = 850; // range check is from [-rangeToCheck, rangeToCheck-1]
     newRangeCheckPVW(packedSIC, rangeToCheck, relin_keys, degree, context, params);
@@ -437,9 +438,9 @@ vector<vector<int>> initializeRecipientId(const PVWParam& params, int partySize,
     lbcrypto::DiscreteUniformGeneratorImpl<regevSK> dug;
     dug.SetModulus(params.q);
 
-    for (int i = 0; i < ids.size(); i++) {
+    for (int i = 0; i < (int)ids.size(); i++) {
         NativeVector temp = dug.GenerateVector(idSize);
-        for (int j = 0; j < ids[0].size(); j++) {
+        for (int j = 0; j < (int)ids[0].size(); j++) {
             ids[i][j] = temp[j].ConvertToInt();
         }
     }
@@ -475,7 +476,7 @@ bool verify(const PVWParam& params, const vector<int>& extended_id, int index, i
     vector<long> res(params.n + params.ell, 0);
 
     for (int i = 0; i < params.n + params.ell; i++) {
-        for(int j = 0; j < compressed_id[0].size(); j++) {
+      for(int j = 0; j < (int)compressed_id[0].size(); j++) {
             res[i] = (res[i] + polyFlat[i * compressed_id[0].size() + j] * compressed_id[0][j]) % params.q;
             res[i] = res[i] < 0 ? res[i] + params.q : res[i];
         }
@@ -486,7 +487,7 @@ bool verify(const PVWParam& params, const vector<int>& extended_id, int index, i
     for (int i = 0; i < params.n + params.ell; i++) {
         long temp = expected[i] - 16384;
         temp = temp < 0 ? temp + params.q : temp % params.q;
-        if ((prepare && i >= params.n && temp != res[i]) || (prepare && i < params.n && expected[i] != res[i]) || (!prepare && expected[i] != res[i])) {
+        if ((prepare && i >= params.n && temp != res[i]) || (prepare && i < params.n && expected[i] - res[i]) != 0 || (!prepare && expected[i] - res[i] != 0)) {
             return false;
         }
     }

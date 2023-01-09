@@ -16,7 +16,7 @@ int extractIndexWithoutCollision(uint64_t index, int partySize, int pv_value) {
     while (index) {
         if (index & max(1, (int) (ceil(log2(partySize)) - 1))) {
             res += 1 << counter;
-            if ((index & (int) max(1, (int) (ceil(log2(partySize)) - 1))) != pv_value)
+            if (((int) index & (int) max(1, (int) (ceil(log2(partySize)) - 1))) != pv_value)
                 return -1;
         }
         index = index >> max(1, (int) (ceil(log2(partySize))));
@@ -155,11 +155,11 @@ void decodeIndicesRandom_opt(map<int, pair<int, int>>& pertinentIndices, const v
         for(size_t j = 0; j < degree / num_buckets / slots_per_bucket; j++){
             for(size_t k = 0; k < num_buckets; k++){
                 uint64_t pv_value = plain_bucket[k + (slots_per_bucket - 1) * num_buckets + j * slots_per_bucket * num_buckets];
-                if (pv_value > partySize)
+                if ((int) pv_value > partySize)
                     continue;
                 if (pv_value >= 1) {
                     uint64_t index = 0;
-                    for (int s = 0; s < slots_per_bucket-1; s++) {
+                    for (int s = 0; s < (int) (slots_per_bucket-1); s++) {
                         index = index * 65537 + plain_bucket[k + s * num_buckets + j * slots_per_bucket * num_buckets];
                     }
                     int real_index = extractIndexWithoutCollision(index, partySize, pv_value);
@@ -328,7 +328,7 @@ vector<vector<long>> equationSolving(vector<vector<int>>& lhs, vector<vector<int
         }
 
         for(size_t i = 0; i < lhs.size(); i++) {
-            if ((lhs[i][counter] != 0) && (i != recoder[counter])) {
+	  if ((lhs[i][counter] != 0) && ((int) i != recoder[counter])) {
                 get_ratio_mult_and_subtract(lhs[i], lhs[recoder[counter]], rhs[i], rhs[recoder[counter]], counter, numToSolve);
                 if (all_of(lhs[i].begin(), lhs[i].end(), [](int j) { return j==0; })) {
                     lhs.erase(lhs.begin() + i);
@@ -366,7 +366,7 @@ void assignVariable(RandomToStandardAdapter& engine, vector<vector<long>>& res, 
         }
     }
 
-    for (int i = 0; i < lhs.size(); i++) {
+    for (int i = 0; i < (int) lhs.size(); i++) {
         if (lhs[i] != 0 && i != lastIndex) {
             res[i][0] = dist(engine);
             long temp = (rhs - (lhs[i] * res[i][0])) % 65537;
@@ -383,8 +383,8 @@ void assignVariable(RandomToStandardAdapter& engine, vector<vector<long>>& res, 
 // Given solved variables with their values, update the remaining equations.
 // For example, with equation; x + y + 2z = 10, and z = 2, updated equation would be x + y = 6.
 void updateEquation(vector<vector<long>>& res, vector<vector<int>>& lhs, vector<vector<int>>& rhs) {
-    for (int i = 0; i < lhs.size(); i++) {
-        for (int j = 0; j < res.size(); j++) {
+  for (int i = 0; i < (int) lhs.size(); i++) {
+    for (int j = 0; j < (int) res.size(); j++) {
             if (res[j][0] > 0 && lhs[i][j] != 0) {
                 long temp = (rhs[i][0] - lhs[i][j] * res[j][0]) % 65537;
                 temp = temp < 0 ? temp + 65537 : temp;
@@ -431,13 +431,13 @@ vector<vector<long>> equationSolvingRandomBatch(vector<vector<int>>& lhs, vector
 
     vector<vector<long>> tryRes = equationSolving(lhs, rhs, -1);
     if (tryRes.empty()) {
-        for (int k = 0; k < rhs[0].size(); k++) { // for each batched rhs, separate the equation system and solve the variables
+      for (int k = 0; k < (int) rhs[0].size(); k++) { // for each batched rhs, separate the equation system and solve the variables
             vector<vector<int>> single_rhs(rhs.size(), vector<int>(1)), lhs_copy(lhs.size(), vector<int>(lhs[0].size()));
-            for (int i = 0; i < rhs.size(); i++) {
+            for (int i = 0; i < (int) rhs.size(); i++) {
                 single_rhs[i][0] = rhs[i][k];
             }
-            for (int i = 0; i < lhs.size(); i++) {
-                for (int j = 0; j < lhs[0].size(); j++) {
+            for (int i = 0; i < (int) lhs.size(); i++) {
+	      for (int j = 0; j < (int) lhs[0].size(); j++) {
                     lhs_copy[i][j] = lhs[i][j];
                 }
             }
@@ -449,7 +449,7 @@ vector<vector<long>> equationSolvingRandomBatch(vector<vector<int>>& lhs, vector
                 updateEquation(single_res, lhs_copy, single_rhs);
             }
 
-            for (int i = 0; i < lhs[0].size(); i++) {
+            for (int i = 0; i < (int)lhs[0].size(); i++) {
                 batched_res[k][i] = single_res[i][0];
             }
         }

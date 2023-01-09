@@ -96,7 +96,7 @@ namespace mre {
                 b[i] = dist(engine) % param.q;
             }
 
-            for (int i = 0; i < groupSK.size(); i++) {
+            for (int i = 0; i < (int)groupSK.size(); i++) {
                 b_prime[i] = NativeVector(param.ell);
 
                 for (int l = 0; l < param.ell; l++) {
@@ -116,7 +116,7 @@ namespace mre {
             partialPK[w] = MREPartialGPK(A1, b, b_prime);
         }
 
-        for (int i = 0; i< groupSK.size(); i++) {
+        for (int i = 0; i < (int)groupSK.size(); i++) {
             sharedSK[i] = groupSK[i].shareSK;
         }
 
@@ -159,13 +159,13 @@ namespace mre {
         vector<vector<uint64_t>> b_prime(partySize, vector<uint64_t>(param.ell));
         for(size_t i = 0; i < groupPK.partialPK.size(); i++){
             if (dist(engine)){
-                for(int j = 0; j < groupPK.partialPK[i].A1.GetLength(); j++) {
+	      for(int j = 0; j < (int)groupPK.partialPK[i].A1.GetLength(); j++) {
                     ct.a[j].ModAddFastEq(groupPK.partialPK[i].A1[j], q);
                 }
                 for(int j = 0; j < param.ell; j++) {
                     ct.b[j].ModAddFastEq(groupPK.partialPK[i].b[j], q);
                 }
-                for (int j = 0; j < groupPK.partialPK[i].b_prime.size(); j++) {
+                for (int j = 0; j < (int)groupPK.partialPK[i].b_prime.size(); j++) {
                     for (int l = 0; l < param.ell; l++) {
                         b_prime[j][l] = (b_prime[j][l] + groupPK.partialPK[i].b_prime[j][l].ConvertToInt()) % param.q;
                         b_prime[j][l] = b_prime[j][l] < 0 ? b_prime[j][l] + param.q : b_prime[j][l];

@@ -55,24 +55,24 @@ void innerSum_inplace(Ciphertext& output, const GaloisKeys& gal_keys, const size
 
 // Takes one SIC compressed and expand then into SIC's each encrypt 0/1 in slots up to toExpandNum
 void expandSIC(vector<Ciphertext>& expanded, Ciphertext& toExpand, const GaloisKeys& gal_keys, const GaloisKeys& gal_keys_lower,
-                const size_t& degree, const SEALContext& context, const SEALContext& context2, const size_t& toExpandNum, const size_t& start = 0){ 
+                const size_t& degree, const SEALContext& context, const SEALContext& context2, const size_t& toExpandNum, const size_t& start = 0){
     BatchEncoder batch_encoder(context);
     Evaluator evaluator(context);
     expanded.resize(toExpandNum);
 
-    vector<uint64_t> pod_matrix(degree, 0ULL); 
+    vector<uint64_t> pod_matrix(degree, 0ULL);
     pod_matrix[0] = 1ULL;
     Plaintext plain_matrix;
     batch_encoder.encode(pod_matrix, plain_matrix);
-    for(size_t i = 0; i < toExpandNum; i++){ 
-	    if((i+start) != 0){ 
+    for(size_t i = 0; i < toExpandNum; i++){
+	    if((i+start) != 0){
             // rotate one slot at a time
             if((i+start) == degree/2){
                 evaluator.rotate_columns_inplace(toExpand, gal_keys);
-                evaluator.rotate_rows_inplace(toExpand, 1, gal_keys); 
+                evaluator.rotate_rows_inplace(toExpand, 1, gal_keys);
             }
             else{
-                evaluator.rotate_rows_inplace(toExpand, 1, gal_keys); 
+                evaluator.rotate_rows_inplace(toExpand, 1, gal_keys);
             }
         }
         // extract the first slot
@@ -80,13 +80,13 @@ void expandSIC(vector<Ciphertext>& expanded, Ciphertext& toExpand, const GaloisK
 	    evaluator.mod_switch_to_next_inplace(expanded[i]);
 	    evaluator.mod_switch_to_next_inplace(expanded[i]);
         // populate to all slots
-        innerSum_inplace(expanded[i], gal_keys_lower, degree, degree, context2); 
+        innerSum_inplace(expanded[i], gal_keys_lower, degree, degree, context2);
     }
 }
 
 // Takes one SIC compressed and expand then into SIC's each encrypt 0/1 in slots up to toExpandNum
 void expandSIC_Alt(vector<Ciphertext>& expanded, Ciphertext& toExpand, const GaloisKeys& gal_keys, const GaloisKeys& gal_keys_lower,
-                const size_t& degree, const SEALContext& context, const SEALContext& context2, const size_t& toExpandNum, const size_t& start = 0){ 
+                const size_t& degree, const SEALContext& context, const SEALContext& context2, const size_t& toExpandNum, const size_t& start = 0){
     
     if(toExpandNum != 32){
         cerr << "Not implemented for toExpandNum = " << toExpandNum << endl;
@@ -98,7 +98,7 @@ void expandSIC_Alt(vector<Ciphertext>& expanded, Ciphertext& toExpand, const Gal
     expanded.resize(toExpandNum);
 
     // 1. Extract the first 32 element and rotate toExpand by 32, rotate to fill out for every 32 element
-    vector<uint64_t> pod_matrix(degree, 0ULL); 
+    vector<uint64_t> pod_matrix(degree, 0ULL);
     for(size_t i = 0; i < toExpandNum; i++){
         pod_matrix[i] = 1ULL;
     }
@@ -109,7 +109,7 @@ void expandSIC_Alt(vector<Ciphertext>& expanded, Ciphertext& toExpand, const Gal
     if(start == degree/2){
         evaluator.rotate_columns_inplace(toExpand, gal_keys);
     }
-    evaluator.rotate_rows_inplace(toExpand, toExpandNum, gal_keys); 
+    evaluator.rotate_rows_inplace(toExpand, toExpandNum, gal_keys);
     evaluator.mod_switch_to_next_inplace(first32elements);
 
     // evaluator = Evaluator(context2);
@@ -129,7 +129,7 @@ void expandSIC_Alt(vector<Ciphertext>& expanded, Ciphertext& toExpand, const Gal
     // 2. Divide it into 8 parts evenly
     vector<Ciphertext> intermediateStep8elements(8);
     for(size_t j = 0; j < 32; j += 4){
-        vector<uint64_t> pod_matrix(degree, 0ULL); 
+        vector<uint64_t> pod_matrix(degree, 0ULL);
         for(size_t i = 0; i < degree; i += 32){
             pod_matrix[i+0+j] = 1ULL;
             pod_matrix[i+1+j] = 1ULL;
@@ -150,7 +150,7 @@ void expandSIC_Alt(vector<Ciphertext>& expanded, Ciphertext& toExpand, const Gal
 
     // 3. Divide 8 parts into 32 elements
     for(size_t j = 0; j < 4; j += 1){
-        vector<uint64_t> pod_matrix(degree, 0ULL); 
+        vector<uint64_t> pod_matrix(degree, 0ULL);
         for(size_t i = 0; i < degree; i += 4){
             pod_matrix[i+j] = 1ULL;
         }
@@ -164,7 +164,7 @@ void expandSIC_Alt(vector<Ciphertext>& expanded, Ciphertext& toExpand, const Gal
                 evaluator2.rotate_rows(expanded[k*4 + j], i, gal_keys_lower, temp);
                 evaluator2.add_inplace(expanded[k*4 + j], temp);
             }
-        }        
+        }
     }
 }
 
@@ -172,6 +172,7 @@ void expandSIC_Alt(vector<Ciphertext>& expanded, Ciphertext& toExpand, const Gal
  * @brief
  * Given the expanded form of the encrypted ID, we first load the random seed for each message on the bullet board and generate the random matices.
  * And then we multiply the expanded encrypted ID with the random matrices to get the compressed encrypted ID, which is different for each message.
+ *
  * @param randomness
  * @param enc_id
  * @param gal_keys
@@ -179,10 +180,17 @@ void expandSIC_Alt(vector<Ciphertext>& expanded, Ciphertext& toExpand, const Gal
  * @param param
  * @return vector<Ciphertext>
  */
-vector<Ciphertext> computeEncryptedCompressedID(const vector<vector<uint64_t>>& randomness, Ciphertext& enc_id, const GaloisKeys& gal_keys,
+vector<Ciphertext> computeEncryptedCompressedID(Ciphertext& enc_id, uint64_t *total_load, const GaloisKeys& gal_keys,
                                                 const SEALContext& context, const PVWParam& param) {
     Evaluator evaluator(context);
     BatchEncoder batch_encoder(context);
+
+    chrono::high_resolution_clock::time_point time_start, time_end;
+    time_start = chrono::high_resolution_clock::now();
+    const vector<vector<uint64_t>> randomness = loadOMClue_Randomness(param, 0, poly_modulus_degree_glb,
+									  454 * (party_size_glb + secure_extra_length_glb) + prng_seed_uint64_count);;
+    time_end = chrono::high_resolution_clock::now();
+    total_load += chrono::duration_cast<chrono::microseconds>(time_end - time_start).count();
 
     int tempExt_IdSize = 1, tempCom_IdSize = 1;
     for (; tempExt_IdSize < party_size_glb * id_size_glb; tempExt_IdSize *= 2) {}
@@ -200,8 +208,6 @@ vector<Ciphertext> computeEncryptedCompressedID(const vector<vector<uint64_t>>& 
     int iteration_cm = ceil(poly_modulus_degree_glb / batch_cm_glb);
     vector<Ciphertext> enc_id_ntt(batch_ntt_glb);
 
-    chrono::high_resolution_clock::time_point time_start, time_end;
-
     for (int it_ntt = 0; it_ntt < iteration_ntt; it_ntt++) {
         for (int i = 0; i < batch_ntt_glb; i++) {
             evaluator.transform_to_ntt(enc_id, enc_id_ntt[i]);
@@ -214,6 +220,7 @@ vector<Ciphertext> computeEncryptedCompressedID(const vector<vector<uint64_t>>& 
             time_start = chrono::high_resolution_clock::now();
             vector<vector<vector<uint64_t>>> random_matrices = batchLoadRandomMatrices(param, start, end, randomness);
             time_end = chrono::high_resolution_clock::now();
+	    total_load += chrono::duration_cast<chrono::microseconds>(time_end - time_start).count();
             cout << "batchLoadRandomMatrices time: " << chrono::duration_cast<chrono::microseconds>(time_end - time_start).count() << " us." << endl;
 
             for (int i = 0; i < tempCom_IdSize; i++) {
@@ -221,7 +228,7 @@ vector<Ciphertext> computeEncryptedCompressedID(const vector<vector<uint64_t>>& 
                 for (int j = it_ntt*batch_ntt_glb; j < (it_ntt+1)*batch_ntt_glb; j++) {
                     vector<uint64_t> vectorOfZ(poly_modulus_degree_glb);
 
-                    for (int z_index = 0; z_index < poly_modulus_degree_glb; z_index++) {
+                    for (int z_index = 0; z_index < (int) poly_modulus_degree_glb; z_index++) {
                         int row_index = (i + z_index) % tempCom_IdSize;
                         int col_index = (j + z_index) % tempExt_IdSize;
                         if (row_index >= (party_size_glb + secure_extra_length_glb) || col_index >= id_size_glb * party_size_glb ||
@@ -253,7 +260,7 @@ vector<Ciphertext> computeEncryptedCompressedID(const vector<vector<uint64_t>>& 
 
 /**
  * @brief compute b - as with packed swk but also only requires one rot key
- * 
+ *
  * @param output computed b-aSK ciphertexts (ell ciphertexts for each message)
  * @param cluePoly flatten cluePoly for each message
  * @param switchingKey encryptedSK with encrypted ID as the last switching key
@@ -264,7 +271,7 @@ vector<Ciphertext> computeEncryptedCompressedID(const vector<vector<uint64_t>>& 
  */
 void computeBplusASPVWOptimizedWithCluePoly(vector<Ciphertext>& output, const agomr::AdGroupClue& clues, vector<Ciphertext>& switchingKey,
                                             const RelinKeys& relin_keys, const GaloisKeys& gal_keys, const SEALContext& context,
-                                            const PVWParam& param, uint64_t *total_plain_ntt) {
+                                            const PVWParam& param, uint64_t *total_plain_ntt, uint64_t *total_load) {
 
     MemoryPoolHandle my_pool = MemoryPoolHandle::New(true);
     auto old_prof = MemoryManager::SwitchProfile(std::make_unique<MMProfFixed>(std::move(my_pool)));
@@ -274,7 +281,7 @@ void computeBplusASPVWOptimizedWithCluePoly(vector<Ciphertext>& output, const ag
     chrono::high_resolution_clock::time_point time_start, time_end;
 
     time_start = chrono::high_resolution_clock::now();
-    vector<Ciphertext> compressed_id_ntt = computeEncryptedCompressedID(clues.randomness, switchingKey[switchingKey.size() - 1],
+    vector<Ciphertext> compressed_id_ntt = computeEncryptedCompressedID(switchingKey[switchingKey.size() - 1], total_load,
                                                                         gal_keys, context, param);
     time_end = chrono::high_resolution_clock::now();
     cout << "Compression id time: " << chrono::duration_cast<chrono::microseconds>(time_end - time_start).count() << " us." << endl;
@@ -287,96 +294,118 @@ void computeBplusASPVWOptimizedWithCluePoly(vector<Ciphertext>& output, const ag
     for (tempn = 1; tempn < param.n; tempn *= 2) {}
     for (tempId = 1; tempId < party_size_glb + secure_extra_length_glb; tempId *= 2) {}
 
+    int iteration_cm = ceil(poly_modulus_degree_glb / batch_cm_glb);
+
+    vector<vector<uint64_t>> cluePoly;
+
     /**
      * @brief when i = 0; partial_a encrypted (a_00, a_11, a_22, ...)
      * when i = 1; partial_a encrypted (a_01, a_12, a_23, ...)
-     * so that in the first iteration, we have (a_00, a_11, a_22, ...) * (sk0, sk1, sk2, ...), and
-     * in the second iteration, we have (a_01, a_12, a_23, ...) * (sk1, sk2, sk3, ...).
+     * so that in the first iteration_ntt, we have (a_00, a_11, a_22, ...) * (sk0, sk1, sk2, ...), and
+     * in the second iteration_ntt, we have (a_01, a_12, a_23, ...) * (sk1, sk2, sk3, ...).
      * Eventually when we sum them up, we would have the sum if inner product on each entry:
      * --> (A0*sk, A1*sk, ...) = (b0, b1, ...) (in all ell such vectors)
      */
-    for (int i = 0; i < tempn; i++) {
-        Ciphertext partial_a;
-        for (int id_index = 0; id_index < tempId; id_index++) {
-            vector<uint64_t> vectorOfA(poly_modulus_degree_glb);
-            // cluePoly[i][j] = cluePoly.size() x (id_size_glb * party_size_glb)
-            // where, the row: newCluePoly[i] = i-th msg, (i + j) % tempn row of the original matrix
-            for (int j = 0; j < poly_modulus_degree_glb; j++) {
-                int row_index = (j + i) % tempn;
-                int col_index = (j + id_index) % (tempId);
-                if (row_index >= param.n || col_index >= party_size_glb + secure_extra_length_glb) {
-                    vectorOfA[j] = 0;
+    for (int it_cm = 0; it_cm < iteration_cm; it_cm++) {
+        int start = it_cm*batch_cm_glb, end = (it_cm+1)*batch_cm_glb;
+        time_start = chrono::high_resolution_clock::now();
+        cluePoly = loadOMClue_CluePoly(param, start, end, 454 * (party_size_glb + secure_extra_length_glb));
+        time_end = chrono::high_resolution_clock::now();
+        total_load += chrono::duration_cast<chrono::microseconds>(time_end - time_start).count();
+        cout << "batch load clue: " << start << " to " << end << endl;
+
+        for (int i = 0; i < tempn; i++) {
+            Ciphertext partial_a;
+            for (int id_index = 0; id_index < tempId; id_index++) {
+                vector<uint64_t> vectorOfA(poly_modulus_degree_glb);
+                // cluePoly[i][j] = cluePoly.size() x (id_size_glb * party_size_glb)
+                // where, the row: newCluePoly[i] = i-th msg, (i + j) % tempn row of the original matrix
+                for (int j = 0; j < (int) poly_modulus_degree_glb; j++) {
+                    int row_index = (j + i) % tempn;
+                    int col_index = (j + id_index) % (tempId);
+                    if (row_index >= param.n || col_index >= party_size_glb + secure_extra_length_glb || j < start || j >= end) {
+                        vectorOfA[j] = 0;
+                    } else {
+                        vectorOfA[j] = cluePoly[j % batch_cm_glb][row_index * (party_size_glb + secure_extra_length_glb) + col_index];
+                    }
+                }
+
+                // cout << "vectorOfA: " << id_index << " -- \n" << vectorOfA << endl;
+
+                // use the last switchingKey encrypting targetId with extended id_size_glbid-size as one unit, and rotate
+                Plaintext plaintext;
+                batch_encoder.encode(vectorOfA, plaintext);
+
+                time_start = chrono::high_resolution_clock::now();
+                evaluator.transform_to_ntt_inplace(plaintext, compressed_id_ntt[id_index].parms_id());
+                time_end = chrono::high_resolution_clock::now();
+                *total_plain_ntt += chrono::duration_cast<chrono::microseconds>(time_end - time_start).count();
+
+                if (id_index == 0) {
+                    evaluator.multiply_plain(compressed_id_ntt[id_index], plaintext, partial_a);
                 } else {
-                    vectorOfA[j] = clues.cluePoly[j][row_index * (party_size_glb + secure_extra_length_glb) + col_index];
+                    Ciphertext temp;
+                    evaluator.multiply_plain(compressed_id_ntt[id_index], plaintext, temp);
+                    evaluator.add_inplace(partial_a, temp);
                 }
             }
 
-            // cout << "vectorOfA: " << id_index << " -- \n" << vectorOfA << endl;
+            evaluator.transform_from_ntt_inplace(partial_a);
 
-            // use the last switchingKey encrypting targetId with extended id_size_glbid-size as one unit, and rotate
-            Plaintext plaintext;
-            batch_encoder.encode(vectorOfA, plaintext);
-
-            time_start = chrono::high_resolution_clock::now();
-            evaluator.transform_to_ntt_inplace(plaintext, compressed_id_ntt[id_index].parms_id());
-            time_end = chrono::high_resolution_clock::now();
-            *total_plain_ntt += chrono::duration_cast<chrono::microseconds>(time_end - time_start).count();
-
-            if (id_index == 0) {
-                evaluator.multiply_plain(compressed_id_ntt[id_index], plaintext, partial_a);
-            } else {
-                Ciphertext temp;
-                evaluator.multiply_plain(compressed_id_ntt[id_index], plaintext, temp);
-                evaluator.add_inplace(partial_a, temp);
+            // perform ciphertext multi with switchingKey encrypted SK with [450] as one unit, and rotate
+            for(int j = 0; j < param.ell; j++) {
+                if(i == 0 && it_cm == 0) {
+                    evaluator.multiply(switchingKey[j], partial_a, output[j]);
+                }
+                else {
+                    Ciphertext temp;
+                    evaluator.multiply(switchingKey[j], partial_a, temp);
+                    evaluator.add_inplace(output[j], temp);
+                }
+                evaluator.relinearize_inplace(output[j], relin_keys);
+                // rotate one slot at a time
+                evaluator.rotate_rows_inplace(switchingKey[j], 1, gal_keys);
             }
-        }
-
-        evaluator.transform_from_ntt_inplace(partial_a);
-
-        // perform ciphertext multi with switchingKey encrypted SK with [450] as one unit, and rotate
-        for(int j = 0; j < param.ell; j++) {
-            if(i == 0) {
-                evaluator.multiply(switchingKey[j], partial_a, output[j]);
-            }
-            else {
-                Ciphertext temp;
-                evaluator.multiply(switchingKey[j], partial_a, temp);
-                evaluator.add_inplace(output[j], temp);
-            }
-            evaluator.relinearize_inplace(output[j], relin_keys);
-            // rotate one slot at a time
-            evaluator.rotate_rows_inplace(switchingKey[j], 1, gal_keys);
         }
     }
 
     // multiply (encrypted Id) with ell different (clue poly for b)
     vector<Ciphertext> b_parts(param.ell);
-    for (int i = 0; i < tempId; i++) {
-        for (int e = 0; e < param.ell; e++) {
-            vector<uint64_t> vectorOfB(poly_modulus_degree_glb);
-            for (int j = 0; j < poly_modulus_degree_glb; j++) {
-                int the_index = (i + j) % tempId;
-                if (the_index >= party_size_glb + secure_extra_length_glb) {
-                    vectorOfB[j] = 0;
-                } else {
-                    vectorOfB[j] = clues.cluePoly[j][(param.n + e) * (party_size_glb + secure_extra_length_glb) + the_index];
+    for (int it_cm = 0; it_cm < iteration_cm; it_cm++) {
+        int start = it_cm*batch_cm_glb, end = (it_cm+1)*batch_cm_glb;
+        // time_start = chrono::high_resolution_clock::now();
+        // vector<vector<uint64_t>> cluePoly = loadOMClue_CluePoly(param, start, end, 454 * (party_size_glb + secure_extra_length_glb));
+        // time_end = chrono::high_resolution_clock::now();
+        // total_load += chrono::duration_cast<chrono::microseconds>(time_end - time_start).count();
+
+        for (int i = 0; i < tempId; i++) {
+            for (int e = 0; e < param.ell; e++) {
+                vector<uint64_t> vectorOfB(poly_modulus_degree_glb);
+                for (int j = 0; j < (int) poly_modulus_degree_glb; j++) {
+                    int the_index = (i + j) % tempId;
+                    if (the_index >= party_size_glb + secure_extra_length_glb || j < start || j >= end) {
+                        vectorOfB[j] = 0;
+                    } else {
+                        vectorOfB[j] = cluePoly[j % batch_cm_glb][(param.n + e) * (party_size_glb + secure_extra_length_glb) + the_index];
+                    }
                 }
-            }
 
-            Plaintext plaintext;
-            batch_encoder.encode(vectorOfB, plaintext);
+                Plaintext plaintext;
+                batch_encoder.encode(vectorOfB, plaintext);
 
-            time_start = chrono::high_resolution_clock::now();
-            evaluator.transform_to_ntt_inplace(plaintext, compressed_id_ntt[i].parms_id());
-            time_end = chrono::high_resolution_clock::now();
-            *total_plain_ntt += chrono::duration_cast<chrono::microseconds>(time_end - time_start).count();
+                time_start = chrono::high_resolution_clock::now();
+                evaluator.transform_to_ntt_inplace(plaintext, compressed_id_ntt[i].parms_id());
+                time_end = chrono::high_resolution_clock::now();
+                *total_plain_ntt += chrono::duration_cast<chrono::microseconds>(time_end - time_start).count();
 
-            if (i == 0) {
-                evaluator.multiply_plain(compressed_id_ntt[i], plaintext, b_parts[e]);
-            } else {
-                Ciphertext temp;
-                evaluator.multiply_plain(compressed_id_ntt[i], plaintext, temp);
-                evaluator.add_inplace(b_parts[e], temp);
+                if (i == 0 && it_cm == 0) {
+                    evaluator.multiply_plain(compressed_id_ntt[i], plaintext, b_parts[e]);
+                } else {
+                    Ciphertext temp;
+                    evaluator.multiply_plain(compressed_id_ntt[i], plaintext, temp);
+                    evaluator.add_inplace(b_parts[e], temp);
+                }
+                evaluator.rotate_rows_inplace(switchingKey[switchingKey.size() - 1], 1, gal_keys);
             }
         }
     }
@@ -418,7 +447,7 @@ void computeBplusASPVWOptimized(vector<Ciphertext>& output, const vector<PVWCiph
     for(int i = 0; i < tempn; i++){
         for(int l = 0; l < param.ell; l++){
             vector<uint64_t> vectorOfInts(toPack.size());
-            for(int j = 0; j < toPack.size(); j++){
+            for(int j = 0; j < (int)toPack.size(); j++){
                 int the_index = (i + j) % tempn;
                 if(the_index >= sk_size) {
                     vectorOfInts[j] = 0;
