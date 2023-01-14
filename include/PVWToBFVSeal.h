@@ -220,7 +220,7 @@ vector<Ciphertext> computeEncryptedCompressedID(Ciphertext& enc_id, uint64_t *to
             time_start = chrono::high_resolution_clock::now();
             vector<vector<vector<uint64_t>>> random_matrices = batchLoadRandomMatrices(param, start, end, randomness);
             time_end = chrono::high_resolution_clock::now();
-	    total_load += chrono::duration_cast<chrono::microseconds>(time_end - time_start).count();
+	        total_load += chrono::duration_cast<chrono::microseconds>(time_end - time_start).count();
             cout << "batchLoadRandomMatrices time: " << chrono::duration_cast<chrono::microseconds>(time_end - time_start).count() << " us." << endl;
 
             for (int i = 0; i < tempCom_IdSize; i++) {
@@ -269,7 +269,7 @@ vector<Ciphertext> computeEncryptedCompressedID(Ciphertext& enc_id, uint64_t *to
  * @param context SEAL context for evaluator and encoder
  * @param param PVWParam
  */
-void computeBplusASPVWOptimizedWithCluePoly(vector<Ciphertext>& output, const agomr::AdGroupClue& clues, vector<Ciphertext>& switchingKey,
+void computeBplusASPVWOptimizedWithCluePoly(vector<Ciphertext>& output, vector<Ciphertext>& switchingKey,
                                             const RelinKeys& relin_keys, const GaloisKeys& gal_keys, const SEALContext& context,
                                             const PVWParam& param, uint64_t *total_plain_ntt, uint64_t *total_load) {
 

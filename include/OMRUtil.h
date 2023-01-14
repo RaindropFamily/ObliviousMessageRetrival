@@ -90,14 +90,13 @@ Ciphertext serverOperations1obtainPackedSIC(vector<PVWCiphertext>& SICPVW, vecto
 
 // Phase 1, obtaining PV's based on encrypted targetId
 // used in GOMR1/2_ObliviousMultiplexer_BFV
-Ciphertext serverOperations1obtainPackedSICWithCluePoly(agomr::AdGroupClue& clues, vector<Ciphertext> switchingKey, const RelinKeys& relin_keys,
-                                                        const GaloisKeys& gal_keys, const size_t& degree, const SEALContext& context,
-                                                        const PVWParam& params, const int numOfTransactions, uint64_t *total_plain_ntt,
-							                            uint64_t *total_load) {
+Ciphertext serverOperations1obtainPackedSICWithCluePoly(vector<Ciphertext> switchingKey, const RelinKeys& relin_keys, const GaloisKeys& gal_keys,
+                                                        const size_t& degree, const SEALContext& context, const PVWParam& params,
+                                                        const int numOfTransactions, uint64_t *total_plain_ntt, uint64_t *total_load) {
     Evaluator evaluator(context);
     
     vector<Ciphertext> packedSIC(params.ell);
-    computeBplusASPVWOptimizedWithCluePoly(packedSIC, clues, switchingKey, relin_keys, gal_keys, context, params, total_plain_ntt, total_load);
+    computeBplusASPVWOptimizedWithCluePoly(packedSIC, switchingKey, relin_keys, gal_keys, context, params, total_plain_ntt, total_load);
 
     int rangeToCheck = 850; // range check is from [-rangeToCheck, rangeToCheck-1]
     newRangeCheckPVW(packedSIC, rangeToCheck, relin_keys, degree, context, params);
@@ -584,16 +583,14 @@ vector<vector<uint64_t>> preparingMREGroupClue(vector<int>& pertinentMsgIndices,
             // groupPK = fgomr::keyGen(params, partialPK, mreseed, expseed);
 
             time_start = chrono::high_resolution_clock::now();
-
             tempclue = fgomr::genClue(params, zeros, gPK, expseed);
-
             time_end = chrono::high_resolution_clock::now();
             total_time += chrono::duration_cast<chrono::microseconds>(time_end - time_start).count();
 
             ret.push_back(loadDataSingle(i));
             saveCluesWithRandomness(tempclue, i, expseed);
         } else {
-            auto non_pert_params = PVWParam(params.n - partialSize + partySize * params.ell, params.q, params.std_dev, params.m, params.ell);
+            auto non_pert_params = PVWParam(params.n - partialSize + (partySize + secure_extra_length_glb) * params.ell, params.q, params.std_dev, params.m, params.ell);
             sk = PVWGenerateSecretKey(non_pert_params);
             PVWEncSK(tempclue, zeros, sk, non_pert_params);
             saveCluesWithRandomness(tempclue, i, expseed);

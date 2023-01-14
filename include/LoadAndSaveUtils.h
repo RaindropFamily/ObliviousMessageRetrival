@@ -4,7 +4,7 @@
 #include<fstream>
 #include<string>
 #include "MRE.h"
-#include "Scheme.h"
+#include "scheme.h"
 #include "MathUtil.h"
 using namespace std;
 
@@ -214,7 +214,7 @@ vector<vector<uint64_t>> loadOMClue_Randomness(const PVWParam& params, const int
 
 void loadFixedGroupClues(vector<PVWCiphertext>& clues, const int& start, const int& end, const PVWParam& param, const int partySize = party_size_glb, const int partialSize = partial_size_glb){
     clues.resize(end-start);
-    int a1_size = param.n - partialSize, old_a2_size = param.ell * partySize, new_a2_size = param.ell * partialSize * partySize;
+    int a1_size = param.n - partialSize, old_a2_size = param.ell * (partySize + secure_extra_length_glb), new_a2_size = param.ell * partialSize * partySize;
 
     vector<int> old_a2(old_a2_size);
     vector<uint64_t> randomness(prng_seed_uint64_count);
@@ -256,13 +256,13 @@ void loadFixedGroupClues(vector<PVWCiphertext>& clues, const int& start, const i
             prng_seed_uint64_counter++;
         }
 
-        vector<vector<uint64_t>> random_matrix = generateRandomMatrixWithSeed(param, seed, partialSize * partySize, partySize);
+        vector<vector<uint64_t>> random_matrix = generateRandomMatrixWithSeed(param, seed, partialSize * partySize, partySize + secure_extra_length_glb);
 
         for (int l = 0; l < param.ell; l++) {
             for (int c = 0; c < partialSize * partySize; c++) {
                 long temp = 0;
-                for (int k = 0; k < partySize; k++) {
-                    temp = (temp + old_a2[l * partySize + k] * random_matrix[c][k]) % param.q;
+                for (int k = 0; k < partySize + secure_extra_length_glb; k++) {
+                    temp = (temp + old_a2[l * (partySize + secure_extra_length_glb) + k] * random_matrix[c][k]) % param.q;
                     temp = temp < 0 ? temp + param.q : temp;
                 }
                 clues[i-start].a[l * partySize * partialSize + c + a1_size] = temp;

@@ -328,7 +328,7 @@ vector<vector<long>> equationSolving(vector<vector<int>>& lhs, vector<vector<int
         }
 
         for(size_t i = 0; i < lhs.size(); i++) {
-	  if ((lhs[i][counter] != 0) && ((int) i != recoder[counter])) {
+	        if ((lhs[i][counter] != 0) && ((int) i != recoder[counter])) {
                 get_ratio_mult_and_subtract(lhs[i], lhs[recoder[counter]], rhs[i], rhs[recoder[counter]], counter, numToSolve);
                 if (all_of(lhs[i].begin(), lhs[i].end(), [](int j) { return j==0; })) {
                     lhs.erase(lhs.begin() + i);
@@ -431,13 +431,13 @@ vector<vector<long>> equationSolvingRandomBatch(vector<vector<int>>& lhs, vector
 
     vector<vector<long>> tryRes = equationSolving(lhs, rhs, -1);
     if (tryRes.empty()) {
-      for (int k = 0; k < (int) rhs[0].size(); k++) { // for each batched rhs, separate the equation system and solve the variables
+        for (int k = 0; k < (int) rhs[0].size(); k++) { // for each batched rhs, separate the equation system and solve the variables
             vector<vector<int>> single_rhs(rhs.size(), vector<int>(1)), lhs_copy(lhs.size(), vector<int>(lhs[0].size()));
             for (int i = 0; i < (int) rhs.size(); i++) {
                 single_rhs[i][0] = rhs[i][k];
             }
             for (int i = 0; i < (int) lhs.size(); i++) {
-	      for (int j = 0; j < (int) lhs[0].size(); j++) {
+                for (int j = 0; j < (int) lhs[0].size(); j++) {
                     lhs_copy[i][j] = lhs[i][j];
                 }
             }

@@ -110,6 +110,7 @@ namespace mre {
                     }
                     b_prime[i][l] = (b[l] - temp) % param.q;
                     // TODO: need gaussian error here for b_prime
+                    b[l] = b[l] % param.q;
                 }
             }
 
@@ -153,19 +154,20 @@ namespace mre {
         uniform_int_distribution<uint64_t> dist(0, 1);
 
         NativeInteger q = param.q;
-        ct.a = NativeVector(param.n - partialSize + param.ell * partySize);
+        ct.a = NativeVector(param.n - partialSize + param.ell * (partySize + secure_extra_length_glb));
         ct.b = NativeVector(param.ell);
 
         vector<vector<uint64_t>> b_prime(partySize, vector<uint64_t>(param.ell));
         for(size_t i = 0; i < groupPK.partialPK.size(); i++){
-            if (dist(engine)){
-	      for(int j = 0; j < (int)groupPK.partialPK[i].A1.GetLength(); j++) {
+            if (dist(engine)) {
+	            for(int j = 0; j < (int) groupPK.partialPK[i].A1.GetLength(); j++) {
                     ct.a[j].ModAddFastEq(groupPK.partialPK[i].A1[j], q);
                 }
                 for(int j = 0; j < param.ell; j++) {
                     ct.b[j].ModAddFastEq(groupPK.partialPK[i].b[j], q);
+                    // cout << "   " << groupPK.partialPK[i].b[j] << endl;
                 }
-                for (int j = 0; j < (int)groupPK.partialPK[i].b_prime.size(); j++) {
+                for (int j = 0; j < (int) groupPK.partialPK[i].b_prime.size(); j++) {
                     for (int l = 0; l < param.ell; l++) {
                         b_prime[j][l] = (b_prime[j][l] + groupPK.partialPK[i].b_prime[j][l].ConvertToInt()) % param.q;
                         b_prime[j][l] = b_prime[j][l] < 0 ? b_prime[j][l] + param.q : b_prime[j][l];
@@ -177,6 +179,8 @@ namespace mre {
         vector<vector<int>> rhs(partySize), lhs(partySize), old_shared_sk(partySize);
         vector<vector<vector<long>>> res(param.ell);
         for (int i = 0; i < param.ell; i++) {
+            rhs.resize(partySize);
+            lhs.resize(partySize);
             for (int p = 0; p < partySize; p++) {
                 rhs[p].resize(1);
                 rhs[p][0] = b_prime[p][i];
@@ -193,9 +197,9 @@ namespace mre {
             res[i] = equationSolvingRandom(lhs, rhs, -1);
         }
 
-        for (int j = 0; j < param.ell * partySize; j++) {
-            int ell_ind = j / partySize;
-            int party_ind = j % partySize;
+        for (int j = 0; j < param.ell * (partySize + secure_extra_length_glb); j++) {
+            int ell_ind = j / (partySize + secure_extra_length_glb);
+            int party_ind = j % (partySize + secure_extra_length_glb);
             ct.a[j + param.n - partialSize] = res[ell_ind][party_ind][0];
         }
 
