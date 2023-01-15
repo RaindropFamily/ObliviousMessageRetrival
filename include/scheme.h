@@ -113,17 +113,16 @@ namespace agomr
 
         vector<vector<int>> ids(1);
         ids[0] = targetId;
-        vector<vector<int>> extended_ids = generateExponentialExtendedVector(params, ids);
 
-        if ((int)switchingKey.size() > params.ell) {
-            for (tempn = 1; tempn < (int)extended_ids[0].size(); tempn *= 2) {} // encrypted the exp-extended targetId for 1 x (id_size*party_size)
+        if ( (int) switchingKey.size() > params.ell) {
+            for (tempn = 1; tempn < (int)ids[0].size(); tempn *= 2) {} // encrypted the targetId for 1 x (id_size)
             vector<uint64_t> skInt(degree);
             for (size_t i = 0; i < degree; i++) {
                 auto tempindex = i % uint64_t(tempn);
-                if(int(tempindex) >= (int)extended_ids[0].size()) {
-		    skInt[i] = 0;
+                if( int(tempindex) >= (int) ids[0].size()) {
+		            skInt[i] = 0;
                 } else {
-                    skInt[i] = uint64_t((extended_ids[0][tempindex]) % params.q);
+                    skInt[i] = uint64_t((ids[0][tempindex]) % params.q);
                 }
             }
             Plaintext plaintext;

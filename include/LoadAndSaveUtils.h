@@ -79,7 +79,7 @@ void saveClues(const PVWCiphertext& clue, int transaction_num){
     datafile.close();
 }
 
-void saveGroupClues(const vector<vector<long>>& cluePolynomial, prng_seed_type seed, int transaction_num){
+void saveGroupClues(const vector<vector<long>>& cluePolynomial, int transaction_num){
     ofstream datafile;
     datafile.open ("../data/cluePoly/"+to_string(transaction_num)+".txt");
 
@@ -89,9 +89,6 @@ void saveGroupClues(const vector<vector<long>>& cluePolynomial, prng_seed_type s
         }
     }
 
-    for (auto &i : seed) {
-        datafile << i << "\n";
-    }
     datafile.close();
 }
 
@@ -168,7 +165,7 @@ void loadClues(vector<PVWCiphertext>& clues, const int& start, const int& end, c
  * @param end 
  * @param payloadSize = clueLength * T', where T' = party_size + extra_secure_length
  */
-vector<vector<uint64_t>> loadOMClue_CluePoly(const PVWParam& params, const int& start, const int& end, int payloadSize, int clueLength = 454) {
+vector<vector<uint64_t>> loadOMClue_CluePoly(const PVWParam& params, const int& start, const int& end, int payloadSize) {
     vector<vector<uint64_t>> clues(end-start);
 
     for(int i = start; i < end; i++){
@@ -187,7 +184,7 @@ vector<vector<uint64_t>> loadOMClue_CluePoly(const PVWParam& params, const int& 
     return clues;
 }
 
-vector<vector<uint64_t>> loadOMClue_Randomness(const PVWParam& params, const int& start, const int& end, int payloadSize, int clueLength = 454) {
+vector<vector<uint64_t>> loadOMClue_Randomness(const PVWParam& params, const int& start, const int& end, int payloadSize) {
     vector<vector<uint64_t>> clues(end-start), randomness(end-start);
 
     for(int i = start; i < end; i++){

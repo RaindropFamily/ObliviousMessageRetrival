@@ -458,25 +458,17 @@ vector<vector<int>> initializeRecipientId(const PVWParam& params, int partySize,
  * @param prepare if the encrypted version of ID is sent, prepare = true, and we minus q/4 beforehand for b since message = 1
  * @return true/false
  */
-bool verify(const PVWParam& params, const vector<int>& extended_id, int index, int partySize = party_size_glb, bool prepare = false) {
-    prng_seed_type seed;
-    vector<uint64_t> polyFlat = loadDataSingle(index, "cluePoly", (params.n + params.ell) * (partySize + secure_extra_length_glb) + prng_seed_uint64_count);
-    int prng_seed_uint64_counter = 0;
-    for (auto &i : seed) {
-        i = polyFlat[(params.n + params.ell) * (partySize + secure_extra_length_glb) + prng_seed_uint64_counter];
-        prng_seed_uint64_counter++;
-    }
+bool verify(const PVWParam& params, const vector<int>& target_id, int index, int idSize = id_size_glb, bool prepare = false) {
+    vector<uint64_t> polyFlat = loadDataSingle(index, "cluePoly", (params.n + params.ell) * idSize);
 
     vector<vector<int>> ids(1);
-    ids[0] = extended_id;
-    vector<vector<int>> compressed_id = compressVector(params, seed, ids, party_size_glb + secure_extra_length_glb);
+    ids[0] = target_id;
 
-    vector<vector<long>> cluePolynomial(params.n + params.ell, vector<long>(compressed_id[0].size()));
     vector<long> res(params.n + params.ell, 0);
 
     for (int i = 0; i < params.n + params.ell; i++) {
-      for(int j = 0; j < (int)compressed_id[0].size(); j++) {
-            res[i] = (res[i] + polyFlat[i * compressed_id[0].size() + j] * compressed_id[0][j]) % params.q;
+      for(int j = 0; j < (int)ids[0].size(); j++) {
+            res[i] = (res[i] + polyFlat[i * ids[0].size() + j] * ids[0][j]) % params.q;
             res[i] = res[i] < 0 ? res[i] + params.q : res[i];
         }
     }
@@ -507,11 +499,6 @@ void preparingGroupCluePolynomial(const vector<int>& pertinentMsgIndices, PVWpk&
 
     for(int i = 0; i < numOfTransactions; i++) {
         while (true) {
-            prng_seed_type seed;
-            for (auto &i : seed) {
-                i = random_uint64();
-            }
-
             time_start = chrono::high_resolution_clock::now();
             if (find(pertinentMsgIndices.begin(), pertinentMsgIndices.end(), i) != pertinentMsgIndices.end()) {
                 check = true;
@@ -524,19 +511,16 @@ void preparingGroupCluePolynomial(const vector<int>& pertinentMsgIndices, PVWpk&
             // if i is pertinent for recipient r, then its clue is already generated via given sk, and will be in the same equation
             // i.e., when multiplied the polynomial matrix with the recipient r's ID, detector will get clue i.
             loadClues(clues, i * partySize, i * partySize + partySize, params);
-
-            vector<vector<int>> extended_ids = generateExponentialExtendedVector(params, ids, partySize);
-            vector<vector<int>> compressed_ids = compressVector(params, seed, extended_ids);
-            vector<vector<long>> cluePolynomial = agomr::generateClue(params, clues, compressed_ids, prepare);
+            vector<vector<long>> cluePolynomial = agomr::generateClue(params, clues, ids, prepare);
 
             time_end = chrono::high_resolution_clock::now();
             total_time += chrono::duration_cast<chrono::microseconds>(time_end - time_start).count();
 
-            saveGroupClues(cluePolynomial, seed, i);
+            saveGroupClues(cluePolynomial, i);
 
             if (check) {
                 check = false;
-                if (verify(params, extended_ids[partySize-1], i, partySize, prepare)) {
+                if (verify(params, ids[partySize-1], i, id_size_glb, prepare)) {
                     break;
                 } else {
                     cout << "Mismatch detected, regenerating clue poly for msg: " << i << endl;
