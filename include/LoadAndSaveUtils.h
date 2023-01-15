@@ -92,7 +92,7 @@ void saveGroupClues(const vector<vector<long>>& cluePolynomial, int transaction_
     datafile.close();
 }
 
-void saveCluesWithRandomness(const PVWCiphertext& clue, const int transaction_num, prng_seed_type seed) {
+void saveCluesWithRandomness(const PVWCiphertext& clue, const int transaction_num) {
     ofstream datafile;
     datafile.open ("../data/clues/"+to_string(transaction_num)+".txt");
 
@@ -101,9 +101,6 @@ void saveCluesWithRandomness(const PVWCiphertext& clue, const int transaction_nu
     }
     for (size_t i = 0; i < clue.b.GetLength(); i++) {
         datafile << clue.b[i].ConvertToInt() << "\n";
-    }
-    for (auto &i : seed) {
-        datafile << i << "\n";
     }
     datafile.close();
 }
@@ -211,28 +208,21 @@ vector<vector<uint64_t>> loadOMClue_Randomness(const PVWParam& params, const int
 
 void loadFixedGroupClues(vector<PVWCiphertext>& clues, const int& start, const int& end, const PVWParam& param, const int partySize = party_size_glb, const int partialSize = partial_size_glb){
     clues.resize(end-start);
-    int a1_size = param.n - partialSize, old_a2_size = param.ell * (partySize + secure_extra_length_glb), new_a2_size = param.ell * partialSize * partySize;
+    int a1_size = param.n - partialSize, a2_size = param.ell * partialSize;
 
-    vector<int> old_a2(old_a2_size);
-    vector<uint64_t> randomness(prng_seed_uint64_count);
-    int prng_seed_uint64_counter;
-    prng_seed_type seed;
+    vector<int> old_a2(a2_size);
 
     for(int i = start; i < end; i++){
-        clues[i-start].a = NativeVector(a1_size + new_a2_size);
+        clues[i-start].a = NativeVector(a1_size + a2_size);
         clues[i-start].b = NativeVector(param.ell);
 
         ifstream datafile;
         datafile.open ("../data/clues/"+to_string(i)+".txt");
 
-        for (int j = 0; j < a1_size; j++) {
+        for (int j = 0; j < a1_size + a2_size; j++) {
             uint64_t temp;
             datafile >> temp;
             clues[i-start].a[j] = temp;
-        }
-
-        for (int j = 0; j < old_a2_size; j++) {
-            datafile >> old_a2[j];
         }
 
         for (int j = 0; j < param.ell; j++) {
@@ -241,30 +231,7 @@ void loadFixedGroupClues(vector<PVWCiphertext>& clues, const int& start, const i
             clues[i-start].b[j] = temp;
         }
 
-        for (int j = 0; j < (int)prng_seed_uint64_count; j++) {
-            datafile >> randomness[j];
-        }
-
         datafile.close();
-
-        prng_seed_uint64_counter = 0;
-        for (auto &i : seed) {
-            i = randomness[prng_seed_uint64_counter];
-            prng_seed_uint64_counter++;
-        }
-
-        vector<vector<uint64_t>> random_matrix = generateRandomMatrixWithSeed(param, seed, partialSize * partySize, partySize + secure_extra_length_glb);
-
-        for (int l = 0; l < param.ell; l++) {
-            for (int c = 0; c < partialSize * partySize; c++) {
-                long temp = 0;
-                for (int k = 0; k < partySize + secure_extra_length_glb; k++) {
-                    temp = (temp + old_a2[l * (partySize + secure_extra_length_glb) + k] * random_matrix[c][k]) % param.q;
-                    temp = temp < 0 ? temp + param.q : temp;
-                }
-                clues[i-start].a[l * partySize * partialSize + c + a1_size] = temp;
-            }
-        }
     }
 }
 

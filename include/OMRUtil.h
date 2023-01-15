@@ -547,7 +547,7 @@ vector<vector<uint64_t>> preparingMREGroupClue(vector<int>& pertinentMsgIndices,
 
     choosePertinentMsg(numOfTransactions, pertinentMsgNum, pertinentMsgIndices, seed);
 
-    prng_seed_type mreseed, expseed;
+    prng_seed_type mreseed;
     for (auto &i : mreseed) { // the seed to randomly sample A1, and b in secret key
         i = random_uint64();
     }
@@ -558,26 +558,22 @@ vector<vector<uint64_t>> preparingMREGroupClue(vector<int>& pertinentMsgIndices,
     for(int i = 0; i < numOfTransactions; i++){
         PVWCiphertext tempclue;
 
-        for (auto &i : expseed) { // the seed to perform exponential extension for the sharedSK
-            i = random_uint64();
-        }
         if (find(pertinentMsgIndices.begin(), pertinentMsgIndices.end(), i) != pertinentMsgIndices.end()) {
             groupSK = fgomr::secretKeyGen(params, targetSK);
             gPK = fgomr::groupKeyGenAux(params, groupSK, mreseed);
-            // groupPK = fgomr::keyGen(params, partialPK, mreseed, expseed);
 
             time_start = chrono::high_resolution_clock::now();
-            tempclue = fgomr::genClue(params, zeros, gPK, expseed);
+            tempclue = fgomr::genClue(params, zeros, gPK);
             time_end = chrono::high_resolution_clock::now();
             total_time += chrono::duration_cast<chrono::microseconds>(time_end - time_start).count();
 
             ret.push_back(loadDataSingle(i));
-            saveCluesWithRandomness(tempclue, i, expseed);
+            saveCluesWithRandomness(tempclue, i);
         } else {
-            auto non_pert_params = PVWParam(params.n - partialSize + (partySize + secure_extra_length_glb) * params.ell, params.q, params.std_dev, params.m, params.ell);
+            auto non_pert_params = PVWParam(params.n - partialSize + partialSize * params.ell, params.q, params.std_dev, params.m, params.ell);
             sk = PVWGenerateSecretKey(non_pert_params);
             PVWEncSK(tempclue, zeros, sk, non_pert_params);
-            saveCluesWithRandomness(tempclue, i, expseed);
+            saveCluesWithRandomness(tempclue, i);
         }  
     }
 

@@ -343,8 +343,8 @@ void computeBplusASPVWOptimized(vector<Ciphertext>& output, const vector<PVWCiph
     MemoryPoolHandle my_pool = MemoryPoolHandle::New(true);
     auto old_prof = MemoryManager::SwitchProfile(std::make_unique<MMProfFixed>(std::move(my_pool)));
 
-    int tempn, sk_size = param.n - partialSize + partialSize * partySize;
-    for(tempn = 1; tempn < sk_size; tempn*=2){}
+    int tempn;
+    for(tempn = 1; tempn < param.n; tempn*=2){}
 
     Evaluator evaluator(context);
     BatchEncoder batch_encoder(context);
@@ -359,10 +359,10 @@ void computeBplusASPVWOptimized(vector<Ciphertext>& output, const vector<PVWCiph
             vector<uint64_t> vectorOfInts(toPack.size());
             for(int j = 0; j < (int)toPack.size(); j++){
                 int the_index = (i + j) % tempn;
-                if(the_index >= sk_size) {
+                if (the_index >= param.n) {
                     vectorOfInts[j] = 0;
-                } else if (the_index >= param.n - partialSize) {// load extended_A part
-                    the_index += l * partialSize * partySize;
+                } else if (the_index >= param.n - partialSize) {// load A2 polynomial part
+                    the_index += l * partialSize;
                     vectorOfInts[j] = uint64_t((toPack[j].a[the_index].ConvertToInt()));
                 } else {
                     vectorOfInts[j] = uint64_t((toPack[j].a[the_index].ConvertToInt()));

@@ -163,12 +163,13 @@ namespace fgomr
         return mre::MREgeneratePartialPK(params, mreSK, seed);
     } 
 
-    PVWCiphertext genClue(const PVWParam& param, const vector<int>& msg, const FixedGroupSharedKey& gpk, prng_seed_type& exp_seed) {
+    PVWCiphertext genClue(const PVWParam& param, const vector<int>& msg, const FixedGroupSharedKey& gpk) {
         PVWCiphertext ct;
-        mre::MREEncPK(ct, msg, gpk, param, exp_seed);
+        mre::MREEncPK(ct, msg, gpk, param);
         return ct;
     }
 
+    // this is exactly the same as the one for regular OMR
     FixedGroupDetectionKey generateDetectionKey(const SEALContext& context, const size_t& degree, const PublicKey& BFVpk, const SecretKey& BFVsk,
                                             const PVWsk& regSk, const PVWParam& params, const int partialSize = partial_size_glb, const int partySize = party_size_glb) { 
         FixedGroupDetectionKey switchingKey(params.ell);
@@ -177,31 +178,17 @@ namespace fgomr
         Encryptor encryptor(context, BFVpk);
         encryptor.set_secret_key(BFVsk);
 
-        int a1_size = params.n - partialSize, a2_size = partialSize * partySize;
-
         int tempn = 1;
-        for(tempn = 1; tempn < a1_size + a2_size; tempn *= 2){}
-
-        vector<vector<int>> old_a2(params.ell);
-        for (int i = 0; i < (int)old_a2.size(); i++) {
-            old_a2[i].resize(partialSize);
-
-            for (int j = 0; j < partialSize; j++) {
-                old_a2[i][j] = regSk[i][params.n - partialSize + j].ConvertToInt();
-            }
-        }
-        vector<vector<int>> extended_a2 = generateExponentialExtendedVector(params, old_a2);
+        for(tempn = 1; tempn < params.n; tempn *= 2){}
 
         for(int j = 0; j < params.ell; j++){
             vector<uint64_t> skInt(degree);
             for(size_t i = 0; i < degree; i++){
                 auto tempindex = i % uint64_t(tempn);
-                if (int (tempindex) >= a1_size + a2_size) {
+                if (int (tempindex) >= params.n) {
                     skInt[i] = 0;
-                } else if (int (tempindex) < a1_size) { // a1 part 
+                } else {
                     skInt[i] = uint64_t(regSk[j][tempindex].ConvertToInt() % params.q);
-                } else { // a2 part
-                    skInt[i] = extended_a2[j][tempindex - a1_size];
                 }
             }
 
