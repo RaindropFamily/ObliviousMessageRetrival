@@ -277,8 +277,8 @@ void computeBplusASPVWOptimizedWithCluePoly(vector<Ciphertext>& output, vector<C
     auto old_prof = MemoryManager::SwitchProfile(std::make_unique<MMProfFixed>(std::move(my_pool)));
 
     int tempn, tempId;
-
-    chrono::high_resolution_clock::time_point time_start, time_end;
+    chrono::microseconds ntt_total(0), ct_total(0), ct_total2(0);
+    chrono::high_resolution_clock::time_point time_start, time_end, ntt_start, ntt_end, half_start, half_end;
 
     time_start = chrono::high_resolution_clock::now();
     vector<Ciphertext> compressed_id_ntt = computeEncryptedCompressedID(switchingKey[switchingKey.size() - 1], total_load,
@@ -290,6 +290,8 @@ void computeBplusASPVWOptimizedWithCluePoly(vector<Ciphertext>& output, vector<C
     BatchEncoder batch_encoder(context);
     
     cout << "after compression id..." << endl;
+
+    half_start = chrono::high_resolution_clock::now();
 
     for (tempn = 1; tempn < param.n; tempn *= 2) {}
     for (tempId = 1; tempId < party_size_glb + secure_extra_length_glb; tempId *= 2) {}
@@ -311,7 +313,7 @@ void computeBplusASPVWOptimizedWithCluePoly(vector<Ciphertext>& output, vector<C
         time_start = chrono::high_resolution_clock::now();
         cluePoly = loadOMClue_CluePoly(param, start, end, 454 * (party_size_glb + secure_extra_length_glb));
         time_end = chrono::high_resolution_clock::now();
-        total_load += chrono::duration_cast<chrono::microseconds>(time_end - time_start).count();
+        *total_load += chrono::duration_cast<chrono::microseconds>(time_end - time_start).count();
         cout << "batch load clue: " << start << " to " << end << endl;
 
         for (int i = 0; i < tempn; i++) {
@@ -341,6 +343,7 @@ void computeBplusASPVWOptimizedWithCluePoly(vector<Ciphertext>& output, vector<C
                 time_end = chrono::high_resolution_clock::now();
                 *total_plain_ntt += chrono::duration_cast<chrono::microseconds>(time_end - time_start).count();
 
+                ntt_start = chrono::high_resolution_clock::now();
                 if (id_index == 0) {
                     evaluator.multiply_plain(compressed_id_ntt[id_index], plaintext, partial_a);
                 } else {
@@ -348,12 +351,15 @@ void computeBplusASPVWOptimizedWithCluePoly(vector<Ciphertext>& output, vector<C
                     evaluator.multiply_plain(compressed_id_ntt[id_index], plaintext, temp);
                     evaluator.add_inplace(partial_a, temp);
                 }
+                ntt_end = chrono::high_resolution_clock::now();
+                ntt_total += chrono::duration_cast<chrono::microseconds>(ntt_end - ntt_start);
             }
 
             evaluator.transform_from_ntt_inplace(partial_a);
 
             // perform ciphertext multi with switchingKey encrypted SK with [450] as one unit, and rotate
             for(int j = 0; j < param.ell; j++) {
+                time_start = chrono::high_resolution_clock::now();
                 if(i == 0 && it_cm == 0) {
                     evaluator.multiply(switchingKey[j], partial_a, output[j]);
                 }
@@ -362,13 +368,20 @@ void computeBplusASPVWOptimizedWithCluePoly(vector<Ciphertext>& output, vector<C
                     evaluator.multiply(switchingKey[j], partial_a, temp);
                     evaluator.add_inplace(output[j], temp);
                 }
+                time_end = chrono::high_resolution_clock::now();
+                ct_total += chrono::duration_cast<chrono::microseconds>(time_end - time_start);
                 evaluator.relinearize_inplace(output[j], relin_keys);
                 // rotate one slot at a time
                 evaluator.rotate_rows_inplace(switchingKey[j], 1, gal_keys);
+                time_end = chrono::high_resolution_clock::now();
+                ct_total2 += chrono::duration_cast<chrono::microseconds>(time_end - time_start);
             }
         }
     }
 
+    cout << "Average ntt plain multi: " << ntt_total.count() / tempn / tempId << endl;
+    cout << "Average ciphertext multi: " << ct_total.count() / tempn / param.ell << endl;
+    cout << "Average ciphertext multi2: " << ct_total2.count() / tempn / param.ell << endl;
     // multiply (encrypted Id) with ell different (clue poly for b)
     vector<Ciphertext> b_parts(param.ell);
     for (int it_cm = 0; it_cm < iteration_cm; it_cm++) {
@@ -424,6 +437,9 @@ void computeBplusASPVWOptimizedWithCluePoly(vector<Ciphertext>& output, vector<C
         evaluator.mod_switch_to_next_inplace(output[i]);
     }
     MemoryManager::SwitchProfile(std::move(old_prof));
+
+    half_end = chrono::high_resolution_clock::now();
+    cout << "Time for operation after compression id: " << chrono::duration_cast<chrono::microseconds>(half_end - half_start).count() << " us.\n";
 }
 
 
