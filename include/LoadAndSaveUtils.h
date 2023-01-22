@@ -1,5 +1,6 @@
 #pragma once
 
+#include<stdio.h>
 #include<iostream>
 #include<fstream>
 #include<string>
@@ -79,7 +80,7 @@ void saveClues(const PVWCiphertext& clue, int transaction_num){
     datafile.close();
 }
 
-void saveGroupClues(const vector<vector<long>>& cluePolynomial, prng_seed_type seed, int transaction_num){
+void saveGroupClues(const vector<vector<long>>& cluePolynomial, unsigned char *key, int transaction_num){
     ofstream datafile;
     datafile.open ("../data/cluePoly/"+to_string(transaction_num)+".txt");
 
@@ -89,9 +90,7 @@ void saveGroupClues(const vector<vector<long>>& cluePolynomial, prng_seed_type s
         }
     }
 
-    for (auto &i : seed) {
-        datafile << i << "\n";
-    }
+    datafile.write(reinterpret_cast<char*>(key), AES_KEY_SIZE);
     datafile.close();
 }
 
@@ -327,23 +326,30 @@ uint64_t extractEntryFromRandomMatrix(const PVWParam& params, const vector<uint6
     return random_Z[c][r]; // transpose with the original random Matrix, which is of size (TI x T')
 }
 
+void loadSingleAESKey(unsigned char* key, const int index) {
+    char* prefix = (char*)"../data/cluePoly/";
+    char* suffix = (char*)".txt";
+    char index_char[10];
+    sprintf(index_char, "%d", index);
+    char filename[strlen(prefix) + strlen(suffix) + strlen(index_char)+1];
+    snprintf(filename, sizeof(filename), "%s%s%s", prefix, index_char, suffix);
 
-vector<vector<vector<uint64_t>>> batchLoadRandomMatrices(const PVWParam& param, const int start, const int end, const vector<vector<uint64_t>>& randomness) {
-    prng_seed_type seed;
-    int prng_seed_uint64_counter = 0;
+    FILE * file = fopen(filename, "r+");
+    fseek(file, 0, SEEK_END);
+    int size = ftell(file);
+    int offset = size - AES_KEY_SIZE;
+    fseek(file, offset, SEEK_SET);
 
-    vector<vector<vector<uint64_t>>> random_matrices(end-start);
-
-    for (int c = start; c < end; c++) {
-        prng_seed_uint64_counter = 0;
-        for (auto &i : seed) {
-            i = randomness[c][prng_seed_uint64_counter];
-            prng_seed_uint64_counter++;
-        }
-
-        random_matrices[c - start] = generateRandomMatrixWithSeed(param, seed, party_size_glb * id_size_glb,
-                                                                  party_size_glb + secure_extra_length_glb);
+    int byte_read = fread(key, sizeof(unsigned char), AES_KEY_SIZE, file);
+    if (byte_read != AES_KEY_SIZE) {
+        cout << "Warning!!! AES Key not 16 bytes." << endl;
     }
+    fclose(file);
+}
 
-    return random_matrices;
+
+void batchLoadRandomSeeds(const PVWParam& param, const int start, const int end, vector<unsigned char*> random_seeds) {
+    for (int c = start; c < end; c++) {
+        loadSingleAESKey(random_seeds[c - start], c);
+    }
 }

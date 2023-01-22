@@ -22,6 +22,7 @@ option( BUILD_STATIC "Set to ON to include static versions of the library" OFF)
 
 find_package(Palisade REQUIRED)
 find_package(SEAL REQUIRED)
+find_package(OpenSSL REQUIRED)
 
 set( CMAKE_CXX_FLAGS ${PALISADE_CXX_FLAGS} )
 
@@ -47,4 +48,4 @@ endif()
 
 add_executable( OMRdemos main.cpp )
 
-target_link_libraries(OMRdemos SEAL::seal ntl m gmp)
+target_link_libraries(OMRdemos SEAL::seal ntl m gmp OpenSSL::Crypto)

@@ -98,6 +98,13 @@ cmake .. -DCMAKE_INSTALL_PREFIX=$LIBDIR
 make -j
 make install
 
+gh repo clone openssl/openssl
+cd openssl
+./Configure
+make
+make test
+sudo make install
+
 # Optional
 git clone --branch 1.2.3 https://github.com/intel/hexl
 cd hexl

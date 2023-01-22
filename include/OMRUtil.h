@@ -458,18 +458,14 @@ vector<vector<int>> initializeRecipientId(const PVWParam& params, int partySize,
  * @param prepare if the encrypted version of ID is sent, prepare = true, and we minus q/4 beforehand for b since message = 1
  * @return true/false
  */
-bool verify(const PVWParam& params, const vector<int>& extended_id, int index, int partySize = party_size_glb, bool prepare = false) {
-    prng_seed_type seed;
-    vector<uint64_t> polyFlat = loadDataSingle(index, "cluePoly", (params.n + params.ell) * (partySize + secure_extra_length_glb) + prng_seed_uint64_count);
-    int prng_seed_uint64_counter = 0;
-    for (auto &i : seed) {
-        i = polyFlat[(params.n + params.ell) * (partySize + secure_extra_length_glb) + prng_seed_uint64_counter];
-        prng_seed_uint64_counter++;
-    }
+bool verify(unsigned char* expected_key, const PVWParam& params, const vector<int>& extended_id, int index, int partySize = party_size_glb, bool prepare = false) {
+    vector<uint64_t> polyFlat = loadDataSingle(index, "cluePoly", (params.n + params.ell) * (partySize + secure_extra_length_glb));
+    unsigned char* key = (unsigned char *) malloc(sizeof(unsigned char) * AES_KEY_SIZE);
+    loadSingleAESKey(key, index);
 
     vector<vector<int>> ids(1);
     ids[0] = extended_id;
-    vector<vector<int>> compressed_id = compressVector(params, seed, ids, party_size_glb + secure_extra_length_glb);
+    vector<vector<int>> compressed_id = compressVectorByAES(params, key, ids, party_size_glb + secure_extra_length_glb, true);
 
     vector<vector<long>> cluePolynomial(params.n + params.ell, vector<long>(compressed_id[0].size()));
     vector<long> res(params.n + params.ell, 0);
@@ -491,6 +487,7 @@ bool verify(const PVWParam& params, const vector<int>& extended_id, int index, i
         }
     }
 
+    free(key);
     return true;
 }
 
@@ -505,12 +502,11 @@ void preparingGroupCluePolynomial(const vector<int>& pertinentMsgIndices, PVWpk&
     chrono::high_resolution_clock::time_point time_start, time_end;
     uint64_t total_time = 0;
 
+    unsigned char* key = (unsigned char *) malloc(sizeof(unsigned char) * AES_KEY_SIZE);
+
     for(int i = 0; i < numOfTransactions; i++) {
         while (true) {
-            prng_seed_type seed;
-            for (auto &i : seed) {
-                i = random_uint64();
-            }
+            random_bytes(key, AES_KEY_SIZE);
 
             time_start = chrono::high_resolution_clock::now();
             if (find(pertinentMsgIndices.begin(), pertinentMsgIndices.end(), i) != pertinentMsgIndices.end()) {
@@ -526,17 +522,17 @@ void preparingGroupCluePolynomial(const vector<int>& pertinentMsgIndices, PVWpk&
             loadClues(clues, i * partySize, i * partySize + partySize, params);
 
             vector<vector<int>> extended_ids = generateExponentialExtendedVector(params, ids, partySize);
-            vector<vector<int>> compressed_ids = compressVector(params, seed, extended_ids);
+            vector<vector<int>> compressed_ids = compressVectorByAES(params, key, extended_ids, party_size_glb + secure_extra_length_glb, check);
             vector<vector<long>> cluePolynomial = agomr::generateClue(params, clues, compressed_ids, prepare);
 
             time_end = chrono::high_resolution_clock::now();
             total_time += chrono::duration_cast<chrono::microseconds>(time_end - time_start).count();
 
-            saveGroupClues(cluePolynomial, seed, i);
+            saveGroupClues(cluePolynomial, key, i);
 
             if (check) {
                 check = false;
-                if (verify(params, extended_ids[partySize-1], i, partySize, prepare)) {
+                if (verify(key, params, extended_ids[partySize-1], i, partySize, prepare)) {
                     break;
                 } else {
                     cout << "Mismatch detected, regenerating clue poly for msg: " << i << endl;
@@ -546,6 +542,7 @@ void preparingGroupCluePolynomial(const vector<int>& pertinentMsgIndices, PVWpk&
             }
         }
     }
+    free(key);
     cout << "\nSender average running time: " << total_time / numOfTransactions << "us." << "\n";
 }
 
