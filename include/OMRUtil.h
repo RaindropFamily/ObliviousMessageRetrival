@@ -104,6 +104,22 @@ Ciphertext serverOperations1obtainPackedSICWithCluePoly(vector<Ciphertext> switc
     return packedSIC[0];
 }
 
+// Phase 1, obtaining PV's based on encrypted secret SK and shared SK
+// used in GOMR1/2_FG
+Ciphertext serverOperations1obtainPackedSICWithFixedGroupClue(vector<vector<int>>& fgClues, vector<Ciphertext> switchingKey, const RelinKeys& relin_keys,
+                            const GaloisKeys& gal_keys, const size_t& degree, const SEALContext& context, const PVWParam& params,
+                            const int numOfTransactions, const int partialSize = partial_size_glb) {
+    Evaluator evaluator(context);
+    
+    vector<Ciphertext> packedSIC(params.ell);
+    computeBplusASPVWOptimizedWithFixedGroupClue(packedSIC, fgClues, switchingKey, gal_keys, context, params, partialSize);
+
+    int rangeToCheck = 850; // range check is from [-rangeToCheck, rangeToCheck-1]
+    newRangeCheckPVW(packedSIC, rangeToCheck, relin_keys, degree, context, params);
+
+    return packedSIC[0];
+}
+
 // Phase 2, retrieving
 void serverOperations2therest(Ciphertext& lhs, vector<vector<int>>& bipartite_map, Ciphertext& rhs,
                         Ciphertext& packedSIC, const vector<vector<uint64_t>>& payload, const RelinKeys& relin_keys, const GaloisKeys& gal_keys,
@@ -523,6 +539,7 @@ void preparingGroupCluePolynomial(const vector<int>& pertinentMsgIndices, PVWpk&
 
             vector<vector<int>> extended_ids = generateExponentialExtendedVector(params, ids, partySize);
             vector<vector<int>> compressed_ids = compressVectorByAES(params, key, extended_ids, party_size_glb + secure_extra_length_glb, check);
+
             vector<vector<long>> cluePolynomial = agomr::generateClue(params, clues, compressed_ids, prepare);
 
             time_end = chrono::high_resolution_clock::now();
@@ -546,17 +563,46 @@ void preparingGroupCluePolynomial(const vector<int>& pertinentMsgIndices, PVWpk&
     cout << "\nSender average running time: " << total_time / numOfTransactions << "us." << "\n";
 }
 
+// void verify_fg(const PVWParam& params, const PVWsk& target_secretSK, const mre::MREsharedSK& target_sharedSK) {
+//     vector<vector<int>> ct = loadFixedGroupClues(0, 1, params);
+
+//     vector<int> targetCT = ct[0];
+//     cout << "targetCT: " << targetCT << endl;
+
+//     vector<vector<int>> old_shared_sk(1, vector<int>(partial_size_glb));
+//     for (int j = 0; j < partial_size_glb; j++) {
+//         old_shared_sk[0][j] = target_sharedSK[j].ConvertToInt();
+//     }
+//     vector<vector<int>> extended_shared_sk = generateExponentialExtendedVector(params, old_shared_sk, party_size_glb);
+//     // cout << "secret sk: " << target_secretSK << endl;
+//     // cout << "Extended share sk: " << extended_shared_sk[0] << endl;
+//     // cout << "--------------------------------------------------------\n";
+    
+//     for (int l = 0; l < params.ell; l++) {
+//         long result = 0;
+//         for (int i = 0; i < params.n; i++) {
+//             result = ( result + targetCT[i] * target_secretSK[l][i].ConvertToInt() ) % params.q;
+//             result = result < 0 ? result + params.q : result;
+//         }
+//         for (int i = 0; i < partial_size_glb * party_size_glb; i++) {
+//             result = ( result + targetCT[params.n + l * partial_size_glb * party_size_glb + i] * extended_shared_sk[0][i]) % params.q;
+//             result = result < 0 ? result + params.q : result;
+//         }
+//         cout << "---> check: " << targetCT[params.n + params.ell * partial_size_glb * party_size_glb + l] << " , " << result + params.q/4 << endl;
+//     }
+// }
+
 // similar to preparingTransactionsFormal but for fixed group GOMR which requires a MREGroupPK for each message.
 // pertinentMsgIndices, groupPK, numOfTransactions, num_of_pertinent_msgs_glb, params, mreseed);
-vector<vector<uint64_t>> preparingMREGroupClue(vector<int>& pertinentMsgIndices, int numOfTransactions, int pertinentMsgNum, const PVWParam& params, const PVWsk& targetSK,
-                                               prng_seed_type& seed, const int partialSize = partial_size_glb, const int partySize = party_size_glb) {
+vector<vector<uint64_t>> preparingMREGroupClue(vector<int>& pertinentMsgIndices, int numOfTransactions, int pertinentMsgNum, const PVWParam& params,
+                                               const PVWsk& target_secretSK, const mre::MREsharedSK& target_sharedSK, prng_seed_type& seed,
+                                               const int partialSize = partial_size_glb, const int partySize = party_size_glb) {
 
     vector<vector<uint64_t>> ret;
     vector<int> zeros(params.ell, 0);
     PVWsk sk;
     vector<fgomr::FixedGroupSecretKey> groupSK;
     fgomr::FixedGroupSharedKey gPK;
-    // fgomr::FixedGroupPublicKey groupPK;
 
     choosePertinentMsg(numOfTransactions, pertinentMsgNum, pertinentMsgIndices, seed);
 
@@ -575,9 +621,8 @@ vector<vector<uint64_t>> preparingMREGroupClue(vector<int>& pertinentMsgIndices,
             i = random_uint64();
         }
         if (find(pertinentMsgIndices.begin(), pertinentMsgIndices.end(), i) != pertinentMsgIndices.end()) {
-            groupSK = fgomr::secretKeyGen(params, targetSK);
+            groupSK = fgomr::secretKeyGen(params, target_secretSK, target_sharedSK);
             gPK = fgomr::groupKeyGenAux(params, groupSK, mreseed);
-            // groupPK = fgomr::keyGen(params, partialPK, mreseed, expseed);
 
             time_start = chrono::high_resolution_clock::now();
             tempclue = fgomr::genClue(params, zeros, gPK, expseed);
@@ -586,8 +631,9 @@ vector<vector<uint64_t>> preparingMREGroupClue(vector<int>& pertinentMsgIndices,
 
             ret.push_back(loadDataSingle(i));
             saveCluesWithRandomness(tempclue, i, expseed);
+            // verify_fg(params, target_secretSK, target_sharedSK);
         } else {
-            auto non_pert_params = PVWParam(params.n - partialSize + (partySize + secure_extra_length_glb) * params.ell, params.q, params.std_dev, params.m, params.ell);
+            auto non_pert_params = PVWParam(params.n + (partySize + secure_extra_length_glb) * params.ell, params.q, params.std_dev, params.m, params.ell);
             sk = PVWGenerateSecretKey(non_pert_params);
             PVWEncSK(tempclue, zeros, sk, non_pert_params);
             saveCluesWithRandomness(tempclue, i, expseed);

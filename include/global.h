@@ -3,8 +3,8 @@
 using namespace seal;
 
 int numcores = 4;
-int OMRtwoM = 100;
-int OMRthreeM = 100;
+int OMRtwoM = 6;
+int OMRthreeM = 6;
 int mod_switch_counter = 0; 
 GaloisKeys gal_keys_next; 
 GaloisKeys gal_keys_last;
@@ -13,25 +13,24 @@ vector<vector<int>> weights_glb;
 int repeatition_glb = 5;
 prng_seed_type seed_glb;
 size_t C_glb = 5;
-int numOfTransactions_glb = 32768;
-size_t poly_modulus_degree_glb = 32768;
-size_t num_of_pertinent_msgs_glb = 50;
+int numOfTransactions_glb = 2048;
+size_t poly_modulus_degree_glb = 2048;
+size_t num_of_pertinent_msgs_glb = 1;
 
-int party_size_glb = 10;
+int party_size_glb = 17;
 int secure_extra_length_glb = 4; // T + secure_extra_length_glb = T', for a rand matrix to be full rank
 
-int id_size_glb = 11;
-int partial_size_glb = 8; // the part of shared_sk length used in FGOMR
+int id_size_glb = 17;
+int partial_size_glb = 58; // the part of shared_sk length used in FGOMR
 
 int repetition_glb = 16;
 
-int batch_ntt_glb = 128; // batch cache the ntt form of encrypted id ciphtertext used for ntt_optimization in adhoc-gomr
-int batch_cm_glb = 32768; // used for load expanded clues bulk by bulk to fit in RAM, varies with partySize * idSize
+int batch_ntt_glb = 256; // batch cache the ntt form of encrypted id ciphtertext used for ntt_optimization in adhoc-gomr
+int batch_cm_glb = 2048; // used for load expanded clues bulk by bulk to fit in RAM, varies with partySize * idSize
 
 int AES_KEY_SIZE = 16;
 unsigned char* base_ctr_glb;
 unsigned char* initial_pt_glb;
-// unsigned char* pert_seed;
 
 vector<uint64_t> expectedIndices;
 

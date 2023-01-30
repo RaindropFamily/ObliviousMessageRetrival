@@ -536,6 +536,88 @@ void computeBplusASPVWOptimized(vector<Ciphertext>& output, const vector<PVWCiph
     MemoryManager::SwitchProfile(std::move(old_prof));
 }
 
+void computeBplusASPVWOptimizedWithFixedGroupClue(vector<Ciphertext>& output, const vector<vector<int>>& toPack, vector<Ciphertext>& switchingKey, const GaloisKeys& gal_keys,
+        const SEALContext& context, const PVWParam& param, const int partialSize = partial_size_glb, const int partySize = party_size_glb) {
+    MemoryPoolHandle my_pool = MemoryPoolHandle::New(true);
+    auto old_prof = MemoryManager::SwitchProfile(std::make_unique<MMProfFixed>(std::move(my_pool)));
+
+    int tempn_secret, tempn_shared, secret_sk_size = param.n, shared_sk_size = partialSize * partySize;
+    for(tempn_secret = 1; tempn_secret < secret_sk_size; tempn_secret*=2){}
+    for(tempn_shared = 1; tempn_shared < shared_sk_size; tempn_shared*=2){}
+
+    Evaluator evaluator(context);
+    BatchEncoder batch_encoder(context);
+    size_t slot_count = batch_encoder.slot_count();
+    if(toPack.size() > slot_count){
+        cerr << "Please pack at most " << slot_count << " PVW ciphertexts at one time." << endl;
+        return;
+    }
+
+    vector<uint64_t> vectorOfInts(toPack.size());
+    for (int i = 0; i < tempn_secret; i++) {
+        for (int l = 0; l < param.ell; l++) {
+            for (int j = 0; j < (int) toPack.size(); j++) {
+                int the_index = (i + j) % tempn_secret;
+                if (the_index >= secret_sk_size) {
+                    vectorOfInts[j] = 0;
+                } else {
+                    vectorOfInts[j] = uint64_t((toPack[j][the_index]));
+                }
+            }
+
+            Plaintext plaintext;
+            batch_encoder.encode(vectorOfInts, plaintext);
+        
+            if (i == 0) {
+                evaluator.multiply_plain(switchingKey[l], plaintext, output[l]); // times s[i]
+            }
+            else {
+                Ciphertext temp;
+                evaluator.multiply_plain(switchingKey[l], plaintext, temp);
+                evaluator.add_inplace(output[l], temp);
+            }
+            // rotate one slot at a time
+            evaluator.rotate_rows_inplace(switchingKey[l], 1, gal_keys);
+        }
+    }
+
+    for (int i = 0; i < tempn_shared; i++) {
+        for (int l = 0; l < param.ell; l++) {
+            for (int j = 0; j < (int) toPack.size(); j++) {
+                int the_index = (i + j) % tempn_shared;
+                if (the_index >= shared_sk_size) {
+                    vectorOfInts[j] = 0;
+                } else {// load extended_A part
+                    the_index += param.n + l * partialSize * partySize;
+                    vectorOfInts[j] = uint64_t((toPack[j][the_index]));
+                }
+            }
+
+            Plaintext plaintext;
+            batch_encoder.encode(vectorOfInts, plaintext);
+        
+            Ciphertext temp;
+            evaluator.multiply_plain(switchingKey[switchingKey.size() - 1], plaintext, temp);
+            evaluator.add_inplace(output[l], temp);
+        }
+        evaluator.rotate_rows_inplace(switchingKey[switchingKey.size() - 1], 1, gal_keys);
+    }
+
+
+    for(int i = 0; i < param.ell; i++){
+        vector<uint64_t> vectorOfInts(toPack.size());
+        for(size_t j = 0; j < toPack.size(); j++){
+            vectorOfInts[j] = ((uint64_t)toPack[j][param.n + param.ell * partialSize * partySize + i] - (uint64_t)(param.q / 4)) % param.q;
+        }
+        Plaintext plaintext;
+        batch_encoder.encode(vectorOfInts, plaintext);
+        evaluator.negate_inplace(output[i]);
+        evaluator.add_plain_inplace(output[i], plaintext);
+        evaluator.mod_switch_to_next_inplace(output[i]); 
+    }
+    MemoryManager::SwitchProfile(std::move(old_prof));
+}
+
 
 inline void calUptoDegreeK(vector<Ciphertext>& output, const Ciphertext& input, const int DegreeK, const RelinKeys &relin_keys,
                            const SEALContext& context) {

@@ -207,17 +207,17 @@ int main() {
 
         case 28:
             numcores = 1;
-            GOMR1_FG();
+            // GOMR1_FG();
             break;
 
         case 29:
             numcores = 2;
-            GOMR1_FG();
+            // GOMR1_FG();
             break;
 
         case 30:
             numcores = 4;
-            GOMR1_FG();
+            // GOMR1_FG();
             break;
 
         case 31:

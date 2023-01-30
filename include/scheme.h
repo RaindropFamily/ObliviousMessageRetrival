@@ -156,8 +156,8 @@ namespace fgomr
     typedef mre::MREsk FixedGroupSecretKey;
     typedef vector<Ciphertext> FixedGroupDetectionKey;
 
-    vector<FixedGroupSecretKey> secretKeyGen(const PVWParam& params, const PVWsk& targetSK) {
-        return mre::MREgenerateSK(params, targetSK);
+    vector<FixedGroupSecretKey> secretKeyGen(const PVWParam& params, const PVWsk& target_secretSK, const mre::MREsharedSK& target_sharedSK) {
+        return mre::MREgenerateSK(params, target_secretSK, target_sharedSK);
     }
 
     FixedGroupSharedKey groupKeyGenAux(const PVWParam& params, vector<FixedGroupSecretKey>& mreSK, prng_seed_type& seed) {
@@ -171,45 +171,55 @@ namespace fgomr
     }
 
     FixedGroupDetectionKey generateDetectionKey(const SEALContext& context, const size_t& degree, const PublicKey& BFVpk, const SecretKey& BFVsk,
-                                            const PVWsk& regSk, const PVWParam& params, const int partialSize = partial_size_glb, const int partySize = party_size_glb) { 
-        FixedGroupDetectionKey switchingKey(params.ell);
+                                            const PVWsk& secret_sk, const mre::MREsharedSK& shared_sk, const PVWParam& params, const int partialSize = partial_size_glb, const int partySize = party_size_glb) { 
+        FixedGroupDetectionKey switchingKey(params.ell + 1);
 
         BatchEncoder batch_encoder(context);
         Encryptor encryptor(context, BFVpk);
         encryptor.set_secret_key(BFVsk);
 
-        int a1_size = params.n - partialSize, a2_size = partialSize * partySize;
+        int a1_size = params.n, a2_size = partialSize * partySize;
 
-        int tempn = 1;
-        for(tempn = 1; tempn < a1_size + a2_size; tempn *= 2){}
+        int tempn_secret = 1, tempn_shared = 1;
+        for(tempn_secret = 1; tempn_secret < a1_size; tempn_secret *= 2){}
+        for(tempn_shared = 1; tempn_shared < a2_size; tempn_shared *= 2){}
 
-        vector<vector<int>> old_a2(params.ell);
-        for (int i = 0; i < (int)old_a2.size(); i++) {
-            old_a2[i].resize(partialSize);
-
-            for (int j = 0; j < partialSize; j++) {
-                old_a2[i][j] = regSk[i][params.n - partialSize + j].ConvertToInt();
-            }
+        vector<vector<int>> old_a2(1, vector<int>(partialSize));
+        for (int i = 0; i < partialSize; i++) {
+            old_a2[0][i] = shared_sk[i].ConvertToInt();
         }
-        vector<vector<int>> extended_a2 = generateExponentialExtendedVector(params, old_a2);
+        vector<vector<int>> extended_a2_vec = generateExponentialExtendedVector(params, old_a2);
+        vector<int> extended_a2 = extended_a2_vec[0];
 
-        for(int j = 0; j < params.ell; j++){
-            vector<uint64_t> skInt(degree);
-            for(size_t i = 0; i < degree; i++){
-                auto tempindex = i % uint64_t(tempn);
-                if (int (tempindex) >= a1_size + a2_size) {
+        vector<uint64_t> skInt(degree);
+        Plaintext plaintext;
+        // generate the encrypted secret SK
+        for (int j = 0; j < params.ell; j++) {
+            for (int i = 0; i < degree; i++) {
+                int tempindex = i % tempn_secret;
+                if (tempindex >= a1_size) {
                     skInt[i] = 0;
-                } else if (int (tempindex) < a1_size) { // a1 part 
-                    skInt[i] = uint64_t(regSk[j][tempindex].ConvertToInt() % params.q);
-                } else { // a2 part
-                    skInt[i] = extended_a2[j][tempindex - a1_size];
+                } else { 
+                    skInt[i] = secret_sk[j][tempindex].ConvertToInt();
                 }
             }
 
-            Plaintext plaintext;
             batch_encoder.encode(skInt, plaintext);
             encryptor.encrypt_symmetric(plaintext, switchingKey[j]);
         }
+
+        // generate the encrypted shared SK
+        for (int i = 0; i < degree; i++) {
+            int tempIndex = i % tempn_shared;
+            if (tempIndex >= a2_size) {
+                skInt[i] = 0;
+            } else { 
+                skInt[i] = extended_a2[tempIndex];
+            }
+        }
+
+        batch_encoder.encode(skInt, plaintext);
+        encryptor.encrypt_symmetric(plaintext, switchingKey[switchingKey.size() - 1]);
 
         return switchingKey;
     }
