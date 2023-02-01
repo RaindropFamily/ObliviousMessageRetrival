@@ -205,14 +205,9 @@ vector<Ciphertext> computeEncryptedCompressedID(Ciphertext& enc_id, uint64_t *to
      */
     int iteration_ntt = ceil(tempExt_IdSize / batch_ntt_glb);
     int iteration_cm = ceil(poly_modulus_degree_glb / batch_cm_glb);
-    vector<Ciphertext> enc_id_ntt(batch_ntt_glb);
+    Ciphertext enc_id_ntt;
 
     for (int it_ntt = 0; it_ntt < iteration_ntt; it_ntt++) {
-        for (int i = 0; i < batch_ntt_glb; i++) {
-            evaluator.transform_to_ntt(enc_id, enc_id_ntt[i]);
-            evaluator.rotate_rows_inplace(enc_id, 1, gal_keys);
-        }
-
         for (int it_cm = 0; it_cm < iteration_cm; it_cm++) {
             int start = it_cm*batch_cm_glb, end = (it_cm+1)*batch_cm_glb;
 
@@ -231,9 +226,9 @@ vector<Ciphertext> computeEncryptedCompressedID(Ciphertext& enc_id, uint64_t *to
             cout << "batchLoadRandomSeeds time: " << chrono::duration_cast<chrono::microseconds>(time_end - time_start).count() << " us." << endl;
 
             unsigned char out[32];
-            for (int i = 0; i < tempCom_IdSize; i++) {
-                Ciphertext partial_z;
-                for (int j = it_ntt*batch_ntt_glb; j < (it_ntt+1)*batch_ntt_glb; j++) {
+            for (int j = it_ntt*batch_ntt_glb; j < (it_ntt+1)*batch_ntt_glb; j++) {
+                evaluator.transform_to_ntt(enc_id, enc_id_ntt);
+                for (int i = 0; i < tempCom_IdSize; i++) {
                     vector<uint64_t> vectorOfZ(poly_modulus_degree_glb);
 
                     time_start = chrono::high_resolution_clock::now();
@@ -254,16 +249,17 @@ vector<Ciphertext> computeEncryptedCompressedID(Ciphertext& enc_id, uint64_t *to
                     // use the last switchingKey encrypting targetId with extended id_size as one unit, and rotate
                     Plaintext plaintext;
                     batch_encoder.encode(vectorOfZ, plaintext);
-                    evaluator.transform_to_ntt_inplace(plaintext, enc_id_ntt[j % batch_ntt_glb].parms_id());
+                    evaluator.transform_to_ntt_inplace(plaintext, enc_id_ntt.parms_id());
 
                     if (j == 0 && it_ntt == 0 && it_cm == 0) {
-                        evaluator.multiply_plain(enc_id_ntt[j % batch_ntt_glb], plaintext, compressed_id_ntt[i]);
+                        evaluator.multiply_plain(enc_id_ntt, plaintext, compressed_id_ntt[i]);
                     } else {
                         Ciphertext temp;
-                        evaluator.multiply_plain(enc_id_ntt[j % batch_ntt_glb], plaintext, temp);
+                        evaluator.multiply_plain(enc_id_ntt, plaintext, temp);
                         evaluator.add_inplace(compressed_id_ntt[i], temp);
                     }
                 }
+                evaluator.rotate_rows_inplace(enc_id, 1, gal_keys);
             }
 
             for (int i = 0; i < end-start; i ++) {

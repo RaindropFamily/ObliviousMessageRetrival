@@ -1482,6 +1482,8 @@ void GOMR2_ObliviousMultiplexer_BFV() {
         cout << "Result is correct!" << endl;
     else
         cout << "Overflow" << endl;
+
+    freeCounterBuffer();
 }
 
 

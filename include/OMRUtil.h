@@ -33,13 +33,22 @@ void choosePertinentMsg(int numOfTransactions, int pertinentMsgNum, vector<int>&
 
 
 void generatePublicCounterBuffer() {
-    int row_max =  party_size_glb * id_size_glb, col_max = partial_size_glb + secure_extra_length_glb;
+    int row_max =  party_size_glb * id_size_glb, col_max = party_size_glb + secure_extra_length_glb;
     counter_buffer_glb.resize(row_max);
     for (int i = 0; i < row_max; i++) {
         counter_buffer_glb[i].resize(col_max);
         for (int j = 0; j < col_max; j++) {
             counter_buffer_glb[i][j] = (unsigned char *) malloc(sizeof(unsigned char) * AES_KEY_SIZE);
             random_bytes(counter_buffer_glb[i][j], AES_KEY_SIZE);
+        }
+    }
+}
+
+void freeCounterBuffer() {
+    int row_max =  party_size_glb * id_size_glb, col_max = party_size_glb + secure_extra_length_glb;
+    for (int i = 0; i < row_max; i++) {
+        for (int j = 0; j < col_max; j++) {
+            free(counter_buffer_glb[i][j]);
         }
     }
 }
