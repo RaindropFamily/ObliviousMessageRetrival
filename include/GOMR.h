@@ -1251,19 +1251,17 @@ void GOMR2_ObliviousMultiplexer_BFV() {
     auto pk = PVWGeneratePublicKey(params, sk);
     cout << "Finishing generating sk for PVW cts\n";
 
-    // generate a random 16 bytes buffer as base counter for AES GCM cipher
-    base_ctr_glb = (unsigned char *) malloc(sizeof(unsigned char) * AES_KEY_SIZE);
-    random_bytes(base_ctr_glb, AES_KEY_SIZE);
-    // generate a random 16 bytes buffer as initial vector for AES GCM cipher
-    initial_pt_glb = (unsigned char *) malloc(sizeof(unsigned char) * AES_KEY_SIZE);
-    random_bytes(initial_pt_glb, AES_KEY_SIZE);
+    // generate a random 16 bytes buffer as base counter for AES ECB mode
+    // unsigned char* base_ctr_glb = (unsigned char *) malloc(sizeof(unsigned char) * AES_KEY_SIZE);
+    // random_bytes(base_ctr_glb, AES_KEY_SIZE);
+    generatePublicCounterBuffer();
 
     const vector<int> targetId = initializeRecipientId(params, 1, id_size_glb)[0];
     cout << "Recipient Target ID: " << targetId << endl;
 
     // step 2. prepare transactions
     vector<int> pertinentMsgIndices;
-    auto expected = preparingTransactionsFormal(pertinentMsgIndices, pk, numOfTransactions, num_of_pertinent_msgs_glb, params, party_size_glb);
+    vector<vector<uint64_t>> expected = preparingTransactionsFormal(pertinentMsgIndices, pk, numOfTransactions, num_of_pertinent_msgs_glb, params, party_size_glb);
     preparingGroupCluePolynomial(pertinentMsgIndices, pk, numOfTransactions, num_of_pertinent_msgs_glb, params, targetId, true);
 
     cout << expected.size() << " pertinent msg: Finishing preparing messages\n";
@@ -1484,9 +1482,6 @@ void GOMR2_ObliviousMultiplexer_BFV() {
         cout << "Result is correct!" << endl;
     else
         cout << "Overflow" << endl;
-
-    free(base_ctr_glb);
-    free(initial_pt_glb);
 }
 
 

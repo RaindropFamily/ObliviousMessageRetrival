@@ -17,20 +17,20 @@ int numOfTransactions_glb = 2048;
 size_t poly_modulus_degree_glb = 2048;
 size_t num_of_pertinent_msgs_glb = 1;
 
-int party_size_glb = 17;
+int party_size_glb = 8;
 int secure_extra_length_glb = 4; // T + secure_extra_length_glb = T', for a rand matrix to be full rank
 
-int id_size_glb = 17;
-int partial_size_glb = 58; // the part of shared_sk length used in FGOMR
+int id_size_glb = 25;
+int partial_size_glb = 25; // the part of shared_sk length used in FGOMR
 
 int repetition_glb = 16;
 
 int batch_ntt_glb = 256; // batch cache the ntt form of encrypted id ciphtertext used for ntt_optimization in adhoc-gomr
 int batch_cm_glb = 2048; // used for load expanded clues bulk by bulk to fit in RAM, varies with partySize * idSize
 
+// Used for OpenSSL AES ECB mode
 int AES_KEY_SIZE = 16;
-unsigned char* base_ctr_glb;
-unsigned char* initial_pt_glb;
+vector<vector<unsigned char*>> counter_buffer_glb;
 
 vector<uint64_t> expectedIndices;
 

@@ -32,6 +32,19 @@ void choosePertinentMsg(int numOfTransactions, int pertinentMsgNum, vector<int>&
 }
 
 
+void generatePublicCounterBuffer() {
+    int row_max =  party_size_glb * id_size_glb, col_max = partial_size_glb + secure_extra_length_glb;
+    counter_buffer_glb.resize(row_max);
+    for (int i = 0; i < row_max; i++) {
+        counter_buffer_glb[i].resize(col_max);
+        for (int j = 0; j < col_max; j++) {
+            counter_buffer_glb[i][j] = (unsigned char *) malloc(sizeof(unsigned char) * AES_KEY_SIZE);
+            random_bytes(counter_buffer_glb[i][j], AES_KEY_SIZE);
+        }
+    }
+}
+
+
 vector<vector<uint64_t>> preparingTransactionsFormal(vector<int>& pertinentMsgIndices, PVWpk& pk, int numOfTransactions, int pertinentMsgNum,
                                                       const PVWParam& params, int partySize = 1) {
 
@@ -538,7 +551,7 @@ void preparingGroupCluePolynomial(const vector<int>& pertinentMsgIndices, PVWpk&
             loadClues(clues, i * partySize, i * partySize + partySize, params);
 
             vector<vector<int>> extended_ids = generateExponentialExtendedVector(params, ids, partySize);
-            vector<vector<int>> compressed_ids = compressVectorByAES(params, key, extended_ids, party_size_glb + secure_extra_length_glb, check);
+            vector<vector<int>> compressed_ids = compressVectorByAES(params, key, extended_ids, party_size_glb + secure_extra_length_glb);
 
             vector<vector<long>> cluePolynomial = agomr::generateClue(params, clues, compressed_ids, prepare);
 

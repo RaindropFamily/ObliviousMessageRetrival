@@ -122,9 +122,6 @@ void expandSIC_Alt(vector<Ciphertext>& expanded, Ciphertext& toExpand, const Gal
         }
         evaluator2.add_inplace(first32elements, temp);
     }
-    // expanded.resize(1);
-    // expanded[0] = first32elements;
-    // return;
 
     // 2. Divide it into 8 parts evenly
     vector<Ciphertext> intermediateStep8elements(8);
@@ -210,17 +207,6 @@ vector<Ciphertext> computeEncryptedCompressedID(Ciphertext& enc_id, uint64_t *to
     int iteration_cm = ceil(poly_modulus_degree_glb / batch_cm_glb);
     vector<Ciphertext> enc_id_ntt(batch_ntt_glb);
 
-    unsigned char* temp = (unsigned char *) malloc(sizeof(unsigned char) * EVP_MAX_IV_LENGTH);
-    
-    // prepare AES 128 GCM context for openssl EVP interface
-    OSSL_LIB_CTX *libctx = NULL;
-    EVP_CIPHER *aes_128ctr_cipher = NULL;
-    const char *propq = NULL;
-    OSSL_PARAM openssl_params[2] = {OSSL_PARAM_END, OSSL_PARAM_END};
-    aes_128ctr_cipher = EVP_CIPHER_fetch(libctx, "AES-128-GCM", propq);
-
-    EVP_CIPHER_CTX* evp_context = EVP_CIPHER_CTX_new();
-
     for (int it_ntt = 0; it_ntt < iteration_ntt; it_ntt++) {
         for (int i = 0; i < batch_ntt_glb; i++) {
             evaluator.transform_to_ntt(enc_id, enc_id_ntt[i]);
@@ -232,34 +218,38 @@ vector<Ciphertext> computeEncryptedCompressedID(Ciphertext& enc_id, uint64_t *to
 
             time_start = chrono::high_resolution_clock::now();
             vector<unsigned char*> random_keys(end-start);
+            vector<AES_KEY> aes_keys(end-start);
+
             for (int i = 0; i < end-start; i ++) {
                 random_keys[i] = (unsigned char *) malloc(sizeof(unsigned char) * AES_KEY_SIZE);
             }
             batchLoadRandomSeeds(param, start, end, random_keys);
+            for (int i = 0; i < end-start; i ++) {
+                AES_set_encrypt_key(random_keys[i], 128, &aes_keys[i]);
+            }
             time_end = chrono::high_resolution_clock::now();
             cout << "batchLoadRandomSeeds time: " << chrono::duration_cast<chrono::microseconds>(time_end - time_start).count() << " us." << endl;
 
+            unsigned char out[32];
             for (int i = 0; i < tempCom_IdSize; i++) {
                 Ciphertext partial_z;
                 for (int j = it_ntt*batch_ntt_glb; j < (it_ntt+1)*batch_ntt_glb; j++) {
                     vector<uint64_t> vectorOfZ(poly_modulus_degree_glb);
 
-                    for (int z_index = 0; z_index < (int) poly_modulus_degree_glb; z_index++) {
+                    time_start = chrono::high_resolution_clock::now();
+                    for (int z_index = 0; z_index < (int) poly_modulus_degree_glb;z_index++) {
                         int row_index = (i + z_index) % tempCom_IdSize;
                         int col_index = (j + z_index) % tempExt_IdSize;
                         if (row_index >= (party_size_glb + secure_extra_length_glb) || col_index >= id_size_glb * party_size_glb ||
                             z_index < start || z_index >= end) {
                             vectorOfZ[z_index] = 0;
                         } else {//load the transpose
-                            unsigned char ciphertext[9];
-                            time_start = chrono::high_resolution_clock::now();
-                            vectorOfZ[z_index] = generateRandomElement(evp_context, aes_128ctr_cipher, openssl_params, random_keys[z_index % batch_cm_glb],
-                                                                       (uint64_t) col_index * (party_size_glb + secure_extra_length_glb) + row_index,
-                                                                       ciphertext, temp);
-                            time_end = chrono::high_resolution_clock::now();
-                            rand_total += chrono::duration_cast<chrono::microseconds>(time_end - time_start).count();
+                            AES_ecb_encrypt(counter_buffer_glb[col_index][row_index], out, &aes_keys[z_index], AES_ENCRYPT);
+                            vectorOfZ[z_index] = convertChar2Uint64(out, 8);
                         }
                     }
+                    time_end = chrono::high_resolution_clock::now();
+                    rand_total += chrono::duration_cast<chrono::microseconds>(time_end - time_start).count();
 
                     // use the last switchingKey encrypting targetId with extended id_size as one unit, and rotate
                     Plaintext plaintext;
@@ -283,8 +273,6 @@ vector<Ciphertext> computeEncryptedCompressedID(Ciphertext& enc_id, uint64_t *to
     }
 
     cout << "Generate Random element via AES counter total time: " << rand_total << " us.\n";
-    EVP_CIPHER_free(aes_128ctr_cipher);
-    EVP_CIPHER_CTX_free(evp_context);
     return compressed_id_ntt;
 }
 
