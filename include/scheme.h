@@ -155,8 +155,8 @@ namespace fgomr
     typedef mre::MREsk FixedGroupSecretKey;
     typedef vector<Ciphertext> FixedGroupDetectionKey;
 
-    vector<FixedGroupSecretKey> secretKeyGen(const PVWParam& params, const PVWsk& targetSK) {
-        return mre::MREgenerateSK(params, targetSK);
+    vector<FixedGroupSecretKey> secretKeyGen(const PVWParam& params, const PVWsk& target_secretSK, const mre::MREsharedSK& target_sharedSK) {
+        return mre::MREgenerateSK(params, target_secretSK, target_sharedSK);
     }
 
     FixedGroupSharedKey groupKeyGenAux(const PVWParam& params, vector<FixedGroupSecretKey>& mreSK, prng_seed_type& seed) {
@@ -171,31 +171,47 @@ namespace fgomr
 
     // this is exactly the same as the one for regular OMR
     FixedGroupDetectionKey generateDetectionKey(const SEALContext& context, const size_t& degree, const PublicKey& BFVpk, const SecretKey& BFVsk,
-                                            const PVWsk& regSk, const PVWParam& params, const int partialSize = partial_size_glb, const int partySize = party_size_glb) { 
-        FixedGroupDetectionKey switchingKey(params.ell);
+                                                const PVWsk& secret_sk, const mre::MREsharedSK& shared_sk, const PVWParam& params,
+                                                const int partialSize = partial_size_glb, const int partySize = party_size_glb) { 
+        FixedGroupDetectionKey switchingKey(params.ell + 1);
 
         BatchEncoder batch_encoder(context);
         Encryptor encryptor(context, BFVpk);
         encryptor.set_secret_key(BFVsk);
 
-        int tempn = 1;
-        for(tempn = 1; tempn < params.n; tempn *= 2){}
+        int a1_size = params.n, a2_size = partialSize;
+        int tempn_secret = 1, tempn_shared = 1;
+        for(tempn_secret = 1; tempn_secret < a1_size; tempn_secret *= 2){}
+        for(tempn_shared = 1; tempn_shared < a2_size; tempn_shared *= 2){}
 
+        vector<uint64_t> skInt(degree);
+        Plaintext plaintext;
         for(int j = 0; j < params.ell; j++){
-            vector<uint64_t> skInt(degree);
-            for(size_t i = 0; i < degree; i++){
-                auto tempindex = i % uint64_t(tempn);
-                if (int (tempindex) >= params.n) {
+            for(int i = 0; i < (int) degree; i++){
+                int tempIndex = i % tempn_secret;
+                if (int (tempIndex) >= params.n) {
                     skInt[i] = 0;
                 } else {
-                    skInt[i] = uint64_t(regSk[j][tempindex].ConvertToInt() % params.q);
+                    skInt[i] = uint64_t(secret_sk[j][tempIndex].ConvertToInt());
                 }
             }
 
-            Plaintext plaintext;
             batch_encoder.encode(skInt, plaintext);
             encryptor.encrypt_symmetric(plaintext, switchingKey[j]);
         }
+
+        // generate the encrypted shared SK
+        for (int i = 0; i < (int) degree; i++) {
+            int tempIndex = i % tempn_shared;
+            if (tempIndex >= a2_size) {
+                skInt[i] = 0;
+            } else { 
+                skInt[i] = uint64_t(shared_sk[tempIndex].ConvertToInt());
+            }
+        }
+
+        batch_encoder.encode(skInt, plaintext);
+        encryptor.encrypt_symmetric(plaintext, switchingKey[switchingKey.size() - 1]);
 
         return switchingKey;
     }

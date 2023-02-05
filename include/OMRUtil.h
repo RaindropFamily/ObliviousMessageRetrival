@@ -104,6 +104,24 @@ Ciphertext serverOperations1obtainPackedSICWithCluePoly(vector<Ciphertext> switc
     return packedSIC[0];
 }
 
+
+// Phase 1, obtaining PV's based on encrypted secret SK and shared SK
+// used in GOMR1/2_FG
+Ciphertext serverOperations1obtainPackedSICWithFixedGroupClue(vector<vector<int>>& fgClues, vector<Ciphertext> switchingKey, const RelinKeys& relin_keys,
+                            const GaloisKeys& gal_keys, const size_t& degree, const SEALContext& context, const PVWParam& params,
+                            const int numOfTransactions, const int partialSize = partial_size_glb) {
+    Evaluator evaluator(context);
+
+    vector<Ciphertext> packedSIC(params.ell);
+    computeBplusASPVWOptimizedWithFixedGroupClue(packedSIC, fgClues, switchingKey, gal_keys, context, params, partialSize);
+
+    int rangeToCheck = 850; // range check is from [-rangeToCheck, rangeToCheck-1]
+    newRangeCheckPVW(packedSIC, rangeToCheck, relin_keys, degree, context, params);
+
+    return packedSIC[0];
+}
+
+
 // Phase 2, retrieving
 void serverOperations2therest(Ciphertext& lhs, vector<vector<int>>& bipartite_map, Ciphertext& rhs,
                         Ciphertext& packedSIC, const vector<vector<uint64_t>>& payload, const RelinKeys& relin_keys, const GaloisKeys& gal_keys,
@@ -473,7 +491,7 @@ bool verify(const PVWParam& params, const vector<int>& target_id, int index, int
         }
     }
 
-    vector<uint64_t> expected = loadDataSingle(index * party_size_glb + party_size_glb - 1, "clues", params.n + params.ell);
+    vector<uint64_t> expected = loadDataSingle(index, "clues", params.n + params.ell);
 
     for (int i = 0; i < params.n + params.ell; i++) {
         long temp = expected[i] - 16384;
@@ -487,40 +505,69 @@ bool verify(const PVWParam& params, const vector<int>& target_id, int index, int
 }
 
 // similar to preparingTransactionsFormal but for gOMR with Oblivious Multiplexer.
-void preparingGroupCluePolynomial(const vector<int>& pertinentMsgIndices, PVWpk& pk, int numOfTransactions,int pertinentMsgNum,
+vector<vector<uint64_t>> preparingGroupCluePolynomial(vector<int>& pertinentMsgIndices, PVWpk& pk, int numOfTransactions,int pertinentMsgNum,
                                   const PVWParam& params, const vector<int>& targetId, bool prepare = false, int clueLength = 454,
                                   int partySize = party_size_glb) {
     vector<vector<int>> ids;
-    vector<PVWCiphertext> clues;
+    vector<PVWCiphertext> clues(party_size_glb);
     bool check = false;
+    vector<int> zeros(params.ell, 0);
+    vector<vector<uint64_t>> ret;
+
+    prng_seed_type seed;
+    for (auto &i : seed) {
+        i = random_uint64();
+    }
+    choosePertinentMsg(numOfTransactions, pertinentMsgNum, pertinentMsgIndices, seed);
 
     chrono::high_resolution_clock::time_point time_start, time_end;
     uint64_t total_time = 0;
 
     for(int i = 0; i < numOfTransactions; i++) {
+        vector<PVWsk> impert_sk(party_size_glb);
+        vector<PVWpk> impert_pk(party_size_glb - 1);
+        for (int p = 0; p < party_size_glb; p++) {
+            impert_sk[p] = PVWGenerateSecretKey(params);
+        }
+
         while (true) {
             time_start = chrono::high_resolution_clock::now();
             if (find(pertinentMsgIndices.begin(), pertinentMsgIndices.end(), i) != pertinentMsgIndices.end()) {
+                ret.push_back(loadDataSingle(i));
                 check = true;
                 ids = initializeRecipientId(params, party_size_glb - 1, id_size_glb);
                 ids.push_back(targetId);
+                for (int p = 0; p < party_size_glb - 1; p++) {
+                    impert_pk[p] = PVWGeneratePublicKey(params, impert_sk[p]);
+                }
             } else {
                 ids = initializeRecipientId(params, party_size_glb, id_size_glb);
             }
 
             // if i is pertinent for recipient r, then its clue is already generated via given sk, and will be in the same equation
             // i.e., when multiplied the polynomial matrix with the recipient r's ID, detector will get clue i.
-            loadClues(clues, i * partySize, i * partySize + partySize, params);
+
+            time_start = chrono::high_resolution_clock::now();
+            if (check) {
+                for (int p = 0; p < party_size_glb - 1; p++) {
+                    PVWEncPK(clues[p], zeros, impert_pk[p], params);
+                }
+                PVWEncPK(clues[party_size_glb-1], zeros, pk, params);
+                saveClues(clues[party_size_glb-1], i);
+            } else {
+                for (int p = 0; p < party_size_glb; p++) {
+                    PVWEncSK(clues[p], zeros, impert_sk[p], params);
+                }
+            }
+
             vector<vector<long>> cluePolynomial = agomr::generateClue(params, clues, ids, prepare);
-
-            time_end = chrono::high_resolution_clock::now();
-            total_time += chrono::duration_cast<chrono::microseconds>(time_end - time_start).count();
-
             saveGroupClues(cluePolynomial, i);
+            time_end = chrono::high_resolution_clock::now();
 
             if (check) {
                 check = false;
                 if (verify(params, ids[partySize-1], i, id_size_glb, prepare)) {
+                    total_time += chrono::duration_cast<chrono::microseconds>(time_end - time_start).count();
                     break;
                 } else {
                     cout << "Mismatch detected, regenerating clue poly for msg: " << i << endl;
@@ -530,20 +577,22 @@ void preparingGroupCluePolynomial(const vector<int>& pertinentMsgIndices, PVWpk&
             }
         }
     }
-    cout << "\nSender average running time: " << total_time / numOfTransactions << "us." << "\n";
+    cout << "\nSender average running time: " << total_time / pertinentMsgIndices.size() << "us." << "\n";
+
+    return ret;
 }
 
 // similar to preparingTransactionsFormal but for fixed group GOMR which requires a MREGroupPK for each message.
 // pertinentMsgIndices, groupPK, numOfTransactions, num_of_pertinent_msgs_glb, params, mreseed);
-vector<vector<uint64_t>> preparingMREGroupClue(vector<int>& pertinentMsgIndices, int numOfTransactions, int pertinentMsgNum, const PVWParam& params, const PVWsk& targetSK,
-                                               prng_seed_type& seed, const int partialSize = partial_size_glb, const int partySize = party_size_glb) {
+vector<vector<uint64_t>> preparingMREGroupClue(vector<int>& pertinentMsgIndices, int numOfTransactions, int pertinentMsgNum, const PVWParam& params,
+                                               const PVWsk& target_secretSK, const mre::MREsharedSK& target_sharedSK, prng_seed_type& seed,
+                                               const int partialSize = partial_size_glb, const int partySize = party_size_glb) {
 
     vector<vector<uint64_t>> ret;
     vector<int> zeros(params.ell, 0);
     PVWsk sk;
     vector<fgomr::FixedGroupSecretKey> groupSK;
     fgomr::FixedGroupSharedKey gPK;
-    // fgomr::FixedGroupPublicKey groupPK;
 
     choosePertinentMsg(numOfTransactions, pertinentMsgNum, pertinentMsgIndices, seed);
 
@@ -559,7 +608,7 @@ vector<vector<uint64_t>> preparingMREGroupClue(vector<int>& pertinentMsgIndices,
         PVWCiphertext tempclue;
 
         if (find(pertinentMsgIndices.begin(), pertinentMsgIndices.end(), i) != pertinentMsgIndices.end()) {
-            groupSK = fgomr::secretKeyGen(params, targetSK);
+            groupSK = fgomr::secretKeyGen(params, target_secretSK, target_sharedSK);
             gPK = fgomr::groupKeyGenAux(params, groupSK, mreseed);
 
             time_start = chrono::high_resolution_clock::now();
@@ -570,7 +619,7 @@ vector<vector<uint64_t>> preparingMREGroupClue(vector<int>& pertinentMsgIndices,
             ret.push_back(loadDataSingle(i));
             saveCluesWithRandomness(tempclue, i);
         } else {
-            auto non_pert_params = PVWParam(params.n - partialSize + partialSize * params.ell, params.q, params.std_dev, params.m, params.ell);
+            auto non_pert_params = PVWParam(params.n + partialSize * params.ell, params.q, params.std_dev, params.m, params.ell);
             sk = PVWGenerateSecretKey(non_pert_params);
             PVWEncSK(tempclue, zeros, sk, non_pert_params);
             saveCluesWithRandomness(tempclue, i);

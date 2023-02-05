@@ -17,8 +17,8 @@ int numOfTransactions_glb = 2048;
 size_t poly_modulus_degree_glb = 2048;
 size_t num_of_pertinent_msgs_glb = 1;
 
-int party_size_glb = 32;
-int secure_extra_length_glb = 9; // T + secure_extra_length_glb = T', for a rand matrix to be full rank
+int party_size_glb = 8;
+int secure_extra_length_glb = 4; // T + secure_extra_length_glb = T', for a rand matrix to be full rank
 
 int id_size_glb = party_size_glb + secure_extra_length_glb; // for weak version, should be (party_size_glb + secure_extra_length_glb)
 int partial_size_glb = party_size_glb + secure_extra_length_glb; // the part of shared_sk length used in FGOMR

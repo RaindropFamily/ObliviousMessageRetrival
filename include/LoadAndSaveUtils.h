@@ -206,15 +206,14 @@ vector<vector<uint64_t>> loadOMClue_Randomness(const PVWParam& params, const int
 }
 
 
-void loadFixedGroupClues(vector<PVWCiphertext>& clues, const int& start, const int& end, const PVWParam& param, const int partySize = party_size_glb, const int partialSize = partial_size_glb){
-    clues.resize(end-start);
-    int a1_size = param.n - partialSize, a2_size = param.ell * partialSize;
+vector<vector<int>> loadFixedGroupClues(const int& start, const int& end, const PVWParam& param, const int partySize = party_size_glb, const int partialSize = partial_size_glb){
+    vector<vector<int>> result(end-start);
+    int a1_size = param.n, a2_size = param.ell * partialSize;
 
     vector<int> old_a2(a2_size);
 
     for(int i = start; i < end; i++){
-        clues[i-start].a = NativeVector(a1_size + a2_size);
-        clues[i-start].b = NativeVector(param.ell);
+        result[i-start].resize(a1_size + a2_size + param.ell);
 
         ifstream datafile;
         datafile.open ("../data/clues/"+to_string(i)+".txt");
@@ -222,17 +221,19 @@ void loadFixedGroupClues(vector<PVWCiphertext>& clues, const int& start, const i
         for (int j = 0; j < a1_size + a2_size; j++) {
             uint64_t temp;
             datafile >> temp;
-            clues[i-start].a[j] = temp;
+            result[i-start][j] = temp;
         }
 
         for (int j = 0; j < param.ell; j++) {
             uint64_t temp;
             datafile >> temp;
-            clues[i-start].b[j] = temp;
+            result[i-start][j + a1_size + a2_size] = temp;
         }
 
         datafile.close();
     }
+
+    return result;
 }
 
 // similar to loadClues but under Oblivious Multiplexer, load the clue polynomial coefficient matrix, and compute the clues based on target ID

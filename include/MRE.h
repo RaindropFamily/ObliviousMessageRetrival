@@ -17,12 +17,12 @@ using namespace seal;
  */
 namespace mre {
 
-    typedef vector<NativeVector> MREsharedSK; // for one recipient, side of (param.ell) x (sk_shared_length)
+    typedef NativeVector MREsharedSK; // for one recipient, side of (sk_shared_length)
     typedef vector<NativeVector> MREsecretSK;
 
     struct MREsk{
         MREsecretSK secretSK; // ell x param.n, double vector 
-        MREsharedSK shareSK; // ell x partialSize, double vector
+        MREsharedSK shareSK; // partialSize, single vector
 
         MREsk() {}
         MREsk(MREsecretSK& secret, MREsharedSK& share)
@@ -31,7 +31,7 @@ namespace mre {
     };
 
     struct MREPartialGPK {
-        NativeVector A1; // size of (param.n - partial)
+        NativeVector A1; // size of (param.n)
         NativeVector b; // size of (ell)
         vector<NativeVector> b_prime; // size of (partySize) x (ell)
 
@@ -51,27 +51,34 @@ namespace mre {
         {}
     };
 
-    vector<MREsk> MREgenerateSK(const PVWParam& param, const PVWsk& targetSK, const int partialSize = partial_size_glb, const int partySize = party_size_glb) {
+    MREsharedSK MREGenerateSharedSK(const PVWParam& param){
+        int q = param.q;
+        lbcrypto::DiscreteUniformGeneratorImpl<regevSK> dug;
+        dug.SetModulus(q);
+        return dug.GenerateVector(partial_size_glb);
+    }
+
+    vector<MREsk> MREgenerateSK(const PVWParam& param, const PVWsk& target_secretSK, const MREsharedSK& target_sharedSK,
+                                const int partialSize = partial_size_glb, const int partySize = party_size_glb) {
         vector<MREsk> mreSK(partySize);
 
         for (int i = 0; i < partySize; i++) {
             // put the sk given in param as the first of the group
             // for pertinent messages, this will the recipient's sk, otherwise, a random sk will be passed in
-            auto temp = i == 0 ? targetSK : PVWGenerateSecretKey(param);
+            auto temp_secretSK = i == 0 ? target_secretSK : PVWGenerateSecretKey(param);
+            auto temp_sharedSK = i == 0 ? target_sharedSK : MREGenerateSharedSK(param);
 
             MREsecretSK leftSK(param.ell);
-            MREsharedSK rightSK(param.ell);
+            MREsharedSK rightSK = NativeVector(partialSize);
             for (int l = 0; l < param.ell; l++) {
-                leftSK[l] = NativeVector(param.n - partialSize);
-                rightSK[l] = NativeVector(partialSize);
+                leftSK[l] = NativeVector(param.n);
 
-                int j = 0;
-                for (; j < param.n - partialSize; j++) {
-                    leftSK[l][j] = temp[l][j].ConvertToInt();
+                for (int j = 0; j < param.n; j++) {
+                    leftSK[l][j] = temp_secretSK[l][j].ConvertToInt();
                 }
-                for(; j < param.n; j++) {
-                    rightSK[l][j - param.n + partialSize] = temp[l][j].ConvertToInt();
-                }
+            }
+            for(int j = 0; j < partialSize; j++) {
+                rightSK[j] = target_sharedSK[j].ConvertToInt();
             }
             mreSK[i] = MREsk(leftSK, rightSK);
         }
@@ -87,9 +94,9 @@ namespace mre {
         vector<MREsharedSK> sharedSK(groupSK.size());
 
         for (int w = 0; w < param.m; w++) {
-            NativeVector A1(param.n - partialSize), b(param.ell);
+            NativeVector A1(param.n), b(param.ell);
             vector<NativeVector> b_prime(groupSK.size());
-            for (int i = 0; i < param.n - partialSize; i++) {
+            for (int i = 0; i < param.n; i++) {
                 A1[i] = dist(engine) % param.q;
             }
             for (int i = 0; i < param.ell; i++) {
@@ -101,7 +108,7 @@ namespace mre {
 
                 for (int l = 0; l < param.ell; l++) {
                     long temp = 0;
-                    for (int j = 0; j < param.n - partialSize; j++) {
+                    for (int j = 0; j < param.n; j++) {
                         temp = (temp + groupSK[i].secretSK[l][j].ConvertToInt() * A1[j].ConvertToInt()) % param.q;
                         temp = temp < 0 ? temp + param.q : temp;
                     }
@@ -153,10 +160,10 @@ namespace mre {
         uniform_int_distribution<uint64_t> dist(0, 1);
 
         NativeInteger q = param.q;
-        ct.a = NativeVector(param.n - partialSize + param.ell * (partySize + secure_extra_length_glb));
+        ct.a = NativeVector(param.n + param.ell * (partySize + secure_extra_length_glb));
         ct.b = NativeVector(param.ell);
 
-        vector<vector<uint64_t>> b_prime(partySize, vector<uint64_t>(param.ell));
+        vector<NativeVector> b_prime(partySize, NativeVector(param.ell));
         for(size_t i = 0; i < groupPK.partialPK.size(); i++){
             if (dist(engine)) {
 	            for(int j = 0; j < (int) groupPK.partialPK[i].A1.GetLength(); j++) {
@@ -167,35 +174,28 @@ namespace mre {
                 }
                 for (int j = 0; j < (int) groupPK.partialPK[i].b_prime.size(); j++) {
                     for (int l = 0; l < param.ell; l++) {
-                        b_prime[j][l] = (b_prime[j][l] + groupPK.partialPK[i].b_prime[j][l].ConvertToInt()) % param.q;
-                        b_prime[j][l] = b_prime[j][l] < 0 ? b_prime[j][l] + param.q : b_prime[j][l];
+                        b_prime[j][l].ModAddFastEq(groupPK.partialPK[i].b_prime[j][l], q);
                     }
                 }
             }
         }
 
-        vector<vector<int>> rhs(partySize), shared_sk(partySize);
-        vector<vector<vector<long>>> res(param.ell);
-
-        for (int i = 0; i < param.ell; i++) {
-            rhs.resize(partySize);
-            shared_sk.resize(partySize);
-            for (int p = 0; p < partySize; p++) {
-                rhs[p].resize(1);
-                rhs[p][0] = b_prime[p][i];
-
-                shared_sk[p].resize(partialSize);
-
-                for (int j = 0; j < partialSize; j++) {
-                    shared_sk[p][j] = groupPK.sharedSK[p][i][j].ConvertToInt();
-                }
+        vector<vector<int>> rhs(partySize, vector<int>(param.ell)), shared_sk(partySize, vector<int>(partialSize));
+        for (int p = 0; p < partySize; p++) {
+            for (int i = 0; i < param.ell; i++) {
+                rhs[p][i] = b_prime[p][i].ConvertToInt();
             }
-            res[i] = equationSolvingRandom(shared_sk, rhs, -1);
+
+            for (int j = 0; j < partialSize; j++) {
+                shared_sk[p][j] = groupPK.sharedSK[p][j].ConvertToInt();
+            }
         }
+        vector<vector<long>> res = equationSolvingRandomBatch(shared_sk, rhs, -1);
+
         for (int j = 0; j < param.ell * partialSize; j++) {
             int ell_ind = j / partialSize;
             int party_ind = j % partialSize;
-            ct.a[j + param.n - partialSize] = res[ell_ind][party_ind][0];
+            ct.a[j + param.n] = res[ell_ind][party_ind];
         }
 
         for(int j = 0; j < param.ell; j++){

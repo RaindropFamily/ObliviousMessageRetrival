@@ -189,6 +189,7 @@ void computeBplusASPVWOptimizedWithCluePoly(vector<Ciphertext>& output, vector<C
     int tempn, tempId;
 
     chrono::high_resolution_clock::time_point time_start, time_end;
+    uint64_t ct_multi_total = 0, ct_multi_total2 = 0;
 
     Evaluator evaluator(context);
     BatchEncoder batch_encoder(context);
@@ -205,6 +206,7 @@ void computeBplusASPVWOptimizedWithCluePoly(vector<Ciphertext>& output, vector<C
     time_end = chrono::high_resolution_clock::now();
     *total_plain_ntt += chrono::duration_cast<chrono::microseconds>(time_end - time_start).count();
     cout << "Transform ntt for encrypted ID total: " << chrono::duration_cast<chrono::microseconds>(time_end - time_start).count() << " us.\n";
+    cout << "Average Transform ntt for encrypted ID: " << chrono::duration_cast<chrono::microseconds>(time_end - time_start).count() / tempId << " us.\n";
 
     int iteration_cm = ceil(poly_modulus_degree_glb / batch_cm_glb);
     vector<vector<uint64_t>> cluePoly;
@@ -222,7 +224,7 @@ void computeBplusASPVWOptimizedWithCluePoly(vector<Ciphertext>& output, vector<C
         time_start = chrono::high_resolution_clock::now();
         cluePoly = loadOMClue_CluePoly(param, start, end, (param.n + param.ell) * id_size_glb);
         time_end = chrono::high_resolution_clock::now();
-        total_load += chrono::duration_cast<chrono::microseconds>(time_end - time_start).count();
+        *total_load += chrono::duration_cast<chrono::microseconds>(time_end - time_start).count();
 
         for (int i = 0; i < tempn; i++) {
             Ciphertext partial_a;
@@ -264,6 +266,7 @@ void computeBplusASPVWOptimizedWithCluePoly(vector<Ciphertext>& output, vector<C
 
             // perform ciphertext multi with switchingKey encrypted SK with [450] as one unit, and rotate
             for(int j = 0; j < param.ell; j++) {
+                time_start = chrono::high_resolution_clock::now();
                 if(i == 0 && it_cm == 0) {
                     evaluator.multiply(switchingKey[j], partial_a, output[j]);
                 }
@@ -272,12 +275,19 @@ void computeBplusASPVWOptimizedWithCluePoly(vector<Ciphertext>& output, vector<C
                     evaluator.multiply(switchingKey[j], partial_a, temp);
                     evaluator.add_inplace(output[j], temp);
                 }
+                time_end = chrono::high_resolution_clock::now();
+                ct_multi_total += chrono::duration_cast<chrono::microseconds>(time_end - time_start).count();
                 evaluator.relinearize_inplace(output[j], relin_keys);
                 // rotate one slot at a time
                 evaluator.rotate_rows_inplace(switchingKey[j], 1, gal_keys);
+                time_end = chrono::high_resolution_clock::now();
+                ct_multi_total2 += chrono::duration_cast<chrono::microseconds>(time_end - time_start).count();
             }
         }
     }
+
+    cout << "Average ct multi: " << ct_multi_total / param.ell / tempn << " us. " << ct_multi_total2 / param.ell / tempn << " us.\n";
+
 
     // multiply (encrypted Id) with ell different (clue poly for b)
     vector<Ciphertext> b_parts(param.ell);
@@ -334,6 +344,109 @@ void computeBplusASPVWOptimizedWithCluePoly(vector<Ciphertext>& output, vector<C
         evaluator.mod_switch_to_next_inplace(output[i]);
     }
     MemoryManager::SwitchProfile(std::move(old_prof));
+}
+
+
+void computeBplusASPVWOptimizedWithFixedGroupClue(vector<Ciphertext>& output, const vector<vector<int>>& toPack, vector<Ciphertext>& switchingKey, const GaloisKeys& gal_keys,
+        const SEALContext& context, const PVWParam& param, const int partialSize = partial_size_glb, const int partySize = party_size_glb) {
+    MemoryPoolHandle my_pool = MemoryPoolHandle::New(true);
+    auto old_prof = MemoryManager::SwitchProfile(std::make_unique<MMProfFixed>(std::move(my_pool)));
+
+    int tempn_secret, tempn_shared, secret_sk_size = param.n, shared_sk_size = partialSize;
+    for(tempn_secret = 1; tempn_secret < secret_sk_size; tempn_secret*=2){}
+    for(tempn_shared = 1; tempn_shared < shared_sk_size; tempn_shared*=2){}
+
+    Evaluator evaluator(context);
+    BatchEncoder batch_encoder(context);
+    size_t slot_count = batch_encoder.slot_count();
+    if(toPack.size() > slot_count){
+        cerr << "Please pack at most " << slot_count << " PVW ciphertexts at one time." << endl;
+        return;
+    }
+
+    chrono::high_resolution_clock::time_point time_start, time_end;
+    uint64_t ntt_total = 0;
+    Ciphertext ntt_sk;
+
+    vector<uint64_t> vectorOfInts(toPack.size());
+    for (int i = 0; i < tempn_secret; i++) {
+        for (int l = 0; l < param.ell; l++) {
+            evaluator.transform_to_ntt(switchingKey[l], ntt_sk);
+            for (int j = 0; j < (int) toPack.size(); j++) {
+                int the_index = (i + j) % tempn_secret;
+                if (the_index >= secret_sk_size) {
+                    vectorOfInts[j] = 0;
+                } else {
+                    vectorOfInts[j] = uint64_t((toPack[j][the_index]));
+                }
+            }
+
+            Plaintext plaintext;
+            batch_encoder.encode(vectorOfInts, plaintext);
+            time_start = chrono::high_resolution_clock::now();
+            evaluator.transform_to_ntt_inplace(plaintext, ntt_sk.parms_id());
+            time_end = chrono::high_resolution_clock::now();
+            ntt_total += chrono::duration_cast<chrono::microseconds>(time_end - time_start).count();
+
+            if (i == 0) {
+                evaluator.multiply_plain(ntt_sk, plaintext, output[l]); // times s[i]
+            }
+            else {
+                Ciphertext temp;
+                evaluator.multiply_plain(ntt_sk, plaintext, temp);
+                evaluator.add_inplace(output[l], temp);
+            }
+            // rotate one slot at a time
+            evaluator.rotate_rows_inplace(switchingKey[l], 1, gal_keys);
+        }
+    }
+
+    Ciphertext ntt_shared;
+    for (int i = 0; i < tempn_shared; i++) {
+        evaluator.transform_to_ntt(switchingKey[switchingKey.size() - 1], ntt_shared);
+        for (int l = 0; l < param.ell; l++) {
+            for (int j = 0; j < (int) toPack.size(); j++) {
+                int the_index = (i + j) % tempn_shared;
+                if (the_index >= shared_sk_size) {
+                    vectorOfInts[j] = 0;
+                } else {// load A2 part
+                    the_index += param.n + l * partialSize;
+                    vectorOfInts[j] = uint64_t((toPack[j][the_index]));
+                }
+            }
+
+            Plaintext plaintext;
+            batch_encoder.encode(vectorOfInts, plaintext);
+            time_start = chrono::high_resolution_clock::now();
+            evaluator.transform_to_ntt_inplace(plaintext, ntt_shared.parms_id());
+            time_end = chrono::high_resolution_clock::now();
+            ntt_total += chrono::duration_cast<chrono::microseconds>(time_end - time_start).count();
+
+            Ciphertext temp;
+            evaluator.multiply_plain(ntt_shared, plaintext, temp);
+            evaluator.add_inplace(output[l], temp);
+        }
+        evaluator.rotate_rows_inplace(switchingKey[switchingKey.size() - 1], 1, gal_keys);
+    }
+
+    for (int e = 0; e < param.ell; e++) {
+        evaluator.transform_from_ntt_inplace(output[e]);
+    }
+
+    for(int i = 0; i < param.ell; i++){
+        vector<uint64_t> vectorOfInts(toPack.size());
+        for(size_t j = 0; j < toPack.size(); j++){
+            vectorOfInts[j] = ((uint64_t)toPack[j][param.n + param.ell * partialSize + i] - (uint64_t)(param.q / 4)) % param.q;
+        }
+        Plaintext plaintext;
+        batch_encoder.encode(vectorOfInts, plaintext);
+        evaluator.negate_inplace(output[i]);
+        evaluator.add_plain_inplace(output[i], plaintext);
+        evaluator.mod_switch_to_next_inplace(output[i]); 
+    }
+    MemoryManager::SwitchProfile(std::move(old_prof));
+
+    cout << "ntt transform for vector total: " << ntt_total << " us.\n";
 }
 
 
