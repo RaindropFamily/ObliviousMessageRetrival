@@ -34,10 +34,10 @@ void choosePertinentMsg(int numOfTransactions, int pertinentMsgNum, vector<int>&
 
 void generatePublicCounterBuffer() {
     int row_max =  party_size_glb * id_size_glb, col_max = party_size_glb + secure_extra_length_glb;
-    counter_buffer_glb.resize(row_max);
-    for (int i = 0; i < row_max; i++) {
-        counter_buffer_glb[i].resize(col_max);
-        for (int j = 0; j < col_max; j++) {
+    counter_buffer_glb.resize(col_max);
+    for (int i = 0; i < col_max; i++) {
+        counter_buffer_glb[i].resize(row_max);
+        for (int j = 0; j < row_max; j++) {
             counter_buffer_glb[i][j] = (unsigned char *) malloc(sizeof(unsigned char) * AES_KEY_SIZE);
             random_bytes(counter_buffer_glb[i][j], AES_KEY_SIZE);
         }
@@ -46,8 +46,8 @@ void generatePublicCounterBuffer() {
 
 void freeCounterBuffer() {
     int row_max =  party_size_glb * id_size_glb, col_max = party_size_glb + secure_extra_length_glb;
-    for (int i = 0; i < row_max; i++) {
-        for (int j = 0; j < col_max; j++) {
+    for (int i = 0; i < col_max; i++) {
+        for (int j = 0; j < row_max; j++) {
             free(counter_buffer_glb[i][j]);
         }
     }
@@ -515,7 +515,7 @@ bool verify(unsigned char* expected_key, const PVWParam& params, const vector<in
         }
     }
 
-    vector<uint64_t> expected = loadDataSingle(index * party_size_glb + party_size_glb - 1, "clues", params.n + params.ell);
+    vector<uint64_t> expected = loadDataSingle(index, "clues", params.n + params.ell);
 
     for (int i = 0; i < params.n + params.ell; i++) {
         long temp = expected[i] - 16384;
@@ -530,12 +530,20 @@ bool verify(unsigned char* expected_key, const PVWParam& params, const vector<in
 }
 
 // similar to preparingTransactionsFormal but for gOMR with Oblivious Multiplexer.
-void preparingGroupCluePolynomial(const vector<int>& pertinentMsgIndices, PVWpk& pk, int numOfTransactions,int pertinentMsgNum,
+vector<vector<uint64_t>> preparingGroupCluePolynomial(vector<int>& pertinentMsgIndices, PVWpk& pk, int numOfTransactions,int pertinentMsgNum,
                                   const PVWParam& params, const vector<int>& targetId, bool prepare = false, int clueLength = 454,
                                   int partySize = party_size_glb) {
     vector<vector<int>> ids;
-    vector<PVWCiphertext> clues;
+    vector<PVWCiphertext> clues(party_size_glb);
     bool check = false;
+    vector<int> zeros(params.ell, 0);
+    vector<vector<uint64_t>> ret;
+
+    prng_seed_type seed;
+    for (auto &i : seed) {
+        i = random_uint64();
+    }
+    choosePertinentMsg(numOfTransactions, pertinentMsgNum, pertinentMsgIndices, seed);
 
     chrono::high_resolution_clock::time_point time_start, time_end;
     uint64_t total_time = 0;
@@ -543,11 +551,18 @@ void preparingGroupCluePolynomial(const vector<int>& pertinentMsgIndices, PVWpk&
     unsigned char* key = (unsigned char *) malloc(sizeof(unsigned char) * AES_KEY_SIZE);
 
     for(int i = 0; i < numOfTransactions; i++) {
+        vector<PVWsk> impert_sk(party_size_glb);
+        vector<PVWpk> impert_pk(party_size_glb);
+        for (int p = 0; p < party_size_glb; p++) {
+            impert_sk[p] = PVWGenerateSecretKey(params);
+            impert_pk[p] = PVWGeneratePublicKey(params, impert_sk[p]);
+        }
+
         while (true) {
             random_bytes(key, AES_KEY_SIZE);
-
-            time_start = chrono::high_resolution_clock::now();
+            
             if (find(pertinentMsgIndices.begin(), pertinentMsgIndices.end(), i) != pertinentMsgIndices.end()) {
+                ret.push_back(loadDataSingle(i));
                 check = true;
                 ids = initializeRecipientId(params, party_size_glb - 1, id_size_glb);
                 ids.push_back(targetId);
@@ -555,23 +570,30 @@ void preparingGroupCluePolynomial(const vector<int>& pertinentMsgIndices, PVWpk&
                 ids = initializeRecipientId(params, party_size_glb, id_size_glb);
             }
 
-            // if i is pertinent for recipient r, then its clue is already generated via given sk, and will be in the same equation
-            // i.e., when multiplied the polynomial matrix with the recipient r's ID, detector will get clue i.
-            loadClues(clues, i * partySize, i * partySize + partySize, params);
+            time_start = chrono::high_resolution_clock::now();
+            if (check) {
+                for (int p = 0; p < party_size_glb - 1; p++) {
+                    PVWEncPK(clues[p], zeros, impert_pk[p], params);
+                }
+                PVWEncPK(clues[party_size_glb-1], zeros, pk, params);
+                saveClues(clues[party_size_glb-1], i);
+            } else {
+                for (int p = 0; p < party_size_glb; p++) {
+                    PVWEncSK(clues[p], zeros, impert_sk[p], params);
+                }
+            }
 
             vector<vector<int>> extended_ids = generateExponentialExtendedVector(params, ids, partySize);
             vector<vector<int>> compressed_ids = compressVectorByAES(params, key, extended_ids, party_size_glb + secure_extra_length_glb);
 
             vector<vector<long>> cluePolynomial = agomr::generateClue(params, clues, compressed_ids, prepare);
-
-            time_end = chrono::high_resolution_clock::now();
-            total_time += chrono::duration_cast<chrono::microseconds>(time_end - time_start).count();
-
             saveGroupClues(cluePolynomial, key, i);
+            time_end = chrono::high_resolution_clock::now();
 
             if (check) {
                 check = false;
                 if (verify(key, params, extended_ids[partySize-1], i, partySize, prepare)) {
+                    total_time += chrono::duration_cast<chrono::microseconds>(time_end - time_start).count();
                     break;
                 } else {
                     cout << "Mismatch detected, regenerating clue poly for msg: " << i << endl;
@@ -582,37 +604,36 @@ void preparingGroupCluePolynomial(const vector<int>& pertinentMsgIndices, PVWpk&
         }
     }
     free(key);
-    cout << "\nSender average running time: " << total_time / numOfTransactions << "us." << "\n";
+    cout << "\nSender average running time: " << total_time / pertinentMsgIndices.size() << "us." << "\n";
+
+    return ret;
 }
 
-// void verify_fg(const PVWParam& params, const PVWsk& target_secretSK, const mre::MREsharedSK& target_sharedSK) {
-//     vector<vector<int>> ct = loadFixedGroupClues(0, 1, params);
+void verify_fg(const PVWParam& params, const PVWsk& target_secretSK, const mre::MREsharedSK& target_sharedSK) {
+    vector<vector<int>> ct = loadFixedGroupClues(0, 1, params);
 
-//     vector<int> targetCT = ct[0];
-//     cout << "targetCT: " << targetCT << endl;
+    vector<int> targetCT = ct[0];
+    cout << "targetCT: " << targetCT << endl;
 
-//     vector<vector<int>> old_shared_sk(1, vector<int>(partial_size_glb));
-//     for (int j = 0; j < partial_size_glb; j++) {
-//         old_shared_sk[0][j] = target_sharedSK[j].ConvertToInt();
-//     }
-//     vector<vector<int>> extended_shared_sk = generateExponentialExtendedVector(params, old_shared_sk, party_size_glb);
-//     // cout << "secret sk: " << target_secretSK << endl;
-//     // cout << "Extended share sk: " << extended_shared_sk[0] << endl;
-//     // cout << "--------------------------------------------------------\n";
+    vector<vector<int>> old_shared_sk(1, vector<int>(partial_size_glb));
+    for (int j = 0; j < partial_size_glb; j++) {
+        old_shared_sk[0][j] = target_sharedSK[j].ConvertToInt();
+    }
+    vector<vector<int>> extended_shared_sk = generateExponentialExtendedVector(params, old_shared_sk, party_size_glb);
     
-//     for (int l = 0; l < params.ell; l++) {
-//         long result = 0;
-//         for (int i = 0; i < params.n; i++) {
-//             result = ( result + targetCT[i] * target_secretSK[l][i].ConvertToInt() ) % params.q;
-//             result = result < 0 ? result + params.q : result;
-//         }
-//         for (int i = 0; i < partial_size_glb * party_size_glb; i++) {
-//             result = ( result + targetCT[params.n + l * partial_size_glb * party_size_glb + i] * extended_shared_sk[0][i]) % params.q;
-//             result = result < 0 ? result + params.q : result;
-//         }
-//         cout << "---> check: " << targetCT[params.n + params.ell * partial_size_glb * party_size_glb + l] << " , " << result + params.q/4 << endl;
-//     }
-// }
+    for (int l = 0; l < params.ell; l++) {
+        long result = 0;
+        for (int i = 0; i < params.n; i++) {
+            result = ( result + targetCT[i] * target_secretSK[l][i].ConvertToInt() ) % params.q;
+            result = result < 0 ? result + params.q : result;
+        }
+        for (int i = 0; i < partial_size_glb * party_size_glb; i++) {
+            result = ( result + targetCT[params.n + l * partial_size_glb * party_size_glb + i] * extended_shared_sk[0][i]) % params.q;
+            result = result < 0 ? result + params.q : result;
+        }
+        cout << "---> check: " << targetCT[params.n + params.ell * partial_size_glb * party_size_glb + l] << " , " << result + params.q/4 << endl;
+    }
+}
 
 // similar to preparingTransactionsFormal but for fixed group GOMR which requires a MREGroupPK for each message.
 // pertinentMsgIndices, groupPK, numOfTransactions, num_of_pertinent_msgs_glb, params, mreseed);

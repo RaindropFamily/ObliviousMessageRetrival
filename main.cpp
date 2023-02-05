@@ -2,9 +2,46 @@
 #include "include/GOMR.h"
 #include "include/OMR.h"
 #include "include/MRE.h"
+#include <openssl/aes.h>
 
 using namespace seal;
 
+
+void test() {
+    unsigned char * counter = (unsigned char *) malloc(sizeof(unsigned char) * AES_KEY_SIZE * 2);
+    random_bytes(counter, AES_KEY_SIZE*2);
+    
+    unsigned char * key = (unsigned char *) malloc(sizeof(unsigned char) * AES_KEY_SIZE);
+    random_bytes(key, AES_KEY_SIZE);
+
+    unsigned char * key2 = (unsigned char *) malloc(sizeof(unsigned char) * AES_KEY_SIZE);
+    memcpy(key2, key, AES_KEY_SIZE);
+
+    unsigned char out[32];
+    unsigned char* input_buffer;
+    uint64_t input[2];
+    input[1] = 0;
+    vector<AES_KEY> aes_key(32768);
+    for (int i = 0; i < 32768; i++) {
+        random_bytes(key, AES_KEY_SIZE);
+        AES_set_encrypt_key(key, 128, &aes_key[i]);
+    }
+    free(key);
+    int a = 0;
+    chrono::high_resolution_clock::time_point time_start, time_end;
+    time_start = chrono::high_resolution_clock::now();
+    for (int i = 0; i < 32*127*36; i++) {
+        for (int j = 0; j < 32768; j++) {
+            input[0] = i;
+            input_buffer = (unsigned char*)input;
+            AES_ecb_encrypt(input_buffer, out, &aes_key[j], AES_ENCRYPT);
+            a = convertChar2Uint64(out, 8); 
+        }
+    }
+    time_end = chrono::high_resolution_clock::now();
+    cout << "Time: " << chrono::duration_cast<chrono::microseconds>(time_end - time_start).count() << endl;
+
+}
 
 int main() {
     cout << "+------------------------------------+" << endl;
@@ -73,7 +110,8 @@ int main() {
     switch (selection)
         {
         case 1:
-            OMDlevelspecificDetectKeySize();
+            // OMDlevelspecificDetectKeySize();
+            test();
             break;
 
         case 2:

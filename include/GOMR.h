@@ -542,8 +542,7 @@ void GOMR1_ObliviousMultiplexer() {
 
     // step 2. prepare transactions
     vector<int> pertinentMsgIndices;
-    auto expected = preparingTransactionsFormal(pertinentMsgIndices, pk, numOfTransactions, num_of_pertinent_msgs_glb, params, party_size_glb);
-    preparingGroupCluePolynomial(pertinentMsgIndices, pk, numOfTransactions, num_of_pertinent_msgs_glb, params, targetId);
+    auto expected = preparingGroupCluePolynomial(pertinentMsgIndices, pk, numOfTransactions, num_of_pertinent_msgs_glb, params, targetId);
 
     cout << expected.size() << " pertinent msg: Finishing preparing messages\n";
 
@@ -772,8 +771,7 @@ void GOMR2_ObliviousMultiplexer() {
 
     // step 2. prepare transactions
     vector<int> pertinentMsgIndices;
-    auto expected = preparingTransactionsFormal(pertinentMsgIndices, pk, numOfTransactions, num_of_pertinent_msgs_glb, params, party_size_glb);
-    preparingGroupCluePolynomial(pertinentMsgIndices, pk, numOfTransactions, num_of_pertinent_msgs_glb, params, targetId);
+    auto expected = preparingGroupCluePolynomial(pertinentMsgIndices, pk, numOfTransactions, num_of_pertinent_msgs_glb, params, targetId);
 
     cout << expected.size() << " pertinent msg: Finishing preparing messages\n";
 
@@ -1023,8 +1021,7 @@ void GOMR1_ObliviousMultiplexer_BFV() {
 
     // step 2. prepare transactions
     vector<int> pertinentMsgIndices;
-    auto expected = preparingTransactionsFormal(pertinentMsgIndices, pk, numOfTransactions, num_of_pertinent_msgs_glb, params, party_size_glb);
-    preparingGroupCluePolynomial(pertinentMsgIndices, pk, numOfTransactions, num_of_pertinent_msgs_glb, params, targetId, true);
+    auto expected = preparingGroupCluePolynomial(pertinentMsgIndices, pk, numOfTransactions, num_of_pertinent_msgs_glb, params, targetId, true);
 
     cout << expected.size() << " pertinent msg: Finishing preparing messages\n";
 
@@ -1261,8 +1258,7 @@ void GOMR2_ObliviousMultiplexer_BFV() {
 
     // step 2. prepare transactions
     vector<int> pertinentMsgIndices;
-    vector<vector<uint64_t>> expected = preparingTransactionsFormal(pertinentMsgIndices, pk, numOfTransactions, num_of_pertinent_msgs_glb, params, party_size_glb);
-    preparingGroupCluePolynomial(pertinentMsgIndices, pk, numOfTransactions, num_of_pertinent_msgs_glb, params, targetId, true);
+    vector<vector<uint64_t>> expected = preparingGroupCluePolynomial(pertinentMsgIndices, pk, numOfTransactions, num_of_pertinent_msgs_glb, params, targetId, true);
 
     cout << expected.size() << " pertinent msg: Finishing preparing messages\n";
 
@@ -1748,7 +1744,7 @@ void GOMR2_FG() {
     auto coeff_modulus = CoeffModulus::Create(poly_modulus_degree, { 28,
                                                                             60, 60, 60, 60, 60,
                                                                             60, 60, 60, 60, 60, 60,
-                                                                            60, 30, 60 });
+                                                                            32, 30, 60 });
     parms.set_coeff_modulus(coeff_modulus);
     parms.set_plain_modulus(params.q);
 
@@ -1835,7 +1831,7 @@ void GOMR2_FG() {
     NTL::SetNumThreads(numcores);
     SecretKey secret_key_blank;
 
-    chrono::high_resolution_clock::time_point time_start, time_end;
+    chrono::high_resolution_clock::time_point time_start, time_end, load_start, load_end;
     chrono::microseconds time_diff;
     time_start = chrono::high_resolution_clock::now();
 
@@ -1849,7 +1845,11 @@ void GOMR2_FG() {
         while(j < numOfTransactions/numcores/poly_modulus_degree) {
             if (!i)
                 cout << "Phase 1, Core " << i << ", Batch " << j << endl;
+            load_start = chrono::high_resolution_clock::now();
             vector<vector<int>> fgClues = loadFixedGroupClues(counter[i], counter[i]+poly_modulus_degree, params);
+            load_end = chrono::high_resolution_clock::now();
+            cout << "Load total time: " << chrono::duration_cast<chrono::microseconds>(load_end - load_start).count() << endl;
+
             packedSICfromPhase1[i][j] = serverOperations1obtainPackedSICWithFixedGroupClue(fgClues, switchingKey, relin_keys, gal_keys,
                                                             poly_modulus_degree, context, params, poly_modulus_degree, partial_size_glb);
             j++;

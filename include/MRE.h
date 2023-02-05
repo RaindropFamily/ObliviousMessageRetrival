@@ -165,7 +165,9 @@ namespace mre {
         ct.a = NativeVector(param.n + param.ell * (partySize + secure_extra_length_glb));
         ct.b = NativeVector(param.ell);
 
-        vector<vector<uint64_t>> b_prime(partySize, vector<uint64_t>(param.ell));
+        chrono::high_resolution_clock::time_point time_start, time_end;
+        time_start = chrono::high_resolution_clock::now();
+        vector<NativeVector> b_prime(partySize, NativeVector(param.ell));
         for(size_t i = 0; i < groupPK.partialPK.size(); i++){
             if (true) {
 	            for(int j = 0; j < (int) groupPK.partialPK[i].A1.GetLength(); j++) {
@@ -173,42 +175,38 @@ namespace mre {
                 }
                 for(int j = 0; j < param.ell; j++) {
                     ct.b[j].ModAddFastEq(groupPK.partialPK[i].b[j], q);
-                    // cout << "   " << groupPK.partialPK[i].b[j] << endl;
                 }
                 for (int j = 0; j < (int) groupPK.partialPK[i].b_prime.size(); j++) {
                     for (int l = 0; l < param.ell; l++) {
-                        b_prime[j][l] = (b_prime[j][l] + groupPK.partialPK[i].b_prime[j][l].ConvertToInt()) % param.q;
-                        b_prime[j][l] = b_prime[j][l] < 0 ? b_prime[j][l] + param.q : b_prime[j][l];
+                        b_prime[j][l].ModAddFastEq(groupPK.partialPK[i].b_prime[j][l], q);
                     }
                 }
             }
         }
+        time_end = chrono::high_resolution_clock::now();
+        // cout << "add: " << chrono::duration_cast<chrono::microseconds>(time_end - time_start).count() << endl;
 
-        vector<vector<int>> rhs(partySize), lhs(partySize), old_shared_sk(partySize);
-        vector<vector<vector<long>>> res(param.ell);
-        for (int i = 0; i < param.ell; i++) {
-            rhs.resize(partySize);
-            lhs.resize(partySize);
-            for (int p = 0; p < partySize; p++) {
-                rhs[p].resize(1);
-                rhs[p][0] = b_prime[p][i];
+        vector<vector<int>> rhs(partySize, vector<int>(param.ell)), lhs(partySize), old_shared_sk(partySize);
 
-                old_shared_sk[p].resize(partialSize);
-
-                for (int j = 0; j < partialSize; j++) {
-                    old_shared_sk[p][j] = groupPK.sharedSK[p][j].ConvertToInt();
-                }
+        for (int p = 0; p < partySize; p++) {
+            for (int i = 0; i < param.ell; i++) {
+                rhs[p][i] = b_prime[p][i].ConvertToInt();
             }
 
-            vector<vector<int>> extended_shared_sk = generateExponentialExtendedVector(param, old_shared_sk, partySize);
-            lhs = compressVector(param, exp_seed, extended_shared_sk);
-            res[i] = equationSolvingRandom(lhs, rhs, -1);
+            old_shared_sk[p].resize(partialSize);
+            for (int j = 0; j < partialSize; j++) {
+                old_shared_sk[p][j] = groupPK.sharedSK[p][j].ConvertToInt();
+            }
         }
+
+        vector<vector<int>> extended_shared_sk = generateExponentialExtendedVector(param, old_shared_sk, partySize);
+        lhs = compressVector(param, exp_seed, extended_shared_sk);
+        vector<vector<long>> res = equationSolvingRandomBatch(lhs, rhs, -1);
 
         for (int j = 0; j < param.ell * (partySize + secure_extra_length_glb); j++) {
             int ell_ind = j / (partySize + secure_extra_length_glb);
             int party_ind = j % (partySize + secure_extra_length_glb);
-            ct.a[j + param.n] = res[ell_ind][party_ind][0];
+            ct.a[j + param.n] = res[ell_ind][party_ind];
         }
 
         for(int j = 0; j < param.ell; j++){

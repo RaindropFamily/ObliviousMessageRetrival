@@ -226,6 +226,10 @@ vector<Ciphertext> computeEncryptedCompressedID(Ciphertext& enc_id, uint64_t *to
             cout << "batchLoadRandomSeeds time: " << chrono::duration_cast<chrono::microseconds>(time_end - time_start).count() << " us." << endl;
 
             unsigned char out[32];
+            unsigned char* input_buffer;
+            uint64_t input[2];
+            input[1] = 0;
+            int col_max = id_size_glb * party_size_glb, row_max = party_size_glb + secure_extra_length_glb;
             for (int j = it_ntt*batch_ntt_glb; j < (it_ntt+1)*batch_ntt_glb; j++) {
                 evaluator.transform_to_ntt(enc_id, enc_id_ntt);
                 for (int i = 0; i < tempCom_IdSize; i++) {
@@ -235,11 +239,13 @@ vector<Ciphertext> computeEncryptedCompressedID(Ciphertext& enc_id, uint64_t *to
                     for (int z_index = 0; z_index < (int) poly_modulus_degree_glb;z_index++) {
                         int row_index = (i + z_index) % tempCom_IdSize;
                         int col_index = (j + z_index) % tempExt_IdSize;
-                        if (row_index >= (party_size_glb + secure_extra_length_glb) || col_index >= id_size_glb * party_size_glb ||
+                        if (row_index >= row_max || col_index >= col_max ||
                             z_index < start || z_index >= end) {
                             vectorOfZ[z_index] = 0;
                         } else {//load the transpose
-                            AES_ecb_encrypt(counter_buffer_glb[col_index][row_index], out, &aes_keys[z_index], AES_ENCRYPT);
+                            input[0] = col_index * row_max + row_index;
+                            input_buffer = (unsigned char*)input;
+                            AES_ecb_encrypt(input_buffer, out, &aes_keys[z_index], AES_ENCRYPT);
                             vectorOfZ[z_index] = convertChar2Uint64(out, 8);
                         }
                     }
@@ -537,9 +543,14 @@ void computeBplusASPVWOptimizedWithFixedGroupClue(vector<Ciphertext>& output, co
         return;
     }
 
+    chrono::high_resolution_clock::time_point time_start, time_end;
+    uint64_t ntt_total = 0;
+    Ciphertext ntt_sk;
+
     vector<uint64_t> vectorOfInts(toPack.size());
     for (int i = 0; i < tempn_secret; i++) {
         for (int l = 0; l < param.ell; l++) {
+            evaluator.transform_to_ntt(switchingKey[l], ntt_sk);
             for (int j = 0; j < (int) toPack.size(); j++) {
                 int the_index = (i + j) % tempn_secret;
                 if (the_index >= secret_sk_size) {
@@ -551,13 +562,17 @@ void computeBplusASPVWOptimizedWithFixedGroupClue(vector<Ciphertext>& output, co
 
             Plaintext plaintext;
             batch_encoder.encode(vectorOfInts, plaintext);
-        
+            time_start = chrono::high_resolution_clock::now();
+            evaluator.transform_to_ntt_inplace(plaintext, ntt_sk.parms_id());
+            time_end = chrono::high_resolution_clock::now();
+            ntt_total += chrono::duration_cast<chrono::microseconds>(time_end - time_start).count();
+
             if (i == 0) {
-                evaluator.multiply_plain(switchingKey[l], plaintext, output[l]); // times s[i]
+                evaluator.multiply_plain(ntt_sk, plaintext, output[l]);
             }
             else {
                 Ciphertext temp;
-                evaluator.multiply_plain(switchingKey[l], plaintext, temp);
+                evaluator.multiply_plain(ntt_sk, plaintext, temp);
                 evaluator.add_inplace(output[l], temp);
             }
             // rotate one slot at a time
@@ -565,7 +580,9 @@ void computeBplusASPVWOptimizedWithFixedGroupClue(vector<Ciphertext>& output, co
         }
     }
 
+    Ciphertext ntt_shared;
     for (int i = 0; i < tempn_shared; i++) {
+        evaluator.transform_to_ntt(switchingKey[switchingKey.size() - 1], ntt_shared);
         for (int l = 0; l < param.ell; l++) {
             for (int j = 0; j < (int) toPack.size(); j++) {
                 int the_index = (i + j) % tempn_shared;
@@ -579,14 +596,21 @@ void computeBplusASPVWOptimizedWithFixedGroupClue(vector<Ciphertext>& output, co
 
             Plaintext plaintext;
             batch_encoder.encode(vectorOfInts, plaintext);
+            time_start = chrono::high_resolution_clock::now();
+            evaluator.transform_to_ntt_inplace(plaintext, ntt_shared.parms_id());
+            time_end = chrono::high_resolution_clock::now();
+            ntt_total += chrono::duration_cast<chrono::microseconds>(time_end - time_start).count();
         
             Ciphertext temp;
-            evaluator.multiply_plain(switchingKey[switchingKey.size() - 1], plaintext, temp);
+            evaluator.multiply_plain(ntt_shared, plaintext, temp);
             evaluator.add_inplace(output[l], temp);
         }
         evaluator.rotate_rows_inplace(switchingKey[switchingKey.size() - 1], 1, gal_keys);
     }
 
+    for (int e = 0; e < param.ell; e++) {
+        evaluator.transform_from_ntt_inplace(output[e]);
+    }
 
     for(int i = 0; i < param.ell; i++){
         vector<uint64_t> vectorOfInts(toPack.size());
@@ -600,6 +624,8 @@ void computeBplusASPVWOptimizedWithFixedGroupClue(vector<Ciphertext>& output, co
         evaluator.mod_switch_to_next_inplace(output[i]); 
     }
     MemoryManager::SwitchProfile(std::move(old_prof));
+
+    cout << "ntt transform for vector total: " << ntt_total << " us.\n";
 }
 
 

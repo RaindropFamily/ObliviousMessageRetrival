@@ -48,9 +48,14 @@ vector<vector<uint64_t>> generateRandomMatrixWithAES(const unsigned char *key, i
     unsigned char out[32];
     AES_KEY aes_key;
     AES_set_encrypt_key(key, 128, &aes_key);
+    unsigned char* input_buffer;
+    uint64_t input[2];
+    input[1] = 0;
     for (int i = 0; i < (int) random_matrix.size(); i++) {
         for (int j = 0; j < (int) random_matrix[0].size(); j++) {
-            AES_ecb_encrypt(counter_buffer_glb[i][j], out, &aes_key, AES_ENCRYPT);
+            input[0] = i * random_matrix[0].size() + j;
+            input_buffer = (unsigned char*)input;
+            AES_ecb_encrypt(input_buffer, out, &aes_key, AES_ENCRYPT);
             random_matrix[i][j] = convertChar2Uint64(out, 8);
         }
     }
