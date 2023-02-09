@@ -153,7 +153,7 @@ void decodeIndicesRandom_opt(map<int, pair<int, int>>& pertinentIndices, const v
         batch_encoder.decode(plain_result, plain_bucket);
         // cout << "plain bucket: -------------------- \n" << plain_bucket << endl << endl;
         
-        for(int j = 0; j < (int) poly_modulus_degree_glb / num_bucket_glb / slots_per_bucket; j++){ // iterate through all repetitions encryted in one ciphertext
+        for(int j = 0; j < (int) (poly_modulus_degree_glb / num_bucket_glb / slots_per_bucket); j++){ // iterate through all repetitions encryted in one ciphertext
             for(int k = 0; k < num_bucket_glb; k++) { // iterate through all buckets in one repetition
                 uint64_t pv_value = plain_bucket[j * slots_per_bucket * num_bucket_glb + (slots_per_bucket - 1) * num_bucket_glb + k]; // extract the counter value of this bucket
                 if ((int) pv_value > partySize) // trivially overflow
