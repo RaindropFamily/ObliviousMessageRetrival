@@ -185,12 +185,14 @@ void serverOperations2therest(Ciphertext& lhs, vector<vector<int>>& bipartite_ma
 }
 
 // Phase 2, retrieving for OMR3
-void serverOperations3therest(vector<Ciphertext>& lhsCounter, vector<vector<int>>& bipartite_map, Ciphertext& rhs,
+void serverOperations3therest(PVWsk& secret_key, vector<Ciphertext>& lhsCounter, vector<vector<int>>& bipartite_map, Ciphertext& rhs,
                         Ciphertext& packedSIC, const vector<vector<uint64_t>>& payload, const RelinKeys& relin_keys, const GaloisKeys& gal_keys, const PublicKey& public_key,
                         const size_t& degree, const SEALContext& context, const SEALContext& context2, const PVWParam& params, const int numOfTransactions, 
                         int& counter, int numberOfCt = 1, int partySize = 1, int slotPerBucket = 3, const int payloadSize = 306){
 
     Evaluator evaluator(context);
+    // Decryptor decryptor(context, secret_key);
+    // BatchEncoder batch_encoder(context);
 
     int step = 32;
     for(int i = counter; i < counter+numOfTransactions; i += step){
@@ -203,7 +205,8 @@ void serverOperations3therest(vector<Ciphertext>& lhsCounter, vector<vector<int>
                 evaluator.transform_to_ntt_inplace(expandedSIC[j]);
 
         // step 2. randomized retrieval
-        randomizedIndexRetrieval_opt(lhsCounter, expandedSIC, context, public_key, i, degree, repetition_glb, numberOfCt, 512, partySize, slotPerBucket);
+        randomizedIndexRetrieval_opt(lhsCounter, expandedSIC, context, public_key, i, degree,
+                                     repetition_glb, numberOfCt, num_bucket_glb, partySize, slotPerBucket);
         // step 3-4. multiply weights and pack them
         // The following two steps are for streaming updates
         vector<vector<Ciphertext>> payloadUnpacked;
@@ -255,7 +258,7 @@ vector<vector<long>> receiverDecodingOMR3(vector<Ciphertext>& lhsCounter, vector
                         int partySize = 1, int slot_per_bucket = 3, int seed = 3, const int payloadUpperBound = 306, const int payloadSize = 306){
     // 1. find pertinent indices
     map<int, pair<int, int>> pertinentIndices;
-    decodeIndicesRandom_opt(pertinentIndices, lhsCounter, 5, 512, degree, secret_key, context, partySize, slot_per_bucket);
+    decodeIndicesRandom_opt(pertinentIndices, lhsCounter, secret_key, context, partySize, slot_per_bucket);
     for (map<int, pair<int, int>>::iterator it = pertinentIndices.begin(); it != pertinentIndices.end(); it++)
     {
         cout << it->first << "," << it->second.second << "  ";

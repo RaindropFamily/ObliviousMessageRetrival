@@ -425,7 +425,13 @@ void GOMR2() {
     }
     bipartiteGraphWeightsGeneration(bipartite_map_glb, weights_glb, numOfTransactions, OMRthreeM, repeatition_glb, seed_glb);
 
-    int number_of_ct = ceil(repetition_glb * 4 * 512 / ((poly_modulus_degree_glb / 512 / 4 * 4 * 512) * 1.0));
+    // for 2048 (11 bit) messages, partySize = 16 (5 bit), we need 55/16 = 4 acc slots
+    int encode_bit = ceil(log2(party_size_glb + 1));
+    int index_bit = log2(numOfTransactions_glb);
+    int acc_slots = ceil(encode_bit * index_bit / (16.0));
+    cout << "Acc slots: " << encode_bit << " " << index_bit << " " << acc_slots << endl;
+    int number_of_ct = ceil(repetition_glb * (acc_slots+1) * num_bucket_glb / ((poly_modulus_degree_glb / num_bucket_glb / (acc_slots+1) * (acc_slots+1) * num_bucket_glb) * 1.0));
+    cout << "number of ct: " << number_of_ct << endl;
 
     NTL_EXEC_RANGE(numcores, first, last);
     for(int i = first; i < last; i++){
@@ -440,9 +446,10 @@ void GOMR2() {
             loadData(payload_multicore[i], counter[i], counter[i]+poly_modulus_degree);
             vector<Ciphertext> templhsctr;
             Ciphertext temprhs;
-            serverOperations3therest(templhsctr, bipartite_map[i], temprhs, packedSICfromPhase1[i][j], payload_multicore[i],
+
+            serverOperations3therest(sk, templhsctr, bipartite_map[i], temprhs, packedSICfromPhase1[i][j], payload_multicore[i],
                             relin_keys, gal_keys_next, public_key_last, poly_modulus_degree, context_next, context_last,
-                            params, poly_modulus_degree, counter[i], number_of_ct, party_size_glb, 4);
+                            params, poly_modulus_degree, counter[i], number_of_ct, party_size_glb, acc_slots+1);
 
             if(j == 0){
                 lhs_multi_ctr[i] = templhsctr;
@@ -489,8 +496,8 @@ void GOMR2() {
     // step 5. receiver decoding
     bipartiteGraphWeightsGeneration(bipartite_map_glb, weights_glb, numOfTransactions, OMRthreeM, repeatition_glb, seed_glb);
     time_start = chrono::high_resolution_clock::now();
-    auto res = receiverDecodingOMR3(lhs_multi_ctr[0], bipartite_map[0], rhs_multi[0],
-                        poly_modulus_degree, secret_key, context, numOfTransactions, party_size_glb, 4);
+    auto res = receiverDecodingOMR3(lhs_multi_ctr[0], bipartite_map[0], rhs_multi[0], poly_modulus_degree, secret_key, context,
+                                    numOfTransactions, party_size_glb, acc_slots+1);
     time_end = chrono::high_resolution_clock::now();
     time_diff = chrono::duration_cast<chrono::microseconds>(time_end - time_start);
     cout << "\nRecipient running time: " << time_diff.count() << "us." << "\n";
@@ -911,7 +918,7 @@ void GOMR2_ObliviousMultiplexer() {
     }
     bipartiteGraphWeightsGeneration(bipartite_map_glb, weights_glb, numOfTransactions, OMRthreeM, repeatition_glb, seed_glb);
 
-    int number_of_ct = ceil(repetition_glb * 3 * 512 / ((poly_modulus_degree_glb / 512 / 3 * 3 * 512) * 1.0));
+    int number_of_ct = ceil(repetition_glb * 3 * num_bucket_glb / ((poly_modulus_degree_glb / num_bucket_glb / 3 * 3 * num_bucket_glb) * 1.0));
 
     NTL_EXEC_RANGE(numcores, first, last);
     for (int i = first; i < last; i++) {
@@ -926,7 +933,7 @@ void GOMR2_ObliviousMultiplexer() {
             loadData(payload_multicore[i], counter[i], counter[i]+poly_modulus_degree);
             vector<Ciphertext> templhsctr;
             Ciphertext temprhs;
-            serverOperations3therest(templhsctr, bipartite_map[i], temprhs, packedSICfromPhase1[i][j], payload_multicore[i],
+            serverOperations3therest(sk, templhsctr, bipartite_map[i], temprhs, packedSICfromPhase1[i][j], payload_multicore[i],
                             relin_keys, gal_keys_next, public_key_last, poly_modulus_degree, context_next, context_last,
                             params, poly_modulus_degree, counter[i], number_of_ct);
 
@@ -1405,7 +1412,7 @@ void GOMR2_ObliviousMultiplexer_BFV() {
     }
     bipartiteGraphWeightsGeneration(bipartite_map_glb, weights_glb, numOfTransactions, OMRthreeM, repeatition_glb, seed_glb);
 
-    int number_of_ct = ceil(repetition_glb * 3 * 512 / ((poly_modulus_degree_glb / 512 / 3 * 3 * 512) * 1.0));
+    int number_of_ct = ceil(repetition_glb * 3 * num_bucket_glb / ((poly_modulus_degree_glb / num_bucket_glb / 3 * 3 * num_bucket_glb) * 1.0));
 
     NTL_EXEC_RANGE(numcores, first, last);
     for (int i = first; i < last; i++) {
@@ -1420,7 +1427,7 @@ void GOMR2_ObliviousMultiplexer_BFV() {
             loadData(payload_multicore[i], counter[i], counter[i]+poly_modulus_degree);
             vector<Ciphertext> templhsctr;
             Ciphertext temprhs;
-            serverOperations3therest(templhsctr, bipartite_map[i], temprhs, packedSICfromPhase1[i][j], payload_multicore[i],
+            serverOperations3therest(sk, templhsctr, bipartite_map[i], temprhs, packedSICfromPhase1[i][j], payload_multicore[i],
                             relin_keys, gal_keys_next, public_key_last, poly_modulus_degree, context_next, context_last,
                             params, poly_modulus_degree, counter[i], number_of_ct);
 
@@ -1870,7 +1877,7 @@ void GOMR2_FG() {
     }
     bipartiteGraphWeightsGeneration(bipartite_map_glb, weights_glb, numOfTransactions, OMRthreeM, repeatition_glb, seed_glb);
 
-    int number_of_ct = ceil(repetition_glb * 3 * 512 / ((poly_modulus_degree_glb / 512 / 3 * 3 * 512) * 1.0));
+    int number_of_ct = ceil(repetition_glb * 3 * num_bucket_glb / ((poly_modulus_degree_glb / num_bucket_glb / 3 * 3 * num_bucket_glb) * 1.0));
 
     NTL_EXEC_RANGE(numcores, first, last);
     for (int i = first; i < last; i++) {
@@ -1885,9 +1892,10 @@ void GOMR2_FG() {
             loadData(payload_multicore[i], counter[i], counter[i]+poly_modulus_degree);
             vector<Ciphertext> templhsctr;
             Ciphertext temprhs;
-            serverOperations3therest(templhsctr, bipartite_map[i], temprhs, packedSICfromPhase1[i][j], payload_multicore[i],
+
+            serverOperations3therest(secret_sk, templhsctr, bipartite_map[i], temprhs, packedSICfromPhase1[i][j], payload_multicore[i],
                             relin_keys, gal_keys_next, public_key_last, poly_modulus_degree, context_next, context_last,
-                            params, poly_modulus_degree, counter[i], number_of_ct);
+                            params, numOfTransactions_glb, counter[i], number_of_ct, 4);
 
             if (j == 0) {
                 lhs_multi_ctr[i] = templhsctr;

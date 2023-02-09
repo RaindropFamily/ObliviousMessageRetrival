@@ -542,7 +542,7 @@ void OMR3(){
             loadData(payload_multicore[i], counter[i], counter[i]+poly_modulus_degree);
             vector<Ciphertext> templhsctr;
             Ciphertext temprhs;
-            serverOperations3therest(templhsctr, bipartite_map[i], temprhs,
+            serverOperations3therest(sk, templhsctr, bipartite_map[i], temprhs,
                             packedSICfromPhase1[i][j], payload_multicore[i], relin_keys, gal_keys_next, public_key_last,
                             poly_modulus_degree, context_next, context_last, params, poly_modulus_degree, counter[i], number_of_ct);
             if(j == 0) {

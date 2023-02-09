@@ -8,18 +8,19 @@ using namespace seal;
 #define PROFILE
 
 // consider index = 010100, partySize = 3, pv_value = 1, the final output would be 110
-// as each ceil(log2(partySize)) - bits will be mapped back to a single bit {1,0}
-// if any ceil(log2(partySize)) - bits pattern does not match the pv_value, collision detected
+// as each ceil(log2(partySize+1)) - bits will be mapped back to a single bit {1,0}
+// if any ceil(log2(partySize+1)) - bits pattern does not match the pv_value, collision detected
 int extractIndexWithoutCollision(uint64_t index, int partySize, int pv_value) {
     int res = 0, counter = 0;
 
     while (index) {
-        if (index & max(1, (int) (ceil(log2(partySize)) - 1))) {
+        if (index & max(1, (int) (ceil(log2(partySize+1))))) {
             res += 1 << counter;
-            if (((int) index & (int) max(1, (int) (ceil(log2(partySize)) - 1))) != pv_value)
+            // cout << "--> res: " << res << endl;
+            if (((int) index & (int) max(1, (int) (ceil(log2(partySize+1))))) != pv_value)
                 return -1;
         }
-        index = index >> max(1, (int) (ceil(log2(partySize))));
+        index = index >> max(1, (int) (ceil(log2(partySize+1))));
         counter++;
     }
     return res;
@@ -130,38 +131,39 @@ void decodeIndicesRandom(map<int, pair<int, int>>& pertinentIndices, const vecto
 }
 
 // Randomized decoding for OMR optimized
-// decodeIndicesRandom_opt(pertinentIndices, lhsCounter, 5, 512, degree, secret_key, context);
-void decodeIndicesRandom_opt(map<int, pair<int, int>>& pertinentIndices, const vector<Ciphertext>& buckets, size_t C, size_t num_buckets,
-                             const size_t& degree, const SecretKey& secret_key, const SEALContext& context, int partySize = 1,
-                             size_t slots_per_bucket = 3){
+void decodeIndicesRandom_opt(map<int, pair<int, int>>& pertinentIndices, const vector<Ciphertext>& buckets, const SecretKey& secret_key,
+                             const SEALContext& context, int partySize = 1, size_t slots_per_bucket = 3){
     Decryptor decryptor(context, secret_key);
     BatchEncoder batch_encoder(context);
 
     int counter = 0, detectedSum = 0;
     int pvSumOfPertinentMsg = 0;
-    vector<uint64_t> countertemp(degree);
+    vector<uint64_t> countertemp(poly_modulus_degree_glb);
     Plaintext plain_result;
     decryptor.decrypt(buckets[0], plain_result);
     batch_encoder.decode(plain_result, countertemp);
-    for(size_t i = (slots_per_bucket - 1) * num_buckets; i < slots_per_bucket * num_buckets; i++){
+    for(size_t i = (slots_per_bucket - 1) * num_bucket_glb; i < slots_per_bucket * num_bucket_glb; i++){
         pvSumOfPertinentMsg += countertemp[i]; // first sumup the pv_values for all pertinent messages
+        // if (countertemp[i] == 1) cout << "got one!! " << i << endl;
     }
 
-    for(size_t i = 0; i < buckets.size(); i++){
-        vector<uint64_t> plain_bucket(degree);
+    for(size_t i = 0; i < buckets.size(); i++){ // iterate through all ciphertexts
+        vector<uint64_t> plain_bucket(poly_modulus_degree_glb);
         decryptor.decrypt(buckets[i], plain_result);
         batch_encoder.decode(plain_result, plain_bucket);
+        // cout << "plain bucket: -------------------- \n" << plain_bucket << endl << endl;
         
-        for(size_t j = 0; j < degree / num_buckets / slots_per_bucket; j++){
-            for(size_t k = 0; k < num_buckets; k++){
-                uint64_t pv_value = plain_bucket[k + (slots_per_bucket - 1) * num_buckets + j * slots_per_bucket * num_buckets];
-                if ((int) pv_value > partySize)
+        for(size_t j = 0; j < poly_modulus_degree_glb / num_bucket_glb / slots_per_bucket; j++){ // iterate through all repetitions encryted in one ciphertext
+            for(size_t k = 0; k < num_bucket_glb; k++) { // iterate through all buckets in one repetition
+                uint64_t pv_value = plain_bucket[j * slots_per_bucket * num_bucket_glb + (slots_per_bucket - 1) * num_bucket_glb + k]; // extract the counter value of this bucket
+                if ((int) pv_value > partySize) // trivially overflow
                     continue;
                 if (pv_value >= 1) {
                     uint64_t index = 0;
                     for (int s = 0; s < (int) (slots_per_bucket-1); s++) {
-                        index = index * 65537 + plain_bucket[k + s * num_buckets + j * slots_per_bucket * num_buckets];
+                        index = index * 65537 + plain_bucket[j * slots_per_bucket * num_bucket_glb + s * num_bucket_glb + k];
                     }
+                    // cout << "index: " << index << endl;
                     int real_index = extractIndexWithoutCollision(index, partySize, pv_value);
                     if(real_index != -1 && pertinentIndices.find(real_index) == pertinentIndices.end())
                     {
@@ -179,6 +181,11 @@ void decodeIndicesRandom_opt(map<int, pair<int, int>>& pertinentIndices, const v
     if(detectedSum != pvSumOfPertinentMsg)
     {
         cerr << "Overflow: detected pv sum: " << detectedSum << " less than expected: " << pvSumOfPertinentMsg << endl;
+        for (map<int, pair<int, int>>::iterator it = pertinentIndices.begin(); it != pertinentIndices.end(); it++)
+        {
+            cout << it->first << "," << it->second.second << "  ";
+        }
+        cout << std::endl;
         exit(1);
     }
 }

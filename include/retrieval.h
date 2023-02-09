@@ -122,7 +122,7 @@ size_t encodeIndexWithPartySize(size_t index, int partySize)
 {
     size_t res = 0;
     int counter = 0;
-    int shift = max(1, (int) ceil(log2(partySize))); // to fit in partySize
+    int shift = max(1, (int) ceil(log2(partySize+1))); // to fit in partySize
 
     while (index) {
         res += (index & 1) << (shift * counter);
@@ -174,21 +174,21 @@ void randomizedIndexRetrieval_opt(vector<Ciphertext>& buckets, vector<Ciphertext
         Ciphertext temp;
         for(size_t j = 0; j < C; j++){
             size_t index = dist(engine);
-            index += (j * slots_per_bucket * num_buckets); // 2 slots allow 65537^2 total messages
-            size_t the_scalar_mtx = index / (degree / num_buckets / slots_per_bucket * num_buckets * slots_per_bucket);
-            index %= (degree / num_buckets / slots_per_bucket * num_buckets * slots_per_bucket);
+            index += (j * slots_per_bucket * num_buckets); // point to the current buckets head for this iteration in the repetition process 
+            size_t the_scalar_mtx = index / (degree / num_buckets / slots_per_bucket * num_buckets * slots_per_bucket); // indicate which ciphertext this is
+            index %= (degree / num_buckets / slots_per_bucket * num_buckets * slots_per_bucket); // and which slot in this ciphertext
 
             size_t encoded_counter = encodeIndexWithPartySize(counter, partySize);
-            size_t base_value = encoded_counter / 65537;
-            for (int s = 0; s < (int) (slots_per_bucket - 3); s++) {
-                pod_matrices[the_scalar_mtx][index + (slots_per_bucket - 3 - s) * num_buckets] = base_value % 65537;
-                base_value /= 65537;
+            for (int s = 0; s < (int) (slots_per_bucket - 1); s++) {
+                pod_matrices[the_scalar_mtx][index + (slots_per_bucket - 2 - s) * num_buckets] = encoded_counter % 65537;
+                encoded_counter /= 65537;
             }
-            pod_matrices[the_scalar_mtx][index] = base_value;
-            pod_matrices[the_scalar_mtx][index + (slots_per_bucket - 2) * num_buckets] = encoded_counter % 65537;
-
             pod_matrices[the_scalar_mtx][index + (slots_per_bucket - 1) * num_buckets] = 1;
+            // if (counter == 0) cout << slots_per_bucket << " " << index << " " << index + (slots_per_bucket - 2) * num_buckets << " " << index + (slots_per_bucket - 1) * num_buckets << endl;
+
         }
+        // if (counter == 0) cout << "Counter 0: " << pod_matrices << endl;
+        // if (counter == 23) cout << "Counter 23: " << pod_matrices << endl;
 
         for(size_t j = 0; j < C_prime; j++){
             Plaintext plain_matrix;
