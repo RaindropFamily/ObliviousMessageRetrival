@@ -142,19 +142,19 @@ void decodeIndicesRandom_opt(map<int, pair<int, int>>& pertinentIndices, const v
     Plaintext plain_result;
     decryptor.decrypt(buckets[0], plain_result);
     batch_encoder.decode(plain_result, countertemp);
-    for(size_t i = (slots_per_bucket - 1) * num_bucket_glb; i < slots_per_bucket * num_bucket_glb; i++){
+    for(int i = (slots_per_bucket - 1) * num_bucket_glb; i < slots_per_bucket * num_bucket_glb; i++){
         pvSumOfPertinentMsg += countertemp[i]; // first sumup the pv_values for all pertinent messages
         // if (countertemp[i] == 1) cout << "got one!! " << i << endl;
     }
 
-    for(size_t i = 0; i < buckets.size(); i++){ // iterate through all ciphertexts
+    for(int i = 0; i < buckets.size(); i++){ // iterate through all ciphertexts
         vector<uint64_t> plain_bucket(poly_modulus_degree_glb);
         decryptor.decrypt(buckets[i], plain_result);
         batch_encoder.decode(plain_result, plain_bucket);
         // cout << "plain bucket: -------------------- \n" << plain_bucket << endl << endl;
         
-        for(size_t j = 0; j < poly_modulus_degree_glb / num_bucket_glb / slots_per_bucket; j++){ // iterate through all repetitions encryted in one ciphertext
-            for(size_t k = 0; k < num_bucket_glb; k++) { // iterate through all buckets in one repetition
+        for(int j = 0; j < poly_modulus_degree_glb / num_bucket_glb / slots_per_bucket; j++){ // iterate through all repetitions encryted in one ciphertext
+            for(int k = 0; k < num_bucket_glb; k++) { // iterate through all buckets in one repetition
                 uint64_t pv_value = plain_bucket[j * slots_per_bucket * num_bucket_glb + (slots_per_bucket - 1) * num_bucket_glb + k]; // extract the counter value of this bucket
                 if ((int) pv_value > partySize) // trivially overflow
                     continue;

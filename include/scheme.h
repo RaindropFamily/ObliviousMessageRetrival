@@ -195,7 +195,7 @@ namespace fgomr
         Plaintext plaintext;
         // generate the encrypted secret SK
         for (int j = 0; j < params.ell; j++) {
-            for (int i = 0; i < degree; i++) {
+            for (int i = 0; i < (int) degree; i++) {
                 int tempindex = i % tempn_secret;
                 if (tempindex >= a1_size) {
                     skInt[i] = 0;
@@ -209,7 +209,7 @@ namespace fgomr
         }
 
         // generate the encrypted shared SK
-        for (int i = 0; i < degree; i++) {
+        for (int i = 0; i < (int) degree; i++) {
             int tempIndex = i % tempn_shared;
             if (tempIndex >= a2_size) {
                 skInt[i] = 0;
