@@ -276,7 +276,7 @@ void GOMR2() {
 
     // step 2. prepare transactions
     vector<int> pertinentMsgIndices;
-    auto expected = preparingTransactionsFormal(pertinentMsgIndices, pk, numOfTransactions, num_of_pertinent_msgs_glb, params, party_size_glb);
+    vector<vector<uint64_t>> expected = preparingTransactionsFormal(pertinentMsgIndices, pk, numOfTransactions, num_of_pertinent_msgs_glb, params, party_size_glb);
     cout << expected.size() << " pertinent msg: Finishing preparing messages\n";
 
     // step 3. generate detection key
@@ -1277,7 +1277,7 @@ void GOMR2_ObliviousMultiplexer_BFV() {
     auto coeff_modulus = CoeffModulus::Create(poly_modulus_degree, { 28,
                                                                             60, 60, 60, 60, 60,
                                                                             60, 60, 60, 60, 60, 60,
-                                                                            60, 60, 60 });
+                                                                            30, 60, 60 });
     parms.set_coeff_modulus(coeff_modulus);
     parms.set_plain_modulus(65537);
 

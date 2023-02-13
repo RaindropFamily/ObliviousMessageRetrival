@@ -10,17 +10,17 @@ using namespace seal;
 // consider index = 010100, partySize = 3, pv_value = 1, the final output would be 110
 // as each ceil(log2(partySize+1)) - bits will be mapped back to a single bit {1,0}
 // if any ceil(log2(partySize+1)) - bits pattern does not match the pv_value, collision detected
-int extractIndexWithoutCollision(uint64_t index, int partySize, int pv_value) {
+int extractIndexWithoutCollision(uint128_t index, int partySize, int pv_value) {
     int res = 0, counter = 0;
 
     while (index) {
         if (index & max(1, (int) (ceil(log2(partySize+1))))) {
             res += 1 << counter;
             // cout << "--> res: " << res << endl;
-            if (((int) index & (int) max(1, (int) (ceil(log2(partySize+1))))) != pv_value)
+            if ((index & (int) max(1, (int) (ceil(log2(partySize+1))))) != pv_value)
                 return -1;
         }
-        index = index >> max(1, (int) (ceil(log2(partySize+1))));
+        index = (uint128_t) (index >> max(1, (int) (ceil(log2(partySize+1)))));
         counter++;
     }
     return res;
@@ -143,15 +143,13 @@ void decodeIndicesRandom_opt(map<int, pair<int, int>>& pertinentIndices, const v
     decryptor.decrypt(buckets[0], plain_result);
     batch_encoder.decode(plain_result, countertemp);
     for(int i = (slots_per_bucket - 1) * num_bucket_glb; i < (int) slots_per_bucket * num_bucket_glb; i++){
-        pvSumOfPertinentMsg += countertemp[i]; // first sumup the pv_values for all pertinent messages
-        // if (countertemp[i] == 1) cout << "got one!! " << i << endl;
+        pvSumOfPertinentMsg += countertemp[i]; // first sum up the pv_values for all pertinent messages
     }
 
     for(int i = 0; i < (int) buckets.size(); i++){ // iterate through all ciphertexts
         vector<uint64_t> plain_bucket(poly_modulus_degree_glb);
         decryptor.decrypt(buckets[i], plain_result);
         batch_encoder.decode(plain_result, plain_bucket);
-        // cout << "plain bucket: -------------------- \n" << plain_bucket << endl << endl;
         
         for(int j = 0; j < (int) (poly_modulus_degree_glb / num_bucket_glb / slots_per_bucket); j++){ // iterate through all repetitions encryted in one ciphertext
             for(int k = 0; k < num_bucket_glb; k++) { // iterate through all buckets in one repetition
@@ -159,11 +157,10 @@ void decodeIndicesRandom_opt(map<int, pair<int, int>>& pertinentIndices, const v
                 if ((int) pv_value > partySize) // trivially overflow
                     continue;
                 if (pv_value >= 1) {
-                    uint64_t index = 0;
+                    uint128_t index = 0;
                     for (int s = 0; s < (int) (slots_per_bucket-1); s++) {
-                        index = index * 65537 + plain_bucket[j * slots_per_bucket * num_bucket_glb + s * num_bucket_glb + k];
+                        index = (uint128_t) (index * 65537 + plain_bucket[j * slots_per_bucket * num_bucket_glb + s * num_bucket_glb + k]);
                     }
-                    // cout << "index: " << index << endl;
                     int real_index = extractIndexWithoutCollision(index, partySize, pv_value);
                     if(real_index != -1 && pertinentIndices.find(real_index) == pertinentIndices.end())
                     {

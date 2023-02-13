@@ -118,14 +118,13 @@ void randomizedIndexRetrieval(vector<vector<Ciphertext>>& indexIndicator, vector
 // consider partySize = 3, index = 6 = 110 in binary representation
 // the encoded output would be 010100, as each single bit in the original representation
 // will be expanded into ceil(log2(partySize)) - bits
-size_t encodeIndexWithPartySize(size_t index, int partySize)
-{
-    size_t res = 0;
+uint128_t encodeIndexWithPartySize(size_t index, int partySize) {
+    uint128_t res = 0;
     int counter = 0;
     int shift = max(1, (int) ceil(log2(partySize+1))); // to fit in partySize
 
     while (index) {
-        res += (index & 1) << (shift * counter);
+        res += (uint128_t) (index & 1) << (shift * counter);
         counter++;
         index = index>>1;
     }
@@ -178,17 +177,13 @@ void randomizedIndexRetrieval_opt(vector<Ciphertext>& buckets, vector<Ciphertext
             size_t the_scalar_mtx = index / (degree / num_buckets / slots_per_bucket * num_buckets * slots_per_bucket); // indicate which ciphertext this is
             index %= (degree / num_buckets / slots_per_bucket * num_buckets * slots_per_bucket); // and which slot in this ciphertext
 
-            size_t encoded_counter = encodeIndexWithPartySize(counter, partySize);
+            uint128_t encoded_counter = encodeIndexWithPartySize(counter, partySize);
             for (int s = 0; s < (int) (slots_per_bucket - 1); s++) {
                 pod_matrices[the_scalar_mtx][index + (slots_per_bucket - 2 - s) * num_buckets] = encoded_counter % 65537;
-                encoded_counter /= 65537;
+                encoded_counter = (uint128_t) (encoded_counter / 65537);
             }
             pod_matrices[the_scalar_mtx][index + (slots_per_bucket - 1) * num_buckets] = 1;
-            // if (counter == 0) cout << slots_per_bucket << " " << index << " " << index + (slots_per_bucket - 2) * num_buckets << " " << index + (slots_per_bucket - 1) * num_buckets << endl;
-
         }
-        // if (counter == 0) cout << "Counter 0: " << pod_matrices << endl;
-        // if (counter == 23) cout << "Counter 23: " << pod_matrices << endl;
 
         for(size_t j = 0; j < C_prime; j++){
             Plaintext plain_matrix;
