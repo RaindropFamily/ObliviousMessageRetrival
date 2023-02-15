@@ -14,13 +14,16 @@ int extractIndexWithoutCollision(uint128_t index, int partySize, int pv_value) {
     int res = 0, counter = 0;
 
     while (index) {
-        if (index & max(1, (int) (ceil(log2(partySize+1))))) {
+        // if (index & max(1, (int) (ceil(log2(partySize+1))))) {
+        if (index & 1) {
             res += 1 << counter;
             // cout << "--> res: " << res << endl;
-            if ((index & (int) max(1, (int) (ceil(log2(partySize+1))))) != pv_value)
+            // if ((index & (int) max(1, (int) (ceil(log2(partySize+1))))) != pv_value)
+            if ((index & 1) != pv_value)
                 return -1;
         }
         index = (uint128_t) (index >> max(1, (int) (ceil(log2(partySize+1)))));
+        // printf("%llx\n", (unsigned long long)(index & 0xFFFFFFFFFFFFFFFF));
         counter++;
     }
     return res;

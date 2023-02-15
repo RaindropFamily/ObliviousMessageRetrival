@@ -352,8 +352,6 @@ void computeBplusASPVWOptimizedWithCluePoly(vector<Ciphertext>& output, vector<C
                     }
                 }
 
-                // cout << "vectorOfA: " << id_index << " -- \n" << vectorOfA << endl;
-
                 // use the last switchingKey encrypting targetId with extended id_size_glbid-size as one unit, and rotate
                 Plaintext plaintext;
                 batch_encoder.encode(vectorOfA, plaintext);
@@ -402,6 +400,7 @@ void computeBplusASPVWOptimizedWithCluePoly(vector<Ciphertext>& output, vector<C
     cout << "Average ntt plain multi: " << ntt_total.count() / tempn / tempId << endl;
     cout << "Average ciphertext multi: " << ct_total.count() / tempn / param.ell << endl;
     cout << "Average ciphertext multi2: " << ct_total2.count() / tempn / param.ell << endl;
+
     // multiply (encrypted Id) with ell different (clue poly for b)
     vector<Ciphertext> b_parts(param.ell);
     for (int it_cm = 0; it_cm < iteration_cm; it_cm++) {

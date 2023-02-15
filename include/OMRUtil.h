@@ -185,14 +185,12 @@ void serverOperations2therest(Ciphertext& lhs, vector<vector<int>>& bipartite_ma
 }
 
 // Phase 2, retrieving for OMR3
-void serverOperations3therest(PVWsk& secret_key, vector<Ciphertext>& lhsCounter, vector<vector<int>>& bipartite_map, Ciphertext& rhs,
+void serverOperations3therest(vector<Ciphertext>& lhsCounter, vector<vector<int>>& bipartite_map, Ciphertext& rhs,
                         Ciphertext& packedSIC, const vector<vector<uint64_t>>& payload, const RelinKeys& relin_keys, const GaloisKeys& gal_keys, const PublicKey& public_key,
                         const size_t& degree, const SEALContext& context, const SEALContext& context2, const PVWParam& params, const int numOfTransactions, 
                         int& counter, int numberOfCt = 1, int partySize = 1, int slotPerBucket = 3, const int payloadSize = 306){
 
     Evaluator evaluator(context);
-    // Decryptor decryptor(context, secret_key);
-    // BatchEncoder batch_encoder(context);
 
     int step = 32;
     for(int i = counter; i < counter+numOfTransactions; i += step){
@@ -506,7 +504,7 @@ bool verify(unsigned char* expected_key, const PVWParam& params, const vector<in
 
     vector<vector<int>> ids(1);
     ids[0] = extended_id;
-    vector<vector<int>> compressed_id = compressVectorByAES(params, key, ids, party_size_glb + secure_extra_length_glb, true);
+    vector<vector<int>> compressed_id = compressVectorByAES(params, key, ids, party_size_glb + secure_extra_length_glb);
 
     vector<vector<long>> cluePolynomial(params.n + params.ell, vector<long>(compressed_id[0].size()));
     vector<long> res(params.n + params.ell, 0);
@@ -555,10 +553,9 @@ vector<vector<uint64_t>> preparingGroupCluePolynomial(vector<int>& pertinentMsgI
 
     for(int i = 0; i < numOfTransactions; i++) {
         vector<PVWsk> impert_sk(party_size_glb);
-        vector<PVWpk> impert_pk(party_size_glb);
+        vector<PVWpk> impert_pk(party_size_glb-1);
         for (int p = 0; p < party_size_glb; p++) {
             impert_sk[p] = PVWGenerateSecretKey(params);
-            impert_pk[p] = PVWGeneratePublicKey(params, impert_sk[p]);
         }
 
         while (true) {
@@ -569,6 +566,9 @@ vector<vector<uint64_t>> preparingGroupCluePolynomial(vector<int>& pertinentMsgI
                 check = true;
                 ids = initializeRecipientId(params, party_size_glb - 1, id_size_glb);
                 ids.push_back(targetId);
+                for (int p = 0; p < party_size_glb-1; p++) {
+                    impert_pk[p] = PVWGeneratePublicKey(params, impert_sk[p]);
+                }
             } else {
                 ids = initializeRecipientId(params, party_size_glb, id_size_glb);
             }

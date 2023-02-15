@@ -6,7 +6,6 @@
 
 using namespace seal;
 
-
 int main() {
     cout << "+------------------------------------+" << endl;
     cout << "| Demos                              |" << endl;
