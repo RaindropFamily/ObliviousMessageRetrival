@@ -497,13 +497,13 @@ vector<vector<int>> initializeRecipientId(const PVWParam& params, int partySize,
  * @param prepare if the encrypted version of ID is sent, prepare = true, and we minus q/4 beforehand for b since message = 1
  * @return true/false
  */
-bool verify(unsigned char* expected_key, const PVWParam& params, const vector<int>& extended_id, int index, int partySize = party_size_glb, bool prepare = false) {
+bool verify(unsigned char* expected_key, const PVWParam& params, const vector<int>& id, int index, int partySize = party_size_glb, bool prepare = false) {
     vector<uint64_t> polyFlat = loadDataSingle(index, "cluePoly", (params.n + params.ell) * (partySize + secure_extra_length_glb));
     unsigned char* key = (unsigned char *) malloc(sizeof(unsigned char) * AES_KEY_SIZE);
     loadSingleAESKey(key, index);
 
     vector<vector<int>> ids(1);
-    ids[0] = extended_id;
+    ids[0] = id;
     vector<vector<int>> compressed_id = compressVectorByAES(params, key, ids, party_size_glb + secure_extra_length_glb);
 
     vector<vector<long>> cluePolynomial(params.n + params.ell, vector<long>(compressed_id[0].size()));
@@ -586,8 +586,7 @@ vector<vector<uint64_t>> preparingGroupCluePolynomial(vector<int>& pertinentMsgI
                 }
             }
 
-            vector<vector<int>> extended_ids = generateExponentialExtendedVector(params, ids, partySize);
-            vector<vector<int>> compressed_ids = compressVectorByAES(params, key, extended_ids, party_size_glb + secure_extra_length_glb);
+            vector<vector<int>> compressed_ids = compressVectorByAES(params, key, ids, party_size_glb + secure_extra_length_glb);
 
             vector<vector<long>> cluePolynomial = agomr::generateClue(params, clues, compressed_ids, prepare);
             saveGroupClues(cluePolynomial, key, i);
@@ -595,7 +594,7 @@ vector<vector<uint64_t>> preparingGroupCluePolynomial(vector<int>& pertinentMsgI
 
             if (check) {
                 check = false;
-                if (verify(key, params, extended_ids[partySize-1], i, partySize, prepare)) {
+                if (verify(key, params, ids[partySize-1], i, partySize, prepare)) {
                     total_time += chrono::duration_cast<chrono::microseconds>(time_end - time_start).count();
                     break;
                 } else {
@@ -617,12 +616,6 @@ void verify_fg(const PVWParam& params, const PVWsk& target_secretSK, const mre::
 
     vector<int> targetCT = ct[0];
     cout << "targetCT: " << targetCT << endl;
-
-    vector<vector<int>> old_shared_sk(1, vector<int>(partial_size_glb));
-    for (int j = 0; j < partial_size_glb; j++) {
-        old_shared_sk[0][j] = target_sharedSK[j].ConvertToInt();
-    }
-    vector<vector<int>> extended_shared_sk = generateExponentialExtendedVector(params, old_shared_sk, party_size_glb);
     
     for (int l = 0; l < params.ell; l++) {
         long result = 0;
@@ -630,11 +623,11 @@ void verify_fg(const PVWParam& params, const PVWsk& target_secretSK, const mre::
             result = ( result + targetCT[i] * target_secretSK[l][i].ConvertToInt() ) % params.q;
             result = result < 0 ? result + params.q : result;
         }
-        for (int i = 0; i < partial_size_glb * party_size_glb; i++) {
-            result = ( result + targetCT[params.n + l * partial_size_glb * party_size_glb + i] * extended_shared_sk[0][i]) % params.q;
+        for (int i = 0; i < partial_size_glb; i++) {
+            result = ( result + targetCT[params.n + l * partial_size_glb + i] * target_sharedSK[i].ConvertToInt()) % params.q;
             result = result < 0 ? result + params.q : result;
         }
-        cout << "---> check: " << targetCT[params.n + params.ell * partial_size_glb * party_size_glb + l] << " , " << result + params.q/4 << endl;
+        cout << "---> check: " << targetCT[params.n + params.ell * partial_size_glb + l] << " , " << result + params.q/4 << endl;
     }
 }
 
@@ -652,7 +645,7 @@ vector<vector<uint64_t>> preparingMREGroupClue(vector<int>& pertinentMsgIndices,
 
     choosePertinentMsg(numOfTransactions, pertinentMsgNum, pertinentMsgIndices, seed);
 
-    prng_seed_type mreseed, expseed;
+    prng_seed_type mreseed, compress_seed;
     for (auto &i : mreseed) { // the seed to randomly sample A1, and b in secret key
         i = random_uint64();
     }
@@ -663,7 +656,7 @@ vector<vector<uint64_t>> preparingMREGroupClue(vector<int>& pertinentMsgIndices,
     for(int i = 0; i < numOfTransactions; i++){
         PVWCiphertext tempclue;
 
-        for (auto &i : expseed) { // the seed to perform exponential extension for the sharedSK
+        for (auto &i : compress_seed) { // the seed to perform exponential extension for the sharedSK
             i = random_uint64();
         }
         if (find(pertinentMsgIndices.begin(), pertinentMsgIndices.end(), i) != pertinentMsgIndices.end()) {
@@ -671,18 +664,18 @@ vector<vector<uint64_t>> preparingMREGroupClue(vector<int>& pertinentMsgIndices,
             gPK = fgomr::groupKeyGenAux(params, groupSK, mreseed);
 
             time_start = chrono::high_resolution_clock::now();
-            tempclue = fgomr::genClue(params, zeros, gPK, expseed);
+            tempclue = fgomr::genClue(params, zeros, gPK, compress_seed);
             time_end = chrono::high_resolution_clock::now();
             total_time += chrono::duration_cast<chrono::microseconds>(time_end - time_start).count();
 
             ret.push_back(loadDataSingle(i));
-            saveCluesWithRandomness(tempclue, i, expseed);
-            // verify_fg(params, target_secretSK, target_sharedSK);
+            saveCluesWithRandomness(tempclue, i, compress_seed);
+            verify_fg(params, target_secretSK, target_sharedSK);
         } else {
             auto non_pert_params = PVWParam(params.n + (partySize + secure_extra_length_glb) * params.ell, params.q, params.std_dev, params.m, params.ell);
             sk = PVWGenerateSecretKey(non_pert_params);
             PVWEncSK(tempclue, zeros, sk, non_pert_params);
-            saveCluesWithRandomness(tempclue, i, expseed);
+            saveCluesWithRandomness(tempclue, i, compress_seed);
         }  
     }
 

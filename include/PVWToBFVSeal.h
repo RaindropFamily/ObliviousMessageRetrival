@@ -191,8 +191,8 @@ vector<Ciphertext> computeEncryptedCompressedID(Ciphertext& enc_id, uint64_t *to
     time_end = chrono::high_resolution_clock::now();
     total_load += chrono::duration_cast<chrono::microseconds>(time_end - time_start).count();
 
-    int tempExt_IdSize = 1, tempCom_IdSize = 1;
-    for (; tempExt_IdSize < party_size_glb * id_size_glb; tempExt_IdSize *= 2) {}
+    int temp_IdSize = 1, tempCom_IdSize = 1;
+    for (; temp_IdSize < id_size_glb; temp_IdSize *= 2) {}
     for (; tempCom_IdSize < party_size_glb + secure_extra_length_glb; tempCom_IdSize *= 2) {}
 
     vector<Ciphertext> compressed_id_ntt(tempCom_IdSize);
@@ -203,7 +203,7 @@ vector<Ciphertext> computeEncryptedCompressedID(Ciphertext& enc_id, uint64_t *to
      * The reason why we batch process the encrypted id is to perform trade-off between local storage and
      * number of total multiplications needed.
      */
-    int iteration_ntt = ceil(tempExt_IdSize / batch_ntt_glb);
+    int iteration_ntt = ceil(temp_IdSize / batch_ntt_glb);
     int iteration_cm = ceil(poly_modulus_degree_glb / batch_cm_glb);
     Ciphertext enc_id_ntt;
 
@@ -229,7 +229,7 @@ vector<Ciphertext> computeEncryptedCompressedID(Ciphertext& enc_id, uint64_t *to
             unsigned char* input_buffer;
             uint64_t input[2];
             input[1] = 0;
-            int col_max = id_size_glb * party_size_glb, row_max = party_size_glb + secure_extra_length_glb;
+            int col_max = id_size_glb, row_max = party_size_glb + secure_extra_length_glb;
             for (int j = it_ntt*batch_ntt_glb; j < (it_ntt+1)*batch_ntt_glb; j++) {
                 evaluator.transform_to_ntt(enc_id, enc_id_ntt);
                 for (int i = 0; i < tempCom_IdSize; i++) {
@@ -238,7 +238,7 @@ vector<Ciphertext> computeEncryptedCompressedID(Ciphertext& enc_id, uint64_t *to
                     time_start = chrono::high_resolution_clock::now();
                     for (int z_index = 0; z_index < (int) poly_modulus_degree_glb;z_index++) {
                         int row_index = (i + z_index) % tempCom_IdSize;
-                        int col_index = (j + z_index) % tempExt_IdSize;
+                        int col_index = (j + z_index) % temp_IdSize;
                         if (row_index >= row_max || col_index >= col_max ||
                             z_index < start || z_index >= end) {
                             vectorOfZ[z_index] = 0;
@@ -340,7 +340,7 @@ void computeBplusASPVWOptimizedWithCluePoly(vector<Ciphertext>& output, vector<C
             Ciphertext partial_a;
             for (int id_index = 0; id_index < tempId; id_index++) {
                 vector<uint64_t> vectorOfA(poly_modulus_degree_glb);
-                // cluePoly[i][j] = cluePoly.size() x (id_size_glb * party_size_glb)
+                // cluePoly[i][j] = cluePoly.size() x (party_size_glb + secure_extra_length_glb)
                 // where, the row: newCluePoly[i] = i-th msg, (i + j) % tempn row of the original matrix
                 for (int j = 0; j < (int) poly_modulus_degree_glb; j++) {
                     int row_index = (j + i) % tempn;
@@ -464,7 +464,7 @@ void computeBplusASPVWOptimizedWithCluePoly(vector<Ciphertext>& output, vector<C
 
 // compute b - aSK with packed swk but also only requires one rot key
 void computeBplusASPVWOptimized(vector<Ciphertext>& output, const vector<PVWCiphertext>& toPack, vector<Ciphertext>& switchingKey, const GaloisKeys& gal_keys,
-        const SEALContext& context, const PVWParam& param, const int partialSize = partial_size_glb, const int partySize = party_size_glb) {
+                                const SEALContext& context, const PVWParam& param, const int partialSize = partial_size_glb, const int partySize = party_size_glb) {
     MemoryPoolHandle my_pool = MemoryPoolHandle::New(true);
     auto old_prof = MemoryManager::SwitchProfile(std::make_unique<MMProfFixed>(std::move(my_pool)));
 
@@ -525,12 +525,13 @@ void computeBplusASPVWOptimized(vector<Ciphertext>& output, const vector<PVWCiph
     MemoryManager::SwitchProfile(std::move(old_prof));
 }
 
-void computeBplusASPVWOptimizedWithFixedGroupClue(vector<Ciphertext>& output, const vector<vector<int>>& toPack, vector<Ciphertext>& switchingKey, const GaloisKeys& gal_keys,
-        const SEALContext& context, const PVWParam& param, const int partialSize = partial_size_glb, const int partySize = party_size_glb) {
+void computeBplusASPVWOptimizedWithFixedGroupClue(vector<Ciphertext>& output, const vector<vector<int>>& toPack, vector<Ciphertext>& switchingKey,
+                                                  const GaloisKeys& gal_keys, const SEALContext& context, const PVWParam& param,
+                                                  const int partialSize = partial_size_glb) {
     MemoryPoolHandle my_pool = MemoryPoolHandle::New(true);
     auto old_prof = MemoryManager::SwitchProfile(std::make_unique<MMProfFixed>(std::move(my_pool)));
 
-    int tempn_secret, tempn_shared, secret_sk_size = param.n, shared_sk_size = partialSize * partySize;
+    int tempn_secret, tempn_shared, secret_sk_size = param.n, shared_sk_size = partialSize;
     for(tempn_secret = 1; tempn_secret < secret_sk_size; tempn_secret*=2){}
     for(tempn_shared = 1; tempn_shared < shared_sk_size; tempn_shared*=2){}
 
@@ -588,7 +589,7 @@ void computeBplusASPVWOptimizedWithFixedGroupClue(vector<Ciphertext>& output, co
                 if (the_index >= shared_sk_size) {
                     vectorOfInts[j] = 0;
                 } else {// load extended_A part
-                    the_index += param.n + l * partialSize * partySize;
+                    the_index += param.n + l * partialSize;
                     vectorOfInts[j] = uint64_t((toPack[j][the_index]));
                 }
             }
@@ -614,7 +615,7 @@ void computeBplusASPVWOptimizedWithFixedGroupClue(vector<Ciphertext>& output, co
     for(int i = 0; i < param.ell; i++){
         vector<uint64_t> vectorOfInts(toPack.size());
         for(size_t j = 0; j < toPack.size(); j++){
-            vectorOfInts[j] = ((uint64_t)toPack[j][param.n + param.ell * partialSize * partySize + i] - (uint64_t)(param.q / 4)) % param.q;
+            vectorOfInts[j] = ((uint64_t)toPack[j][param.n + param.ell * partialSize + i] - (uint64_t)(param.q / 4)) % param.q;
         }
         Plaintext plaintext;
         batch_encoder.encode(vectorOfInts, plaintext);

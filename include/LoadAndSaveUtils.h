@@ -129,7 +129,7 @@ void loadData(vector<vector<uint64_t>>& msgs, const int& start, const int& end, 
 }
 
 
-void loadClues(vector<PVWCiphertext>& clues, const int& start, const int& end, const PVWParam& param, int party_ind = 0, int partySize = 1){
+void loadClues(vector<PVWCiphertext>& clues, const int& start, const int& end, const PVWParam& param, int party_ind = 0, int partySize = 1) {
     clues.resize(end-start);
     for(int i = start; i < end; i++){
         clues[i-start].a = NativeVector(param.n);
@@ -155,9 +155,9 @@ void loadClues(vector<PVWCiphertext>& clues, const int& start, const int& end, c
 
 /**
  * @brief For ObliviousMultiplexer, the clue includes ((param.n + param.ell) * party_size_glb + prng_seed_count) elements.
- * Different from loadData, this function load the cluePoly.txt into two separate data structures, one is the normal cluPoly CM of size (clue_length) x (party_size),
- * one is randomness, and then use the randomness to generate a random matrix R of size (party_size * id_size) x party_size.
- * The resulted matrix CM*R^T, of size (clue_length) x (party_size * id_size).
+ * Different from loadData, this function load the cluePoly.txt into two separate data structures, one is the normal cluPoly CM of size (clue_length) x (party_size + extra_secure_length),
+ * one is randomness, and then use the randomness to generate a random matrix R of size (id_size) x (party_size + extra_secure_length).
+ * The resulted matrix CM*R^T, of size (clue_length) x (party_size).
  * Different from loadObliviousMultiplexerClues, this one does not multiply the result with target Id, since the later one is encrypted.
  *
  * This function will save the processed matrix back to the file system
@@ -211,9 +211,10 @@ vector<vector<uint64_t>> loadOMClue_Randomness(const PVWParam& params, const int
 }
 
 
-vector<vector<int>> loadFixedGroupClues(const int& start, const int& end, const PVWParam& param, const int partySize = party_size_glb, const int partialSize = partial_size_glb){
+vector<vector<int>> loadFixedGroupClues(const int& start, const int& end, const PVWParam& param, const int partySize = party_size_glb,
+                                        const int partialSize = partial_size_glb) {
     vector<vector<int>> result(end-start);
-    int a1_size = param.n, old_a2_size = param.ell * (partySize + secure_extra_length_glb), new_a2_size = param.ell * partialSize * partySize;
+    int a1_size = param.n, old_a2_size = param.ell * (partySize + secure_extra_length_glb), new_a2_size = param.ell * partialSize;
 
     vector<int> old_a2(old_a2_size);
     vector<uint64_t> randomness(prng_seed_uint64_count);
@@ -254,16 +255,16 @@ vector<vector<int>> loadFixedGroupClues(const int& start, const int& end, const 
             prng_seed_uint64_counter++;
         }
 
-        vector<vector<uint64_t>> random_matrix = generateRandomMatrixWithSeed(param, seed, partialSize * partySize, partySize + secure_extra_length_glb);
+        vector<vector<uint64_t>> random_matrix = generateRandomMatrixWithSeed(param, seed, partialSize, partySize + secure_extra_length_glb);
 
         for (int l = 0; l < param.ell; l++) {
-            for (int c = 0; c < partialSize * partySize; c++) {
+            for (int c = 0; c < partialSize; c++) {
                 long temp = 0;
                 for (int k = 0; k < partySize + secure_extra_length_glb; k++) {
                     temp = (temp + old_a2[l * (partySize + secure_extra_length_glb) + k] * random_matrix[c][k]) % param.q;
                     temp = temp < 0 ? temp + param.q : temp;
                 }
-                result[i-start][l * partySize * partialSize + c + a1_size] = temp;
+                result[i-start][l * partialSize + c + a1_size] = temp;
             }
         }
     }
@@ -313,19 +314,6 @@ void loadObliviousMultiplexerClues(vector<int> pertinent_msgs, vector<PVWCiphert
     }
 }
 
-uint64_t extractEntryFromRandomMatrix(const PVWParam& params, const vector<uint64_t>& randomness, const int r, const int c) {
-    prng_seed_type seed;
-    int prng_seed_uint64_counter = 0;
-    for (auto &i : seed) {
-        i = randomness[prng_seed_uint64_counter];
-        prng_seed_uint64_counter++;
-    }
-
-    vector<vector<uint64_t>> random_Z = generateRandomMatrixWithSeed(params, seed, party_size_glb * id_size_glb,
-                                                                     party_size_glb + secure_extra_length_glb);
-
-    return random_Z[c][r]; // transpose with the original random Matrix, which is of size (TI x T')
-}
 
 void loadSingleAESKey(unsigned char* key, const int index) {
     char* prefix = (char*)"../data/cluePoly/";

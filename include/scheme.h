@@ -111,19 +111,16 @@ namespace agomr
             encryptor.encrypt_symmetric(plaintext, switchingKey[j]);
         }
 
-        vector<vector<int>> ids(1);
-        ids[0] = targetId;
-        vector<vector<int>> extended_ids = generateExponentialExtendedVector(params, ids);
 
         if ((int)switchingKey.size() > params.ell) {
-            for (tempn = 1; tempn < (int)extended_ids[0].size(); tempn *= 2) {} // encrypted the exp-extended targetId for 1 x (id_size*party_size)
+            for (tempn = 1; tempn < (int)targetId.size(); tempn *= 2) {} // encrypted the argetId for 1 x (id_size)
             vector<uint64_t> skInt(degree);
             for (size_t i = 0; i < degree; i++) {
                 auto tempindex = i % uint64_t(tempn);
-                if(int(tempindex) >= (int)extended_ids[0].size()) {
+                if(int(tempindex) >= (int)targetId.size()) {
 		    skInt[i] = 0;
                 } else {
-                    skInt[i] = uint64_t((extended_ids[0][tempindex]) % params.q);
+                    skInt[i] = uint64_t((targetId[tempindex]) % params.q);
                 }
             }
             Plaintext plaintext;
@@ -164,9 +161,9 @@ namespace fgomr
         return mre::MREgeneratePartialPK(params, mreSK, seed);
     } 
 
-    PVWCiphertext genClue(const PVWParam& param, const vector<int>& msg, const FixedGroupSharedKey& gpk, prng_seed_type& exp_seed) {
+    PVWCiphertext genClue(const PVWParam& param, const vector<int>& msg, const FixedGroupSharedKey& gpk, prng_seed_type& compress_seed) {
         PVWCiphertext ct;
-        mre::MREEncPK(ct, msg, gpk, param, exp_seed);
+        mre::MREEncPK(ct, msg, gpk, param, compress_seed);
         return ct;
     }
 
@@ -178,18 +175,9 @@ namespace fgomr
         Encryptor encryptor(context, BFVpk);
         encryptor.set_secret_key(BFVsk);
 
-        int a1_size = params.n, a2_size = partialSize * partySize;
-
         int tempn_secret = 1, tempn_shared = 1;
-        for(tempn_secret = 1; tempn_secret < a1_size; tempn_secret *= 2){}
-        for(tempn_shared = 1; tempn_shared < a2_size; tempn_shared *= 2){}
-
-        vector<vector<int>> old_a2(1, vector<int>(partialSize));
-        for (int i = 0; i < partialSize; i++) {
-            old_a2[0][i] = shared_sk[i].ConvertToInt();
-        }
-        vector<vector<int>> extended_a2_vec = generateExponentialExtendedVector(params, old_a2);
-        vector<int> extended_a2 = extended_a2_vec[0];
+        for(tempn_secret = 1; tempn_secret < params.n; tempn_secret *= 2){}
+        for(tempn_shared = 1; tempn_shared < partialSize; tempn_shared *= 2){}
 
         vector<uint64_t> skInt(degree);
         Plaintext plaintext;
@@ -197,7 +185,7 @@ namespace fgomr
         for (int j = 0; j < params.ell; j++) {
             for (int i = 0; i < (int) degree; i++) {
                 int tempindex = i % tempn_secret;
-                if (tempindex >= a1_size) {
+                if (tempindex >= params.n) {
                     skInt[i] = 0;
                 } else { 
                     skInt[i] = secret_sk[j][tempindex].ConvertToInt();
@@ -211,10 +199,10 @@ namespace fgomr
         // generate the encrypted shared SK
         for (int i = 0; i < (int) degree; i++) {
             int tempIndex = i % tempn_shared;
-            if (tempIndex >= a2_size) {
+            if (tempIndex >= partialSize) {
                 skInt[i] = 0;
             } else { 
-                skInt[i] = extended_a2[tempIndex];
+                skInt[i] = shared_sk[tempIndex].ConvertToInt();
             }
         }
 

@@ -150,7 +150,7 @@ namespace mre {
      * @param partialSize partialSize
      * @param partySize partySize
      */
-    void MREEncPK(PVWCiphertext& ct, const vector<int>& msg, const MREGroupPK& groupPK, const PVWParam& param, prng_seed_type& exp_seed,
+    void MREEncPK(PVWCiphertext& ct, const vector<int>& msg, const MREGroupPK& groupPK, const PVWParam& param, prng_seed_type& compress_seed,
                   const int partialSize = partial_size_glb, const int partySize = party_size_glb) {
         prng_seed_type seed;
         for (auto &i : seed) {
@@ -186,21 +186,20 @@ namespace mre {
         time_end = chrono::high_resolution_clock::now();
         // cout << "add: " << chrono::duration_cast<chrono::microseconds>(time_end - time_start).count() << endl;
 
-        vector<vector<int>> rhs(partySize, vector<int>(param.ell)), lhs(partySize), old_shared_sk(partySize);
+        vector<vector<int>> rhs(partySize, vector<int>(param.ell)), lhs(partySize), shared_sk(partySize);
 
         for (int p = 0; p < partySize; p++) {
             for (int i = 0; i < param.ell; i++) {
                 rhs[p][i] = b_prime[p][i].ConvertToInt();
             }
 
-            old_shared_sk[p].resize(partialSize);
+            shared_sk[p].resize(partialSize);
             for (int j = 0; j < partialSize; j++) {
-                old_shared_sk[p][j] = groupPK.sharedSK[p][j].ConvertToInt();
+                shared_sk[p][j] = groupPK.sharedSK[p][j].ConvertToInt();
             }
         }
 
-        vector<vector<int>> extended_shared_sk = generateExponentialExtendedVector(param, old_shared_sk, partySize);
-        lhs = compressVector(param, exp_seed, extended_shared_sk);
+        lhs = compressVector(param, compress_seed, shared_sk);
         vector<vector<long>> res = equationSolvingRandomBatch(lhs, rhs, -1);
 
         for (int j = 0; j < param.ell * (partySize + secure_extra_length_glb); j++) {

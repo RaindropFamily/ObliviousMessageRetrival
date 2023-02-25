@@ -1309,7 +1309,6 @@ void GOMR2_ObliviousMultiplexer_BFV() {
     vector<Ciphertext> switchingKey = agomr::generateDetectionKey(targetId, context, poly_modulus_degree, public_key, secret_key, sk, params);
     Ciphertext packedSIC;
 
-    vector<vector<PVWCiphertext>> SICPVW_multicore(numcores);
     vector<vector<vector<uint64_t>>> payload_multicore(numcores);
     vector<int> counter(numcores);
 
@@ -1396,7 +1395,6 @@ void GOMR2_ObliviousMultiplexer_BFV() {
             total_multi += chrono::duration_cast<chrono::microseconds>(time_end - time_start).count();
             j++;
             counter[i] += poly_modulus_degree;
-            SICPVW_multicore[i].clear();
         }
     }
 
