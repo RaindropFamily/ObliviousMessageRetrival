@@ -183,7 +183,7 @@ vector<Ciphertext> computeEncryptedCompressedID(Ciphertext& enc_id, uint64_t *to
     BatchEncoder batch_encoder(context);
 
     chrono::high_resolution_clock::time_point time_start, time_end;
-    uint64_t rand_total = 0, ntt_total;
+    uint64_t rand_total = 0, ntt_total = 0;
 
     time_start = chrono::high_resolution_clock::now();
     const vector<vector<uint64_t>> randomness = loadOMClue_Randomness(param, 0, poly_modulus_degree_glb,
