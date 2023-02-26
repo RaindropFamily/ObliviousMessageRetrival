@@ -1398,9 +1398,9 @@ void GOMR2_ObliviousMultiplexer_BFV() {
         }
     }
 
-    cout << "\nDetector running time load: " << total_load << "us." << "\n";
-    cout << "Detector running time multi: " << total_multi << "us." << "\n";
-    cout << "Detector running time clue poly plaintext ntt transform: " << total_plain_ntt << "us." << "\n";
+    cout << "\nDetector running time load: " << total_load << " us.\n";
+    cout << "Detector running time multi: " << total_multi << " us.\n";
+    cout << "Detector running time clue poly plaintext ntt transform: " << total_plain_ntt << " us.\n";
 
     NTL_EXEC_RANGE_END;
     MemoryManager::SwitchProfile(std::move(old_prof));
@@ -1471,7 +1471,7 @@ void GOMR2_ObliviousMultiplexer_BFV() {
 
     time_end = chrono::high_resolution_clock::now();
     time_diff = chrono::duration_cast<chrono::microseconds>(time_end - time_start);
-    cout << "\nDetector running time: " << time_diff.count() << "us." << "\n";
+    cout << "\nDetector running time: " << time_diff.count() << " us.\n";
 
     stringstream data_streamdg, data_streamdg2;
     auto digsize = rhs_multi[0].save(data_streamdg);
@@ -1941,7 +1941,7 @@ void GOMR2_FG() {
 
     time_end = chrono::high_resolution_clock::now();
     time_diff = chrono::duration_cast<chrono::microseconds>(time_end - time_start);
-    cout << "\nDetector running time: " << time_diff.count() << "us." << "\n";
+    cout << "\nDetector running time: " << time_diff.count() << " us.\n";
 
     stringstream data_streamdg, data_streamdg2;
     auto digsize = rhs_multi[0].save(data_streamdg);

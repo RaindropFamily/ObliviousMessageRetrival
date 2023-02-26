@@ -183,7 +183,7 @@ vector<Ciphertext> computeEncryptedCompressedID(Ciphertext& enc_id, uint64_t *to
     BatchEncoder batch_encoder(context);
 
     chrono::high_resolution_clock::time_point time_start, time_end;
-    uint64_t rand_total = 0;
+    uint64_t rand_total = 0, ntt_total;
 
     time_start = chrono::high_resolution_clock::now();
     const vector<vector<uint64_t>> randomness = loadOMClue_Randomness(param, 0, poly_modulus_degree_glb,
@@ -255,7 +255,10 @@ vector<Ciphertext> computeEncryptedCompressedID(Ciphertext& enc_id, uint64_t *to
                     // use the last switchingKey encrypting targetId with extended id_size as one unit, and rotate
                     Plaintext plaintext;
                     batch_encoder.encode(vectorOfZ, plaintext);
+                    time_start = chrono::high_resolution_clock::now();
                     evaluator.transform_to_ntt_inplace(plaintext, enc_id_ntt.parms_id());
+                    time_end = chrono::high_resolution_clock::now();
+                    ntt_total += chrono::duration_cast<chrono::microseconds>(time_end - time_start).count();
 
                     if (j == 0 && it_ntt == 0 && it_cm == 0) {
                         evaluator.multiply_plain(enc_id_ntt, plaintext, compressed_id_ntt[i]);
@@ -275,6 +278,7 @@ vector<Ciphertext> computeEncryptedCompressedID(Ciphertext& enc_id, uint64_t *to
     }
 
     cout << "Generate Random element via AES counter total time: " << rand_total << " us.\n";
+    cout << "ntt transform for random matrix total time: " << ntt_total << " us.\n";
     return compressed_id_ntt;
 }
 
