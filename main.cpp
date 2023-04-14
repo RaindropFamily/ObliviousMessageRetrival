@@ -177,17 +177,17 @@ int main() {
 
         case 22:
             numcores = 1;
-            // GOMR1_ObliviousMultiplexer_BFV();
+            GOMR1_ObliviousMultiplexer_BFV();
             break;
 
         case 23:
             numcores = 2;
-            // GOMR1_ObliviousMultiplexer_BFV();
+            GOMR1_ObliviousMultiplexer_BFV();
             break;
 
         case 24:
             numcores = 4;
-            // GOMR1_ObliviousMultiplexer_BFV();
+            GOMR1_ObliviousMultiplexer_BFV();
             break;
 
         case 25:
@@ -207,17 +207,17 @@ int main() {
 
         case 28:
             numcores = 1;
-            // GOMR1_FG();
+            GOMR1_FG();
             break;
 
         case 29:
             numcores = 2;
-            // GOMR1_FG();
+            GOMR1_FG();
             break;
 
         case 30:
             numcores = 4;
-            // GOMR1_FG();
+            GOMR1_FG();
             break;
 
         case 31:

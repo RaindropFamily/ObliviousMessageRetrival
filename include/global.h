@@ -32,7 +32,6 @@ int batch_cm_glb = 32768; // used for load expanded clues bulk by bulk to fit in
 
 // Used for OpenSSL AES ECB mode
 int AES_KEY_SIZE = 16;
-vector<vector<unsigned char*>> counter_buffer_glb;
 
 vector<uint64_t> expectedIndices;
 
