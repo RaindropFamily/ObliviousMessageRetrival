@@ -20,8 +20,9 @@ project(demo CXX)
 set(CMAKE_CXX_STANDARD 11)
 option( BUILD_STATIC "Set to ON to include static versions of the library" OFF)
 
-find_package(Palisade)
-find_package(SEAL 3.6 REQUIRED)
+find_package(Palisade REQUIRED)
+find_package(SEAL REQUIRED)
+find_package(OpenSSL REQUIRED)
 
 set( CMAKE_CXX_FLAGS ${PALISADE_CXX_FLAGS} )
 
@@ -30,7 +31,10 @@ include_directories( ${PALISADE_INCLUDE} )
 include_directories( ${PALISADE_INCLUDE}/third-party/include )
 include_directories( ${PALISADE_INCLUDE}/core )
 include_directories( ${PALISADE_INCLUDE}/pke )
-### add directories for other PALISADE modules as needed for your project
+include_directories( include/palisade/core )
+include_directories( include/palisade )
+include_directories( /Users/yunhaowang/sw/include/NTL )
+include_directories( /Users/yunhaowang/sw/include )
 
 link_directories( ${PALISADE_LIBDIR} )
 link_directories( ${OPENMP_LIBRARIES} )
@@ -42,9 +46,6 @@ else()
     link_libraries( ${PALISADE_SHARED_LIBRARIES} )
 endif()
 
-### ADD YOUR EXECUTABLE(s) HERE
-add_executable( regev main.cpp )
-target_link_libraries(regev SEAL::seal ntl m gmp stdc++fs)
-###
-### EXAMPLE:
-### add_executable( test demo-simple-example.cpp )
+add_executable( OMRdemos main.cpp )
+
+target_link_libraries(OMRdemos SEAL::seal ntl m gmp OpenSSL::Crypto)

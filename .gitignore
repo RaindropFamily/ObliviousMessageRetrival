@@ -1,2 +1,7 @@
 build/
 data/
+.vscode/
+include/SEAL-4.0/
+include/palisade/
+lib/
+.DS_Store
