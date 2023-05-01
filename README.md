@@ -1,39 +1,16 @@
-# (Group) Oblivious Message Retrieval: proof of concept C++ implementation for OMR
+# Group Oblivious Message Retrieval: proof of concept C++ implementation for GOMR
 
-## Authors and paper
-
-The (G)OMR library is developed by [Zeyu (Thomas) Liu](https://zeyuthomasliu.github.io/), [Eran Tromer](https://www.tau.ac.il/~tromer/) and [Yunhao Wang](https://wyunhao.github.io/) based on paper [Oblivious Message Retrieval](https://eprint.iacr.org/2021/1256.pdf) and paper [Group Oblivious Message Retrieval](https://eprint.iacr.org/2023/534.pdf).
 
 ### Abstract:
-Anonymous message delivery systems, such as private messaging services and privacypreserving payment systems, need a mechanism for recipients to retrieve the messages
-addressed to them, without leaking metadata or letting their messages be linked. Recipients could download all posted messages and scan for those addressed to them, but
-communication and computation costs are excessive at scale.
-We show how untrusted servers can detect messages on behalf of recipients, and summarize these into a compact encrypted digest that recipients can easily decrypt. These servers
-operate obliviously and do not learn anything about which messages are addressed to which
-recipients. Privacy, soundness, and completeness hold even if everyone but the recipient is
-adversarial and colluding (unlike in prior schemes), and are post-quantum secure.
-Our starting point is an asymptotically-efficient approach, using Fully Homomorphic
-Encryption and homomorphically-encoded Sparse Random Linear Codes. We then address
-the concrete performance using a bespoke tailoring of lattice-based cryptographic components, alongside various algebraic and algorithmic optimizations. This reduces the digest
-size to a few bits per message scanned. Concretely, the servers’ cost is a couple of USD per
-million messages scanned, and the resulting digests can be decoded by recipients in under
-20ms. Our schemes can thus practically attain the strongest form of receiver privacy for
-current applications such as privacy-preserving cryptocurrencies.
+Anonymous message delivery, as in private communication and privacy-preserving blockchain applications, ought to protect recipient metadata: a message should not be inadvertently linkable to its destination.
+But in this case, how can messages be delivered to each recipient, without every recipient scanning all the messages? Recent work constructed Oblivious Message Retrieval (OMR) protocols that outsource this job to untrusted servers in a privacy-preserving manner.
 
-We further consider the case of group messaging, where each message may have multiple recipients 
-(e.g., in a group chat or blockchain transaction).
-A direct use of prior OMR protocols in the group setting increases the servers’ work linearly in the group size, rendering it prohibitively costly for large groups.
-We thus devise new protocols where the servers’ cost grows very slowly with the group size, while
-recipients’ cost is low and independent of the group size. Our approach builds on and improves on prior work. The efficient handling
-of groups is attained by encoding multiple recipient-specific clues into a single polynomial or multilinear
-function that can be efficiently evaluated under FHE, and via preprocessing and amortization techniques.
-We formally study several variants of Group Oblivious Message Retrieval (GOMR), and describe
-corresponding GOMR protocols. Our implementation and benchmarks show, for parameters of interest,
-cost reductions of orders of magnitude compared to prior schemes. For example, the servers’ cost is
-∼$3.36 per million messages scanned, where each message may address up to 15 recipients.
+We consider the case of group messaging, where each message may have multiple recipients (e.g., in a group chat or blockchain transaction). A direct use of prior OMR protocols in the group setting increases the servers' work linearly in the group size, rendering it prohibitively costly for large groups.
 
-## License
-The OMR library is developed by [Zeyu (Thomas) Liu](https://zeyuthomasliu.github.io/), [Eran Tromer](https://www.tau.ac.il/~tromer/) and [Yunhao Wang](https://wyunhao.github.io/), and is released under the MIT License (see the LICENSE file).
+We thus devise new protocols where the servers' cost grows very slowly with the group size, while recipients' cost is low and independent of the group size. Our approach uses Fully Homomorphic Encryption and other lattice-based techniques, building on and improving on prior work. The efficient handling of groups is attained by encoding multiple recipient-specific clues into a single polynomial or multilinear function that can be efficiently evaluated under FHE, and via preprocessing and amortization techniques.
+
+We formally study several variants of Group Oblivious Message Retrieval (GOMR), and describe corresponding GOMR protocols. Our implementation and benchmarks show, for parameters of interest, cost reductions of orders of magnitude compared to prior schemes. For example, the servers' cost is $3.36 per million messages scanned, where each message may address up to 15 recipients.
+
 
 ## Overview
 The following diagram demonstrates the main components of OMR:
@@ -47,6 +24,9 @@ The first flavor is the Ad-hoc GOMR (AGOMR), which allows the senders to send me
 This suits cases such as messaging protocols (e.g., WhatsApp Broadcast Lists)
 that let a message be addressed to any set of recipients chosen on the fly, or blockchains where transactions may have many recipients chosen arbitrarily.
 
+We realize AGOMR using multi-linear function encoding together with other techniques. The detector uses this encoding to homomorphically recover a PVW ciphertext (Step 1 in the following diagram) and proceeds as in OMR (Step 2 and Step 3 in the OMR and AGOMR diagrams).
+![agomr](agomrHighLevel.png)
+
 The second flavor is Fixed GOMR (FGOMR), where groups are pre-formed by their members and then addressed collectively.
 This suits applications with a notion of persistent groups, such as mailing lists or
 group chats.
@@ -54,9 +34,9 @@ It also suits blockchains applications in which transactions need to be visible 
 The FGOMR setting is a special case of AGOMR, where having pre-formed groups FGOMR allows for more efficient constructions,
 and a stronger Denial-of-Service property (two honest recipients cannot be spammed jointly if they did not agree to join the same group).
 
-The following diagrams demonstrate the main components of, AGOMR and FGOMR. Please refer to our paper for more details.
+We realize FGOMR by replacing the PVW protocols with a key-private Multi-Recipient Encryption (MRE) scheme we construct in the paper. The detector homomorphically decrypts the MRE ciphertexts (Step 1 and Step 2 in the following diagram) and proceeds as in OMR (Step 3 in the OMR and FGOMR diagrams).
 
-![agomr](agomrHighLevel.png)
+
 ![fgomr](fgomrHighLevel.png)
 
 ### Model Overview (Section 4.1 in [OMR](https://eprint.iacr.org/2021/1256.pdf), and Section 2.1 in [GOMR](https://eprint.iacr.org/2023/534.pdf))
@@ -74,30 +54,6 @@ A server, called a detector, helps the recipient *p* detect which message indice
 The recipient *p* processes *M* to recover all of the pertinent messages with high probability, assuming a semi-honest detector and that the number of pertinent messages did not exceed *ḱ*.
 
 ## What's in the demo
-
-### Oblivious Message Detection
-- Obliviously identify the pertinent messages and pack all their indices into a into a single digest.
-- Schemes benchmarked: OMD1p (section 7.2)
-- Measured
-    - Key size: ~99MB
-    - Detector running time, with Intel-HEXL: ~0.021 sec/msg
-    - Detector running time, w/o  Intel-HEXL: ~0.030 sec/msg
-    - Recipient running time: ~0.005 sec
-    - Digest size: ~280KB
-
-### Oblivious Message Retrieval
-- Obliviously identify the pertinent messages and pack all their contents into a into a single digest.
-- Schemes benchmarked: OMR1p (Section 7.4) and OMR2p (Section 7.5) in [OMR](https://eprint.iacr.org/2021/1256.pdf)
-- Measured: 
-    - Key sizes: ~129MB
-    - detector running time (1-core, with Intel-HEXL): ~0.145 sec/msg and ~0.155 sec/msg
-    - detector running time (2-core, with Intel-HEXL): ~0.075 sec/msg and ~0.085 sec/msg
-    - detector running time (4-core, with Intel-HEXL): ~0.065 sec/msg and ~0.072 sec/msg
-    - detector running time (1-core, w/o  Intel-HEXL): ~0.215 sec/msg and ~0.246 sec/msg
-    - detector running time (2-core, w/o  Intel-HEXL): ~0.108 sec/msg and ~0.123 sec/msg
-    - detector running time (4-core, w/o  Intel-HEXL): ~0.099 sec/msg and ~0.115 sec/msg
-    - recipient running time: ~0.02 sec and ~0.063 sec
-    - Digest size: ~560KB
 
 ### Group Oblivious Message Retrieval
 - Obliviously identify the pertinent messages that are addressed to a group of recipients and pack all their contents into a into a single digest, which will be sent to one of the recipients inside the intended groups.
@@ -119,7 +75,6 @@ The recipient *p* processes *M* to recover all of the pertinent messages with hi
 
 
 ### Parameters 
-- OMR: N = 2^19 (or *N* = 500,000 padded to 2^19), k = *ḱ* = 50. Benchmark results on a Google ComputeCloudc2-standard-4instance type (4 hyperthreads of an Intel Xeon 3.10 GHz CPU with 16GB RAM) are reported in Section 10 in [OMR paper](https://eprint.iacr.org/2021/1256.pdf).
 - GOMR:  N = 2^15 (or *N* = 32,768), P = 2^60, G' = G+4, k = *ḱ* = 50, other detailed parameters please refer to our paper. Benchmark results for AGOMR with grou size ≥45, we use e8-highmem-64 instance, 64GB RAM (with a 128GB balanced disk), otherwise, we use e2-standard-2 instance type with 8GB RAM. Note that the runtime of the instance e8-highmem-64 is roughly the same as e2-standard-2. Detailed performance report can be found in Section 9 in [GOMR paper](https://eprint.iacr.org/2023/534.pdf).
 
 ## Dependencies
@@ -172,7 +127,7 @@ cmake -S . -B build -DCMAKE_INSTALL_PREFIX=$LIBDIR \
 cmake --build build
 cmake --install build
 
-git clone https://github.com/ZeyuThomasLiu/ObliviousMessageRetrieval 
+git clone https://github.com/ObliviousMessageRetrieval/ObliviousMessageRetrieval
 cd ObliviousMessageRetrieval 
 mkdir build
 cd build
@@ -192,4 +147,10 @@ cd ~/ObliviousMessageRetrieval/build
 ./OMRdemos
 # to run our main AGOMR construction, choose 25
 # to run our main FGOMR construction, choose 31
+
+# to change the group size, modify line 22 with the new party size in include/global.h
+# and then modify line 25 with the corresponding id size (for AGOMR) or line 26 with partial size for the shared secret key (for FGOMR) in include/global.h
+# use the following formula to calculate the id size or partial size:
+# floor((60 * group_size + 128) / 16 + group_size + 1)
+#(for example, with group size = 150, id_size = 722)
 ```
