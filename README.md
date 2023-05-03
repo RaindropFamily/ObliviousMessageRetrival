@@ -2,14 +2,13 @@
 
 
 ### Abstract:
-Anonymous message delivery, as in private communication and privacy-preserving blockchain applications, ought to protect recipient metadata: a message should not be inadvertently linkable to its destination.
-But in this case, how can messages be delivered to each recipient, without every recipient scanning all the messages? Recent work constructed Oblivious Message Retrieval (OMR) protocols that outsource this job to untrusted servers in a privacy-preserving manner.
+Anonymous message delivery, as in private communication and privacy-preserving blockchain applications, ought to protect recipient metadata: a message should not be inadvertently linkable to its destination. But how can messages then be delivered to each recipient, without scanning all messages? Recent work constructed Oblivious Message Retrieval (OMR) protocols that outsource this job to untrusted servers in a privacy-preserving manner.
 
-We consider the case of group messaging, where each message may have multiple recipients (e.g., in a group chat or blockchain transaction). A direct use of prior OMR protocols in the group setting increases the servers' work linearly in the group size, rendering it prohibitively costly for large groups.
+We consider the case of group messaging, where each message may have multiple recipients (e.g., in a group chat or blockchain transaction). Direct use of prior OMR protocols in the group setting increases the servers' work linearly in the group size, rendering it prohibitively costly for large groups.
 
 We thus devise new protocols where the servers' cost grows very slowly with the group size, while recipients' cost is low and independent of the group size. Our approach uses Fully Homomorphic Encryption and other lattice-based techniques, building on and improving on prior work. The efficient handling of groups is attained by encoding multiple recipient-specific clues into a single polynomial or multilinear function that can be efficiently evaluated under FHE, and via preprocessing and amortization techniques.
 
-We formally study several variants of Group Oblivious Message Retrieval (GOMR), and describe corresponding GOMR protocols. Our implementation and benchmarks show, for parameters of interest, cost reductions of orders of magnitude compared to prior schemes. For example, the servers' cost is $3.36 per million messages scanned, where each message may address up to 15 recipients.
+We formally study several variants of Group Oblivious Message Retrieval (GOMR) and describe corresponding GOMR protocols. Our implementation and benchmarks show, for parameters of interest, cost reductions of orders of magnitude compared to prior schemes. For example, the servers' cost is ~$3.36 per million messages scanned, where each message may address up to 15 recipients.
 
 
 
@@ -39,7 +38,7 @@ A model overview for FGOMR is shown as below.
 <img align="center" src="fgomrIntuitionModel.png" width="700" height="400">
 </p>
 
-Here, we also briefly summarize the high-level scheme notions as below, where more details are provided in Section 4.1 in [OMR](https://eprint.iacr.org/2021/1256.pdf).
+Here, we also briefly summarize the high-level scheme notions as below, where more details are provided in Section 2.1 in GOMR.
 In our system, we have a bulletin board (or board), denoted *BB*, that is publicly available contatining *N* messages. Each message is sent from some sender and is addressed to some recipient(s), whose identities are supposed to remain private.
 
 A message consists of a pair (*xi*, *ci*) where *xi* is the message payload to convey, and *ci* is a clue string which helps notify the intended recipient (and only them) that the message is addressed to them.
@@ -53,7 +52,7 @@ A server, called a detector, helps the recipient *p* detect which message indice
 
 The recipient *p* processes *M* to recover all of the pertinent messages with high probability, assuming a semi-honest detector and that the number of pertinent messages did not exceed *ḱ*.
 
-This code implemented the OMR schemes described in the [OMR paper](https://eprint.iacr.org/2021/1256.pdf) and the GOMR schemes described in the GOMR paper.
+This code implements GOMR schemes described in the GOMR paper, which is based on the OMR described in the [OMR paper](https://eprint.iacr.org/2021/1256.pdf) with some optimizations.
 
 
 <!-- ## Construction Overview
