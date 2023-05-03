@@ -12,25 +12,44 @@ We thus devise new protocols where the servers' cost grows very slowly with the 
 We formally study several variants of Group Oblivious Message Retrieval (GOMR), and describe corresponding GOMR protocols. Our implementation and benchmarks show, for parameters of interest, cost reductions of orders of magnitude compared to prior schemes. For example, the servers' cost is $3.36 per million messages scanned, where each message may address up to 15 recipients.
 
 
-## Overview
-The following diagram demonstrates the main components of OMR:
 
-![omr](omrHighLevel.png)
+## Model Overview
 
 We study two models with respect to GOMR,
 which differ in how groups are formed, motivated by different applications:
 
 The first flavor is the Ad-hoc GOMR (AGOMR), which allows the senders to send messages to a group of recipients chosen arbitrarily.
 This suits cases such as messaging protocols (e.g., WhatsApp Broadcast Lists)
-that let a message be addressed to any set of recipients chosen on the fly, or blockchains where transactions may have many recipients chosen arbitrarily.
+that let a message be addressed to any set of recipients chosen on the fly, or blockchains where transactions may have many recipients chosen arbitrarily. 
 
-We realize AGOMR using multi-linear function encoding together with other techniques. The detector uses this encoding to homomorphically recover a PVW ciphertext (Step 1 in the following diagram) and proceeds as in OMR (Step 2 and Step 3 in the OMR and AGOMR diagrams).
-![agomr](agomrHighLevel.png)
+A model overview for AGOMR is shown as below.
+<!-- ![agomr_intuition](agomrIntuitionModel.png =250*250) -->
+<p align="center" >
+<img align="center" src="agomrIntuitionModel.png" width="700" height="400">
+</p>
 
 The second flavor is Fixed GOMR (FGOMR), where groups are pre-formed by their members and then addressed collectively.
 This suits applications with a notion of persistent groups, such as mailing lists or
 group chats.
 It also suits blockchains applications in which transactions need to be visible to a set of parties in addition to the recipient (e.g., auditors or jurisdictional law enforcement).
+
+A model overview for FGOMR is shown as below.
+<!-- ![fgomr_intuition](fgomrIntuitionModel.png| width=100) -->
+<p align="center" >
+<img align="center" src="fgomrIntuitionModel.png" width="700" height="400">
+</p>
+
+
+## Construction Overview
+The following diagram demonstrates the main components of OMR:
+
+![omr](omrHighLevel.png)
+
+
+We realize AGOMR using multi-linear function encoding together with other techniques. The detector uses this encoding to homomorphically recover a PVW ciphertext (Step 1 in the following diagram) and proceeds as in OMR (Step 2 and Step 3 in the OMR and AGOMR diagrams).
+![agomr](agomrHighLevel.png)
+
+
 The FGOMR setting is a special case of AGOMR, where having pre-formed groups FGOMR allows for more efficient constructions,
 and a stronger Denial-of-Service property (two honest recipients cannot be spammed jointly if they did not agree to join the same group).
 
@@ -39,7 +58,7 @@ We realize FGOMR by replacing the PVW protocols with a key-private Multi-Recipie
 
 ![fgomr](fgomrHighLevel.png)
 
-### Model Overview (Section 4.1 in [OMR](https://eprint.iacr.org/2021/1256.pdf), and Section 2.1 in [GOMR](https://eprint.iacr.org/2023/534.pdf))
+Here, we also briefly summarize the high-level scheme notions as below, where more details is in Section 4.1 in [OMR](https://eprint.iacr.org/2021/1256.pdf), and Section 2.1 in [GOMR](https://eprint.iacr.org/2023/534.pdf).
 In our system, we have a bulletin board (or board), denoted *BB*, that is publicly available contatining *N* messages. Each message is sent from some sender and is addressed to some recipient(s), whose identities are supposed to remain private.
 
 A message consists of a pair (*xi*, *ci*) where *xi* is the message payload to convey, and *ci* is a clue string which helps notify the intended recipient (and only them) that the message is addressed to them.
