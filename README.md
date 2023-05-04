@@ -128,21 +128,21 @@ mkdir build
 cd build
 cmake .. -DCMAKE_INSTALL_PREFIX=$LIBDIR
 make -j
-sudo make install
+make install
 
 # Old OpenSSL used for plain AES function without EVP abstraction
 cd $OMRDIR && git clone -b OpenSSL_1_1_1-stable https://github.com/openssl/openssl
 cd openssl
 ./configure
 make
-sudo make install
+make install
 
 # Optional
 cd $OMRDIR && git clone --branch 1.2.3 https://github.com/intel/hexl
 cd hexl
 cmake -S . -B build -DCMAKE_INSTALL_PREFIX=$LIBDIR
 cmake --build build
-sudo cmake --install build
+cmake --install build
 
 cd $OMRDIR && git clone https://github.com/microsoft/SEAL
 cd SEAL
@@ -150,7 +150,7 @@ cmake -S . -B build -DCMAKE_INSTALL_PREFIX=$LIBDIR \
 -DSEAL_USE_INTEL_HEXL=ON 
 
 cmake --build build
-sudo cmake --install build
+cmake --install build
 
 cd $OMRDIR/ObliviousMessageRetrieval/build
 mkdir ../data
