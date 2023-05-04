@@ -165,7 +165,7 @@ sudo make
 ### To Run
 
 ```
-cd $LIBDIR/build
+cd $LIBDIR
 # to run our main AGOMR construction: for example, ./OMRdemos agomr 15
 sudo ./OMRdemos agomr <group_size>
 # to run our main FGOMR construction: for example, ./OMRdemos fgomr 15
