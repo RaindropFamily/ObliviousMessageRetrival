@@ -110,6 +110,7 @@ The OMR library relies on the following:
 - (Optional) [HEXL](https://github.com/intel/hexl) library 1.2.3
 
 ### Scripts to install the dependencies and build the binary
+Notice that the following instructions are based on installation steps on a Ubuntu 20.04 LTS.
 ```
 LIBDIR=~/ObliviousMessageRetrieval   # change to you want the dependency libraries installed
 
@@ -118,7 +119,7 @@ sudo apt-get install cmake # if no cmake
 sudo apt-get install libgmp3-dev # if no gmp
 sudo apt-get install libntl-dev=11.4.3-1build1 # if no ntl
 
-git clone -b v1.11.3 https://gitlab.com/palisade/palisade-release
+cd ~ && git clone -b v1.11.3 https://gitlab.com/palisade/palisade-release
 cd palisade-release
 mkdir build
 cd build
@@ -126,20 +127,21 @@ cmake .. -DCMAKE_INSTALL_PREFIX=$LIBDIR
 make -j
 make install
 
-git clone -b OpenSSL_1_1_1-stable https://github.com/openssl/openssl
+# Old OpenSSL used for plain AES function without EVP abstraction
+cd ~ && git clone -b OpenSSL_1_1_1-stable https://github.com/openssl/openssl
 cd openssl
 ./configure
 make
 sudo make install
 
 # Optional
-git clone --branch 1.2.3 https://github.com/intel/hexl
+cd ~ && git clone --branch 1.2.3 https://github.com/intel/hexl
 cd hexl
 cmake -S . -B build -DCMAKE_INSTALL_PREFIX=$LIBDIR
 cmake --build build
 cmake --install build
 
-git clone https://github.com/microsoft/SEAL
+cd ~ && git clone https://github.com/microsoft/SEAL
 cd SEAL
 cmake -S . -B build -DCMAKE_INSTALL_PREFIX=$LIBDIR \
 -DSEAL_USE_INTEL_HEXL=ON 
@@ -147,7 +149,7 @@ cmake -S . -B build -DCMAKE_INSTALL_PREFIX=$LIBDIR \
 cmake --build build
 cmake --install build
 
-git clone https://github.com/ObliviousMessageRetrieval/ObliviousMessageRetrieval
+cd ~ && git clone https://github.com/ObliviousMessageRetrieval/ObliviousMessageRetrieval
 cd ObliviousMessageRetrieval 
 mkdir build
 cd build
