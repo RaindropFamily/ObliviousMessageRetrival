@@ -152,8 +152,7 @@ cmake -S . -B build -DCMAKE_INSTALL_PREFIX=$LIBDIR \
 cmake --build build
 sudo cmake --install build
 
-cd $OMRDIR && git clone https://github.com/ObliviousMessageRetrieval/ObliviousMessageRetrieval
-cd ObliviousMessageRetrieval/build
+cd $OMRDIR/ObliviousMessageRetrieval/build
 mkdir ../data
 mkdir ../data/payloads
 mkdir ../data/clues
