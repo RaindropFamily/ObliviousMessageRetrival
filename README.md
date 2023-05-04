@@ -113,7 +113,7 @@ The OMR library relies on the following:
 Notice that the following instructions are based on installation steps on a Ubuntu 20.04 LTS.
 ```
 OMRDIR=~/OMR   # change build_path to where you want the dependency libraries installed
-LIBDIR=$OMRDIR/lib
+LIBDIR=$OMRDIR/ObliviousMessageRetrieval
 mkdir -p $LIBDIR
 
 sudo apt-get install autoconf # if no autoconf
