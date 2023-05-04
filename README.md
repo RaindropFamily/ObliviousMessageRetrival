@@ -112,14 +112,16 @@ The OMR library relies on the following:
 ### Scripts to install the dependencies and build the binary
 Notice that the following instructions are based on installation steps on a Ubuntu 20.04 LTS.
 ```
-LIBDIR=~/ObliviousMessageRetrieval   # change to you want the dependency libraries installed
+OMRDIR=~/OMR   # change build_path to where you want the dependency libraries installed
+LIBDIR=$OMRDIR/lib
+mkdir -p $LIBDIR
 
 sudo apt-get install autoconf # if no autoconf
 sudo apt-get install cmake # if no cmake
 sudo apt-get install libgmp3-dev # if no gmp
 sudo apt-get install libntl-dev=11.4.3-1build1 # if no ntl
 
-cd ~ && git clone -b v1.11.3 https://gitlab.com/palisade/palisade-release
+cd $OMRDIR && git clone -b v1.11.3 https://gitlab.com/palisade/palisade-release
 cd palisade-release
 mkdir build
 cd build
@@ -128,20 +130,20 @@ make -j
 make install
 
 # Old OpenSSL used for plain AES function without EVP abstraction
-cd ~ && git clone -b OpenSSL_1_1_1-stable https://github.com/openssl/openssl
+cd $OMRDIR && git clone -b OpenSSL_1_1_1-stable https://github.com/openssl/openssl
 cd openssl
 ./configure
 make
 sudo make install
 
 # Optional
-cd ~ && git clone --branch 1.2.3 https://github.com/intel/hexl
+cd $OMRDIR && git clone --branch 1.2.3 https://github.com/intel/hexl
 cd hexl
 cmake -S . -B build -DCMAKE_INSTALL_PREFIX=$LIBDIR
 cmake --build build
 cmake --install build
 
-cd ~ && git clone https://github.com/microsoft/SEAL
+cd $OMRDIR && git clone https://github.com/microsoft/SEAL
 cd SEAL
 cmake -S . -B build -DCMAKE_INSTALL_PREFIX=$LIBDIR \
 -DSEAL_USE_INTEL_HEXL=ON 
@@ -149,7 +151,7 @@ cmake -S . -B build -DCMAKE_INSTALL_PREFIX=$LIBDIR \
 cmake --build build
 cmake --install build
 
-cd ~ && git clone https://github.com/ObliviousMessageRetrieval/ObliviousMessageRetrieval
+cd $OMRDIR && git clone https://github.com/ObliviousMessageRetrieval/ObliviousMessageRetrieval
 cd ObliviousMessageRetrieval 
 mkdir build
 cd build
@@ -165,7 +167,7 @@ make
 ### To Run
 
 ```
-cd ~/ObliviousMessageRetrieval/build
+cd $LIBDIR/build
 # to run our main AGOMR construction: for example, ./OMRdemos agomr 15
 ./OMRdemos agomr <group_size>
 # to run our main FGOMR construction: for example, ./OMRdemos fgomr 15
