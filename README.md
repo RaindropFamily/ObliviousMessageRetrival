@@ -113,8 +113,9 @@ The OMR library relies on the following:
 Notice that the following instructions are based on installation steps on a Ubuntu 20.04 LTS.
 ```
 OMRDIR=~/OMR   # change build_path to where you want the dependency libraries installed
-LIBDIR=$OMRDIR/ObliviousMessageRetrieval
-mkdir -p $LIBDIR
+mkdir -p $OMRDIR
+cd $OMRDIR && git clone https://github.com/ObliviousMessageRetrieval/ObliviousMessageRetrieval
+LIBDIR=$OMRDIR/ObliviousMessageRetrieval/build
 
 sudo apt-get install autoconf # if no autoconf
 sudo apt-get install cmake # if no cmake
@@ -127,7 +128,7 @@ mkdir build
 cd build
 cmake .. -DCMAKE_INSTALL_PREFIX=$LIBDIR
 make -j
-make install
+sudo make install
 
 # Old OpenSSL used for plain AES function without EVP abstraction
 cd $OMRDIR && git clone -b OpenSSL_1_1_1-stable https://github.com/openssl/openssl
@@ -141,7 +142,7 @@ cd $OMRDIR && git clone --branch 1.2.3 https://github.com/intel/hexl
 cd hexl
 cmake -S . -B build -DCMAKE_INSTALL_PREFIX=$LIBDIR
 cmake --build build
-cmake --install build
+sudo cmake --install build
 
 cd $OMRDIR && git clone https://github.com/microsoft/SEAL
 cd SEAL
@@ -149,19 +150,17 @@ cmake -S . -B build -DCMAKE_INSTALL_PREFIX=$LIBDIR \
 -DSEAL_USE_INTEL_HEXL=ON 
 
 cmake --build build
-cmake --install build
+sudo cmake --install build
 
 cd $OMRDIR && git clone https://github.com/ObliviousMessageRetrieval/ObliviousMessageRetrieval
-cd ObliviousMessageRetrieval 
-mkdir build
-cd build
+cd ObliviousMessageRetrieval/build
 mkdir ../data
 mkdir ../data/payloads
 mkdir ../data/clues
 mkdir ../data/cluePoly
 mkdir ../data/processedCM
-cmake .. -DCMAKE_PREFIX_PATH=$LIBDIR
-make
+sudo cmake .. -DCMAKE_PREFIX_PATH=$LIBDIR
+sudo make
 ```
 
 ### To Run
@@ -169,9 +168,9 @@ make
 ```
 cd $LIBDIR/build
 # to run our main AGOMR construction: for example, ./OMRdemos agomr 15
-./OMRdemos agomr <group_size>
+sudo ./OMRdemos agomr <group_size>
 # to run our main FGOMR construction: for example, ./OMRdemos fgomr 15
-./OMRdemos fgomr <group_size>
+sudo ./OMRdemos fgomr <group_size>
 ```
 
 
