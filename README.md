@@ -164,8 +164,8 @@ make
 
 ```
 cd ~/ObliviousMessageRetrieval/build
-# to run our main AGOMR construction: for example, ./OMRdemos agomr 45
+# to run our main AGOMR construction: for example, ./OMRdemos agomr 15
 ./OMRdemos agomr <group_size>
-# to run our main FGOMR construction: for example, ./OMRdemos fgomr 45
+# to run our main FGOMR construction: for example, ./OMRdemos fgomr 15
 ./OMRdemos fgomr <group_size>
 ```
