@@ -164,13 +164,8 @@ make
 
 ```
 cd ~/ObliviousMessageRetrieval/build
-./OMRdemos
-# to run our main AGOMR construction, choose 25
-# to run our main FGOMR construction, choose 31
-
-# to change the group size, modify line 22 with the new party size in include/global.h
-# and then modify line 25 with the corresponding id size (for AGOMR) or line 26 with partial size for the shared secret key (for FGOMR) in include/global.h
-# use the following formula to calculate the id size or partial size:
-# floor((60 * group_size + 128) / 16 + group_size + 1)
-#(for example, with group size = 150, id_size = 722)
+# to run our main AGOMR construction: for example, ./OMRdemos agomr 45
+./OMRdemos agomr <group_size>
+# to run our main FGOMR construction: for example, ./OMRdemos fgomr 45
+./OMRdemos fgomr <group_size>
 ```
