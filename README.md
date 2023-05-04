@@ -52,7 +52,7 @@ A server, called a detector, helps the recipient *p* detect which message indice
 
 The recipient *p* processes *M* to recover all of the pertinent messages with high probability, assuming a semi-honest detector and that the number of pertinent messages did not exceed *ḱ*.
 
-This code implements GOMR schemes described in the GOMR paper, which is based on the OMR described in the [OMR paper](https://eprint.iacr.org/2021/1256.pdf) with some optimizations.
+This code implements GOMR schemes (AGOMR3 in sec 6.2 and FGOMR1 in sec 7.3) described in the submitted GOMR paper, which is based on the OMR described in the [OMR paper](https://eprint.iacr.org/2021/1256.pdf) with some optimizations (see sec C).
 
 
 <!-- ## Construction Overview
@@ -80,14 +80,14 @@ We realize FGOMR by replacing the PVW protocols with a key-private Multi-Recipie
 - Schemes benchmarked (in GOMR): 
     - main schemes AGOMR3 (Section 6.2) (which is GOMR2_ObliviousMultiplexer_BFV in the code) and FGOMR1 (Section 7.4) (which is GOMR2_FG in the code)
     - their corresponding weak version AGOMR2 (Remark 6.2) (which is GOMR2_ObliviousMultiplexer_BFV in the weak branch) and FGOMR2 (Remark 7.4) (which is GOMR2_FG in the weak branch)
-- Measured: 
+- Measured (with parameters in sec 9):
     - Clue sizes (with group size = 15):
         - AGOMR: ~15300 Byte/msg
         - FGOMR: ~1100 Byte/msg
     - Clue key sizes (with group size = 15):
         - AGOMR: 133K per recipient
         - FGOMR: 1.56M per group
-    - Detection key size (with group size = 15): ~140M
+    - Detection key size: ~140M
     - Digest size: ~35 Byte/msg
     - Recipient run time: ~0.02 sec
     - Detector run time:
@@ -95,7 +95,7 @@ We realize FGOMR by replacing the PVW protocols with a key-private Multi-Recipie
 
 
 ### Parameters 
-- GOMR:  N = 2^15 (or *N* = 32,768), P = 2^60, G' = G+4, k = *ḱ* = 50, other detailed parameters please refer to our paper. Benchmark results for AGOMR with grou size ≥45, we use e8-highmem-64 instance, 64GB RAM (with a 128GB balanced disk), otherwise, we use e2-standard-2 instance type with 8GB RAM. Note that the runtime of the instance e8-highmem-64 is roughly the same as e2-standard-2. Detailed performance report can be found in Section 9 in [GOMR paper](https://eprint.iacr.org/2023/534.pdf).
+- GOMR:  N = 2^15 (or *N* = 32,768), P = 2^60, G' = G+4, k = *ḱ* = 50, other detailed parameters please refer to our paper. Benchmark results for AGOMR with grou size ≥45, we use e8-highmem-64 instance, 64GB RAM (with a 128GB balanced disk), otherwise, we use e2-standard-2 instance type with 8GB RAM. Note that the runtime of the instance e8-highmem-64 is roughly the same as e2-standard-2. Detailed performance report can be found in Section 9 in the GOMR paper.
 
 ## Dependencies
 
