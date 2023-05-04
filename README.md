@@ -169,3 +169,33 @@ cd ~/ObliviousMessageRetrieval/build
 # to run our main FGOMR construction: for example, ./OMRdemos fgomr 15
 ./OMRdemos fgomr <group_size>
 ```
+
+
+Below are our benchmarked runtime for AGOMR and FGOMR with the corresponding group sizes as specified in each row:
+
+| Group Size  | Main AGOMR runtime (sec) | Main FGOMR runtime (sec)| 
+| ------------- | ------------- | ------------- | 
+| 2  | 4833  | 3541 | 
+| 4   | 4844  | 3561| 
+| 6   | 4861  | 3585| 
+| 8   | 4920  | 3620| 
+| 10   | 4983  | 3677| 
+| 12   | 5050  | 3700| 
+| 15   | 5066  | 3711| 
+| 25   | 5085  | 3734| 
+| 45   | 5511  | 3776| 
+| 65   | 6739  | 3972| 
+| 85   | 6896  | 3992| 
+| 105   | 6981  | 3993| 
+| 125   | 9976  | 4003| 
+| 150   | 10272  | 4017| 
+| 175   | 10278  | 4134| 
+| 200   | 10372  | 4171| 
+| 225   | 13845  | 4311| 
+| 250   | 14225  | 4338| 
+| 275   | 21069  | 4394| 
+| 300   | 21438  | 4500| 
+| 325   | 21454  | 4501| 
+| 350   | 21641  | 4501| 
+| 375   | 21760  | 4504| 
+| 400   | 22100  | 4524| 
