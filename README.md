@@ -114,7 +114,6 @@ Notice that the following instructions are based on installation steps on a Ubun
 ```
 OMRDIR=~/OMR   # change build_path to where you want the dependency libraries installed
 LIBDIR=$OMRDIR/ObliviousMessageRetrieval
-mkdir -p $LIBDIR
 
 sudo apt-get install autoconf # if no autoconf
 sudo apt-get install cmake # if no cmake
