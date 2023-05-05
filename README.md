@@ -137,7 +137,7 @@ sudo make install
 # Old OpenSSL used for plain AES function without EVP abstraction
 cd $OMRDIR && git clone -b OpenSSL_1_1_1-stable https://github.com/openssl/openssl
 cd openssl
-./configure
+./config
 make
 sudo make install
 
