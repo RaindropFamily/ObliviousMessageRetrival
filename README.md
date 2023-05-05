@@ -112,15 +112,19 @@ The OMR library relies on the following:
 ### Scripts to install the dependencies and build the binary
 Notice that the following instructions are based on installation steps on a Ubuntu 20.04 LTS.
 ```
-OMRDIR=~/OMR   # change build_path to where you want the dependency libraries installed
-mkdir -p $OMRDIR
-cd $OMRDIR && git clone https://github.com/ObliviousMessageRetrieval/ObliviousMessageRetrieval
-LIBDIR=$OMRDIR/ObliviousMessageRetrieval/build
-
+sudo apt-get update && sudo apt-get install build-essential # if needed
 sudo apt-get install autoconf # if no autoconf
 sudo apt-get install cmake # if no cmake
 sudo apt-get install libgmp3-dev # if no gmp
 sudo apt-get install libntl-dev=11.4.3-1build1 # if no ntl
+sudo apt-get install unzip # if no unzip
+
+OMRDIR=~/OMR   # change build_path to where you want the dependency libraries installed
+mkdir -p $OMRDIR
+
+# Now assume GOMR_code.zip file is in ~/OMR
+cd $OMRDIR && unzip GOMR_code.zip -d ObliviousMessageRetrieval
+LIBDIR=$OMRDIR/ObliviousMessageRetrieval/build
 
 cd $OMRDIR && git clone -b v1.11.3 https://gitlab.com/palisade/palisade-release
 cd palisade-release
