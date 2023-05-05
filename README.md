@@ -131,8 +131,8 @@ cd palisade-release
 mkdir build
 cd build
 cmake .. -DCMAKE_INSTALL_PREFIX=$LIBDIR
-make -j
-make install
+make
+sudo make install
 
 # Old OpenSSL used for plain AES function without EVP abstraction
 cd $OMRDIR && git clone -b OpenSSL_1_1_1-stable https://github.com/openssl/openssl
