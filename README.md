@@ -112,6 +112,8 @@ The OMR library relies on the following:
 ### Scripts to install the dependencies and build the binary
 Notice that the following instructions are based on installation steps on a Ubuntu 20.04 LTS.
 ```
+# If permission required, please add sudo before the commands as needed
+
 sudo apt-get update && sudo apt-get install build-essential # if needed
 sudo apt-get install autoconf # if no autoconf
 sudo apt-get install cmake # if no cmake
