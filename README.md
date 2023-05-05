@@ -124,7 +124,9 @@ sudo apt-get install unzip # if no unzip
 OMRDIR=~/OMR   # change build_path to where you want the dependency libraries installed
 mkdir -p $OMRDIR
 
-# Now assume GOMR_code.zip file is in ~/OMR
+# Now put GOMR_code.zip file is in ~/OMR
+# For example, if using GCP instance
+# Upload GOMR_code.zip and then do: mv GOMR_code.zip ~/OMR
 cd $OMRDIR && unzip GOMR_code.zip -d ObliviousMessageRetrieval
 LIBDIR=$OMRDIR/ObliviousMessageRetrieval/build
 
