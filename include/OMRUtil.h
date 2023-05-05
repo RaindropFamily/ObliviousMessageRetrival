@@ -576,7 +576,7 @@ vector<vector<uint64_t>> preparingGroupCluePolynomial(vector<int>& pertinentMsgI
                     total_time += chrono::duration_cast<chrono::microseconds>(time_end - time_start).count();
                     break;
                 } else {
-                    cout << "Mismatch detected, regenerating clue poly for msg: " << i << endl;
+//                     cout << "Mismatch detected, regenerating clue poly for msg: " << i << endl;
                 }
             } else {
                 break;
