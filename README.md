@@ -146,14 +146,14 @@ cd $OMRDIR && git clone --branch 1.2.3 https://github.com/intel/hexl
 cd hexl
 cmake -S . -B build -DCMAKE_INSTALL_PREFIX=$LIBDIR
 cmake --build build
-cmake --install build
+sudo cmake --install build
 
 cd $OMRDIR && git clone https://github.com/microsoft/SEAL
 cd SEAL
 cmake -S . -B build -DCMAKE_INSTALL_PREFIX=$LIBDIR \
 -DSEAL_USE_INTEL_HEXL=ON 
 cmake --build build
-cmake --install build
+sudo cmake --install build
 
 cd $OMRDIR/ObliviousMessageRetrieval/build
 mkdir ../data
