@@ -63,7 +63,7 @@ A server, called a detector, helps the recipient *p* detect which message indice
 
 The recipient *p* processes *M* to recover all of the pertinent messages with high probability, assuming a semi-honest detector and that the number of pertinent messages did not exceed *ḱ*.
 
-This code implements GOMR schemes (AGOMR3 in sec 6.2 and FGOMR1 in sec 7.3) described in the submitted GOMR paper, which is based on the OMR described in the [OMR paper](https://eprint.iacr.org/2021/1256.pdf) with some optimizations (see sec C).
+This code implements GOMR schemes (AGOMR3 in sec 6.2 and FGOMR1 in sec 7.3) described in the [GOMR paper](https://eprint.iacr.org/2023/534), which is based on the OMR described in the [OMR paper](https://eprint.iacr.org/2021/1256.pdf) with some optimizations (see sec C).
 
 
 <!-- ## Construction Overview
