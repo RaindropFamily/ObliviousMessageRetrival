@@ -576,7 +576,7 @@ vector<vector<uint64_t>> preparingGroupCluePolynomial(vector<int>& pertinentMsgI
                     total_time += chrono::duration_cast<chrono::microseconds>(time_end - time_start).count();
                     break;
                 } else {
-                    cout << "Mismatch detected, regenerating clue poly for msg: " << i << endl;
+//                     cout << "Mismatch detected, regenerating clue poly for msg: " << i << endl;
                 }
             } else {
                 break;
@@ -593,7 +593,6 @@ void verify_fg(const PVWParam& params, const PVWsk& target_secretSK, const mre::
     vector<vector<int>> ct = loadFixedGroupClues(0, 1, params);
 
     vector<int> targetCT = ct[0];
-    cout << "targetCT: " << targetCT << endl;
     
     for (int l = 0; l < params.ell; l++) {
         long result = 0;
@@ -605,7 +604,6 @@ void verify_fg(const PVWParam& params, const PVWsk& target_secretSK, const mre::
             result = ( result + targetCT[params.n + l * partial_size_glb + i] * target_sharedSK[i].ConvertToInt()) % params.q;
             result = result < 0 ? result + params.q : result;
         }
-        cout << "---> check: " << targetCT[params.n + params.ell * partial_size_glb + l] << " , " << result + params.q/4 << endl;
     }
 }
 

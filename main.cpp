@@ -3,10 +3,14 @@
 #include "include/OMR.h"
 #include "include/MRE.h"
 #include <openssl/aes.h>
+#include <string.h>
 
 using namespace seal;
 
-int main() {
+string AGOMR = "agomr";
+string FGOMR = "fgomr";
+
+int main(int argc, char* argv[]) {
     cout << "+------------------------------------+" << endl;
     cout << "| Demos                              |" << endl;
     cout << "+------------------------------------+" << endl;
@@ -46,29 +50,47 @@ int main() {
     cout << "+------------------------------------+" << endl;
 
     int selection = 0;
-    bool valid = true;
-    do
-    {
-        cout << endl << "> Run demos (1 ~ 33) or exit (0): ";
-        if (!(cin >> selection))
+    if (argc == 1) {
+DEFAULT:
+        bool valid = true;
+        do
         {
-            valid = false;
+            cout << endl << "> Run demos (1 ~ 33) or exit (0): ";
+            if (!(cin >> selection))
+            {
+                valid = false;
+            }
+            else if (selection < 0 || selection > 33)
+            {
+                valid = false;
+            }
+            else
+            {
+                valid = true;
+            }
+            if (!valid)
+            {
+                cout << "  [Beep~~] valid option: type 0 ~ 33" << endl;
+                cin.clear();
+                cin.ignore(numeric_limits<streamsize>::max(), '\n');
+            }
+        } while (!valid);
+    } else {
+        if (AGOMR.compare(argv[1]) == 0) {
+            selection = 25;
+            party_size_glb = atoi(argv[2]);
+            id_size_glb = ceil(float(60 * party_size_glb + 128) / float(16) + party_size_glb + 1);
+
+            batch_ntt_glb = 1;
+            for (; batch_ntt_glb < id_size_glb; batch_ntt_glb *= 2) {}
+        } else if (FGOMR.compare(argv[1]) == 0) {
+            selection = 31;
+            party_size_glb = atoi(argv[2]);
+            partial_size_glb = ceil(float(60 * party_size_glb + 128) / float(16) + party_size_glb + 1);
+        } else {
+            goto DEFAULT;
         }
-        else if (selection < 0 || selection > 33)
-        {
-            valid = false;
-        }
-        else
-        {
-            valid = true;
-        }
-        if (!valid)
-        {
-            cout << "  [Beep~~] valid option: type 0 ~ 33" << endl;
-            cin.clear();
-            cin.ignore(numeric_limits<streamsize>::max(), '\n');
-        }
-    } while (!valid);
+    }
 
     switch (selection)
         {
