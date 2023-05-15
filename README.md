@@ -157,16 +157,18 @@ sudo apt-get install libgmp3-dev # if no gmp
 sudo apt-get install libntl-dev=11.4.3-1build1 # if no ntl
 sudo apt-get install unzip # if no unzip
 
-OMRDIR=~/OMR   # change build_path to where you want the dependency libraries installed
+OMRDIR=~/OMR   # change OMRDIR to where you want the dependency libraries installed
 mkdir -p $OMRDIR
 
 # Now put GOMR_code.zip file is in ~/OMR
 # For example, if using GCP instance
 # Upload GOMR_code.zip and then do: mv GOMR_code.zip ~/OMR
-cd $OMRDIR && unzip GOMR_code.zip -d ObliviousMessageRetrieval
+cd $OMRDIR
+git clone https://github.com/ObliviousMessageRetrieval/ObliviousMessageRetrieval
 LIBDIR=$OMRDIR/ObliviousMessageRetrieval/build
 
-cd $OMRDIR && git clone -b v1.11.3 https://gitlab.com/palisade/palisade-release
+cd $OMRDIR
+git clone -b v1.11.3 https://gitlab.com/palisade/palisade-release
 cd palisade-release
 mkdir build
 cd build
@@ -175,20 +177,23 @@ make
 sudo make install
 
 # Old OpenSSL used for plain AES function without EVP abstraction
-cd $OMRDIR && git clone -b OpenSSL_1_1_1-stable https://github.com/openssl/openssl
+cd $OMRDIR
+git clone -b OpenSSL_1_1_1-stable https://github.com/openssl/openssl
 cd openssl
 ./config
 make
 sudo make install
 
 # Optional
-cd $OMRDIR && git clone --branch 1.2.3 https://github.com/intel/hexl
+cd $OMRDIR
+git clone --branch 1.2.3 https://github.com/intel/hexl
 cd hexl
 cmake -S . -B build -DCMAKE_INSTALL_PREFIX=$LIBDIR
 cmake --build build
 sudo cmake --install build
 
-cd $OMRDIR && git clone https://github.com/microsoft/SEAL
+cd $OMRDIR
+git clone https://github.com/microsoft/SEAL
 cd SEAL
 cmake -S . -B build -DCMAKE_INSTALL_PREFIX=$LIBDIR \
 -DSEAL_USE_INTEL_HEXL=ON 
