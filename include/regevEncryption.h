@@ -112,6 +112,165 @@ void regevDec(int& msg, const regevCiphertext& ct, const regevSK& sk, const rege
     msg = (r < q/2)? 0 : 1;
 }
 
+
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+/////////////////////////////////////////// Optimized PVW ///////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+struct OPVWParam{
+    int n;
+    int q;
+    double std_dev;
+    int ell;
+    OPVWParam(){
+        n = 450;
+        q = 65537;
+        std_dev = 1.3;
+        ell = 4;
+    }
+    OPVWParam(int n, int q, double std_dev, int ell)
+    : n(n), q(q), std_dev(std_dev), ell(ell)
+    {}
+};
+
+typedef NativeVector OPVWsk;
+
+struct OPVWCiphertext{
+    NativeVector a;
+    NativeVector b;
+};
+
+typedef OPVWCiphertext OPVWpk;
+
+OPVWsk OPVWGenerateSecretKey(const OPVWParam& param, const bool print);
+OPVWpk OPVWGeneratePublicKey(const OPVWParam& param, const OPVWsk& sk);
+void OPVWEncSK(OPVWCiphertext& ct, const vector<int>& msg, const OPVWsk& sk, const OPVWParam& param, const bool& pk_gen = false);
+void OPVWEncPK(OPVWCiphertext& ct, const vector<int>& msg, const OPVWpk& pk, const OPVWParam& param);
+void OPVWDec(vector<int>& msg, const OPVWCiphertext& ct, const OPVWsk& sk, const OPVWParam& param);
+
+/////////////////////////////////////////////////////////////////// Below are implementation
+
+OPVWsk OPVWGenerateSecretKey(const OPVWParam& param) { // generate ternary key
+    int n = param.n;
+    int q = param.q;
+    lbcrypto::DiscreteUniformGeneratorImpl<regevSK> dug;
+    dug.SetModulus(3);
+    OPVWsk ret = dug.GenerateVector(n);
+
+    for (int i = 0; i < n; i++) {
+        ret[i] = (ret[i] == 2) ? q-1 : ret[i];
+    }
+    return ret;
+}
+
+vector<vector<int>> expandRingVector(NativeVector a, int n, int q) {
+    vector<vector<int>> res(n);
+
+    for (int cnt = 0; cnt < n; cnt++) {
+        res[cnt].resize(n);
+        int ind = 0;
+        for (int i = cnt; i >= 0 && ind < n; i--) {
+            res[cnt][ind] = a[i].ConvertToInt();
+            ind++;
+        }
+
+        for (int i = n-1; i > cnt && ind < n; i--) {
+            res[cnt][ind] = q-a[i].ConvertToInt();
+            ind++;
+        }
+    }
+
+    return res;
+}
+
+NativeVector OPVWRingMultiply(NativeVector a, NativeVector b, int n, int q) {
+    NativeVector res = NativeVector(n);
+
+    vector<vector<int>> expanded_A = expandRingVector(a, n, q);
+    for (int i = 0; i < n; i++) {
+        long temp = 0;
+        for (int j = 0; j < n; j++) {
+            temp = (temp + expanded_A[i][j] * b[j].ConvertToInt()) % q;
+            temp = temp < 0 ? temp + q : temp;
+        }
+        res[i] = temp;
+    }
+
+    return res;
+}
+
+void OPVWEncSK(OPVWCiphertext& ct, const vector<int>& msg, const OPVWsk& sk, const OPVWParam& param, const bool& pk_gen) {
+    NativeInteger q = param.q;
+    int n = param.n;
+    DiscreteUniformGeneratorImpl<NativeVector> dug;
+    dug.SetModulus(q);
+    ct.a = dug.GenerateVector(n);
+    ct.b = OPVWRingMultiply(ct.a, sk, n, q.ConvertToInt());
+
+    DiscreteGaussianGeneratorImpl<NativeVector> m_dgg(param.std_dev);
+    for (int i = 0; i < (int) msg.size(); i++) {
+        if(!pk_gen)
+            msg[i] ? ct.b[i].ModAddFastEq(3*q/4, q) : ct.b[i].ModAddFastEq(q/4, q);
+        ct.b[i].ModAddFastEq(m_dgg.GenerateInteger(q), q);
+    }
+}
+
+OPVWpk OPVWGeneratePublicKey(const OPVWParam& param, const OPVWsk& sk) {
+    OPVWpk pk;
+    vector<int> zeros(param.n, 0);
+
+    OPVWEncSK(pk, zeros, sk, param, true);
+    return pk;
+}
+
+void OPVWEncPK(OPVWCiphertext& ct, const vector<int>& msg, const OPVWpk& pk, const OPVWParam& param) {
+    prng_seed_type seed;
+    for (auto &i : seed) {
+        i = random_uint64();
+    }
+
+    auto rng = make_shared<Blake2xbPRNGFactory>(Blake2xbPRNGFactory(seed));
+    RandomToStandardAdapter engine(rng->create());
+    uniform_int_distribution<uint64_t> dist(0, 1); // 0 --> 0, 1 --> 1, 2 --> -1, sample from {0,+/-1}
+
+    NativeVector x = NativeVector(param.n);
+    for (int i = 0; i < param.n; i++) {
+        x[i] = dist(engine);
+        x[i] = (x[i].ConvertToInt() == 2) ? param.q - 1 : x[i];
+    }
+
+    NativeInteger q = param.q;
+    ct.a = OPVWRingMultiply(pk.a, x, param.n, q.ConvertToInt());
+    ct.b = OPVWRingMultiply(pk.b, x, param.n, q.ConvertToInt());
+
+    DiscreteGaussianGeneratorImpl<NativeVector> m_dgg_1(param.std_dev), m_dgg_2(param.std_dev);
+    for(int i = 0; i < param.n; i++){
+        ct.a[i].ModAddFastEq(m_dgg_1.GenerateInteger(q), q);
+        ct.b[i].ModAddFastEq(m_dgg_2.GenerateInteger(q), q);
+    }
+
+    for(int j = 0; j < (int) msg.size(); j++) {
+        msg[j] ? ct.b[j].ModAddFastEq(3*q/4, q) : ct.b[j].ModAddFastEq(q/4, q);
+    }
+}
+
+void OPVWDec(vector<int>& msg, const OPVWCiphertext& ct, const OPVWsk& sk, const OPVWParam& param) {
+    msg.resize(param.ell);
+    NativeInteger q = param.q;
+    int n = param.n;
+
+    NativeVector a_SK = OPVWRingMultiply(ct.a, sk, n, q.ConvertToInt());
+    for(int j = 0; j < param.ell; j++){
+        NativeInteger r = ct.b[j];
+
+        r.ModSubFastEq(a_SK[j], q);
+        r.ModEq(q);
+        msg[j] = (r < q/2)? 0 : 1;
+    }
+}
+
+
+
 ///////////////////////////////////////////////////////////
 /////////////////////////////////////////// PVW
 ///////////////////////////////////////////////////////////

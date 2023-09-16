@@ -491,7 +491,7 @@ void OMR3(){
     NTL::SetNumThreads(numcores);
     SecretKey secret_key_blank;
 
-    chrono::high_resolution_clock::time_point time_start, time_end;
+    chrono::high_resolution_clock::time_point time_start, time_end, s,e;
     chrono::microseconds time_diff;
     time_start = chrono::high_resolution_clock::now();
 
@@ -506,11 +506,14 @@ void OMR3(){
             if(!i)
                 cout << "Phase 1, Core " << i << ", Batch " << j << endl;
             loadClues(SICPVW_multicore[i], counter[i], counter[i]+poly_modulus_degree, params);
+            s = chrono::high_resolution_clock::now();
             packedSICfromPhase1[i][j] = serverOperations1obtainPackedSIC(SICPVW_multicore[i], switchingKey, relin_keys, gal_keys,
                                                             poly_modulus_degree, context, params, poly_modulus_degree);
             j++;
             counter[i] += poly_modulus_degree;
             SICPVW_multicore[i].clear();
+            e = chrono::high_resolution_clock::now();
+            cout << "BB to PV time: " << chrono::duration_cast<chrono::microseconds>(e - s).count() << endl;
         }
     }
     NTL_EXEC_RANGE_END;
