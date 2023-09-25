@@ -122,14 +122,16 @@ struct OPVWParam{
     int q;
     double std_dev;
     int ell;
+    int h;
     OPVWParam(){
         n = 450;
         q = 65537;
         std_dev = 1.3;
         ell = 4;
+        h = 32;
     }
-    OPVWParam(int n, int q, double std_dev, int ell)
-    : n(n), q(q), std_dev(std_dev), ell(ell)
+    OPVWParam(int n, int q, double std_dev, int ell, int h)
+    : n(n), q(q), std_dev(std_dev), ell(ell), h(h)
     {}
 };
 
@@ -153,13 +155,8 @@ void OPVWDec(vector<int>& msg, const OPVWCiphertext& ct, const OPVWsk& sk, const
 OPVWsk OPVWGenerateSecretKey(const OPVWParam& param) { // generate ternary key
     int n = param.n;
     int q = param.q;
-    lbcrypto::DiscreteUniformGeneratorImpl<regevSK> dug;
-    dug.SetModulus(3);
-    OPVWsk ret = dug.GenerateVector(n);
-
-    for (int i = 0; i < n; i++) {
-        ret[i] = (ret[i] == 2) ? q-1 : ret[i];
-    }
+    lbcrypto::TernaryUniformGeneratorImpl<regevSK> tug;
+    OPVWsk ret = tug.GenerateVector(n, q, param.h);
     return ret;
 }
 

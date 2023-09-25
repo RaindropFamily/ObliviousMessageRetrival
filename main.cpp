@@ -1,6 +1,7 @@
 #include "include/OMRUtil.h"
 #include "include/GOMR.h"
 #include "include/OMR.h"
+#include "include/OMRopt.h"
 #include "include/MRE.h"
 #include <openssl/aes.h>
 #include <string.h>
@@ -109,12 +110,12 @@ DEFAULT:
 
         case 4:
             numcores = 1;
-            OMR2();
+            test();
             break;
 
         case 5:
             numcores = 1;
-            OMR3();
+            OMR3_opt();
             break;
         
         case 6:

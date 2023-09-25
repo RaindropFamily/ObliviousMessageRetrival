@@ -20,15 +20,19 @@ void EvalMultMany_inpace(vector<Ciphertext>& ciphertexts, const RelinKeys &relin
         for(size_t i = 0; i < ciphertexts.size()/2; i++){
             evaluator.multiply_inplace(ciphertexts[i], ciphertexts[ciphertexts.size()/2+i]);
             evaluator.relinearize_inplace(ciphertexts[i], relin_keys);
-            if(counter & 1)
+            if(counter & 1) {
+                cout << "mod....\n";
                 evaluator.mod_switch_to_next_inplace(ciphertexts[i]);
+            }
         }
         if(ciphertexts.size()%2 == 0)
             ciphertexts.resize(ciphertexts.size()/2);
         else{ // if odd, take the last one and mod down to make them compatible
             ciphertexts[ciphertexts.size()/2] = ciphertexts[ciphertexts.size()-1];
-            if(counter & 1)
+            if(counter & 1) {
+                cout << "mod....\n";
                 evaluator.mod_switch_to_next_inplace(ciphertexts[ciphertexts.size()/2]);
+            }
             ciphertexts.resize(ciphertexts.size()/2+1);
         }
     }
@@ -830,4 +834,317 @@ void newRangeCheckPVW(vector<Ciphertext>& output, const int& range, const RelinK
     // Multiply them to reduce the false positive rate
     EvalMultMany_inpace(res, relin_keys, context);
     output = res;
+}
+
+
+
+////////////////////////////////////////////////////// FOR OMR Optimization with RLWE clues /////////////////////////////////////////////
+
+// compute b - aSK with packed swk but also only requires one rot key
+void computeBplusAS_OPVW(vector<Ciphertext>& output, const vector<OPVWCiphertext>& toPack, Ciphertext switchingKey,
+                         const GaloisKeys& gal_keys, const SEALContext& context, const OPVWParam& param) {
+    MemoryPoolHandle my_pool = MemoryPoolHandle::New(true);
+    auto old_prof = MemoryManager::SwitchProfile(std::make_unique<MMProfFixed>(std::move(my_pool)));
+
+    int tempn, sk_size = param.n;
+    for(tempn = 1; tempn < sk_size; tempn*=2){}
+
+    Evaluator evaluator(context);
+    BatchEncoder batch_encoder(context);
+    size_t slot_count = batch_encoder.slot_count();
+    if(toPack.size() > slot_count){
+        cerr << "Please pack at most " << slot_count << " PVW ciphertexts at one time." << endl;
+        return;
+    }
+
+    for(int i = 0; i < tempn; i++){
+        for(int l = 0; l < param.ell; l++){
+            vector<uint64_t> vectorOfInts(toPack.size());
+            for(int j = 0; j < (int)toPack.size(); j++){
+                int the_index = (i + j) % tempn;
+                if(the_index >= sk_size) {
+                    vectorOfInts[j] = 0;
+                } else {
+                    int ring_ind = (the_index <= l) ? (l - the_index) : (sk_size - the_index + l);
+                    uint64_t tmp = uint64_t((toPack[j].a[ring_ind].ConvertToInt()));
+                    vectorOfInts[j] = the_index <= l ? tmp : param.q - tmp;
+                }
+            }
+
+            Plaintext plaintext;
+            batch_encoder.encode(vectorOfInts, plaintext);
+        
+            if(i == 0){
+                evaluator.multiply_plain(switchingKey, plaintext, output[l]); // times s[i]
+            }
+            else{
+                Ciphertext temp;
+                evaluator.multiply_plain(switchingKey, plaintext, temp);
+                evaluator.add_inplace(output[l], temp);
+            }
+        }
+        evaluator.rotate_rows_inplace(switchingKey, 1, gal_keys);
+    }
+
+    for(int i = 0; i < param.ell; i++){
+        vector<uint64_t> vectorOfInts(toPack.size());
+        for(size_t j = 0; j < toPack.size(); j++){
+            vectorOfInts[j] = uint64_t((toPack[j].b[i].ConvertToInt() - param.q / 4) % param.q);
+        }
+
+        Plaintext plaintext;
+        batch_encoder.encode(vectorOfInts, plaintext);
+        evaluator.negate_inplace(output[i]);
+        evaluator.add_plain_inplace(output[i], plaintext);
+        evaluator.mod_switch_to_next_inplace(output[i]); 
+    }
+    MemoryManager::SwitchProfile(std::move(old_prof));
+}
+
+
+inline void calUptoDegreeK_bigPrime(vector<Ciphertext>& output, const Ciphertext& input, const int DegreeK, const RelinKeys &relin_keys,
+                                    const SEALContext& context, map<int, bool>& modDownIndices, const bool skip_odd=false) {
+    vector<int> calculated(DegreeK, 0);
+    Evaluator evaluator(context);
+    output[0] = input;
+    calculated[0] = 1; // degree 1, x
+    Ciphertext res, base;
+    vector<int> numMod(DegreeK, 0);
+
+    for(int i = DegreeK; i > 0; i--){
+        if (skip_odd && i % 2 == 1) { // 0 is for degree 1, 1 is for degree 2, skip all 2k+1 degree
+            calculated[i-1] = 1;
+            output[i-1] = input;
+        } else if(calculated[i-1] == 0){
+            auto toCalculate = i;
+            int resdeg = 0;
+            int basedeg = 1;
+            base = input;
+            while(toCalculate > 0){
+                if(toCalculate & 1){
+                    toCalculate -= 1;
+                    resdeg += basedeg;
+                    if(calculated[resdeg-1] != 0){
+                        res = output[resdeg - 1];
+                    } else {
+                        if(resdeg == basedeg){
+                            res = base; // should've never be used as base should have made calculated[basedeg-1]
+                        } else {
+                            numMod[resdeg-1] = numMod[basedeg-1];
+
+                            evaluator.mod_switch_to_inplace(res, base.parms_id()); // match modulus
+                            evaluator.multiply_inplace(res, base);
+                            evaluator.relinearize_inplace(res, relin_keys);
+                            if(modDownIndices.count(resdeg) && !modDownIndices[resdeg]) {
+                                modDownIndices[resdeg] = true;
+                                evaluator.mod_switch_to_next_inplace(res);
+                                numMod[resdeg-1]+=1;
+                            }
+                        }
+                        output[resdeg-1] = res;
+                        calculated[resdeg-1] += 1;
+                    }
+                } else {
+                    toCalculate /= 2;
+                    basedeg *= 2;
+                    if(calculated[basedeg-1] != 0){
+                        base = output[basedeg - 1];
+                    } else {
+                        numMod[basedeg-1] = numMod[basedeg/2-1];
+                        evaluator.square_inplace(base);
+                        evaluator.relinearize_inplace(base, relin_keys);
+                        while(modDownIndices.count(basedeg) && !modDownIndices[basedeg]) {
+                            modDownIndices[basedeg] = true;
+                            evaluator.mod_switch_to_next_inplace(base);
+                            numMod[basedeg-1]+=1;
+                        }
+                        output[basedeg-1] = base;
+                        calculated[basedeg-1] += 1;
+                    }
+                }
+            }
+        }
+    }
+
+    for(size_t i = 0; i < output.size()-1; i++){
+        evaluator.mod_switch_to_inplace(output[i], output[output.size()-1].parms_id()); // match modulus
+    }
+    return;
+}
+
+Ciphertext calculateDegree(const SEALContext& context, const RelinKeys &relin_keys, Ciphertext& input, map<int, bool> modDownIndices, int degree) {
+    Evaluator evaluator(context);
+
+    vector<Ciphertext> output(degree);
+    output[0] = input;
+    vector<int> calculated(degree, 0), numMod(degree, 0);
+    calculated[0] = 1;
+
+    Ciphertext res, base;
+
+    auto toCalculate = degree;
+    int resdeg = 0;
+    int basedeg = 1;
+    base = input;
+    while(toCalculate > 0){
+        if(toCalculate & 1){
+            toCalculate -= 1;
+            resdeg += basedeg;
+            if(calculated[resdeg-1] != 0){
+                res = output[resdeg - 1];
+            } else {
+                if(resdeg == basedeg){
+                    res = base; // should've never be used as base should have made calculated[basedeg-1]
+                } else {
+                    numMod[resdeg-1] = numMod[basedeg-1];
+
+                    evaluator.mod_switch_to_inplace(res, base.parms_id()); // match modulus
+                    evaluator.multiply_inplace(res, base);
+                    evaluator.relinearize_inplace(res, relin_keys);
+                    if(modDownIndices.count(resdeg) && !modDownIndices[resdeg]) {
+                        modDownIndices[resdeg] = true;
+                        evaluator.mod_switch_to_next_inplace(res);
+                        numMod[resdeg-1]+=1;
+                    }
+                }
+                output[resdeg-1] = res;
+                calculated[resdeg-1] += 1;
+            }
+        } else {
+            toCalculate /= 2;
+            basedeg *= 2;
+            if(calculated[basedeg-1] != 0){
+                base = output[basedeg - 1];
+            } else {
+                numMod[basedeg-1] = numMod[basedeg/2-1];
+                evaluator.square_inplace(base);
+                evaluator.relinearize_inplace(base, relin_keys);
+                while(modDownIndices.count(basedeg) && !modDownIndices[basedeg]) {
+                    modDownIndices[basedeg] = true;
+                    evaluator.mod_switch_to_next_inplace(base);
+                    numMod[basedeg-1]+=1;
+                }
+                output[basedeg-1] = base;
+                calculated[basedeg-1] += 1;
+            }
+        }
+    }
+
+    return output[output.size()-1];
+}
+
+
+Ciphertext raisePowerToPrime(const SEALContext& context, const RelinKeys &relin_keys, Ciphertext& input, map<int, bool> modDownIndices_1,
+                             map<int, bool> modDownIndices_2, int degree_1, int degree_2, int prime = 65537) {
+
+    Ciphertext tmp = calculateDegree(context, relin_keys, input, modDownIndices_1, degree_1);
+    tmp = calculateDegree(context, relin_keys, tmp, modDownIndices_2, degree_2);
+
+    return tmp;
+}
+
+
+void FastRangeCheck_Random(SecretKey& sk, Ciphertext& output, const Ciphertext& input, int degree, const RelinKeys &relin_keys,
+                           const SEALContext& context, const vector<uint64_t>& rangeCheckIndices, const int firstLevel,
+                           const int secondLevel, map<int, bool>& firstLevelMod, map<int, bool>& secondLevelMod) {
+    MemoryPoolHandle my_pool_larger = MemoryPoolHandle::New(true);
+    auto old_prof_larger = MemoryManager::SwitchProfile(std::make_unique<MMProfFixed>(std::move(my_pool_larger)));
+
+    Evaluator evaluator(context);
+    BatchEncoder batch_encoder(context);
+    vector<Ciphertext> kCTs(firstLevel), kToMCTs(secondLevel);
+
+    calUptoDegreeK_bigPrime(kCTs, input, firstLevel, relin_keys, context, firstLevelMod);
+    calUptoDegreeK_bigPrime(kToMCTs, kCTs[kCTs.size()-1], secondLevel, relin_keys, context, secondLevelMod);
+
+    Ciphertext temp_relin(context);
+
+    Plaintext plainInd;
+    plainInd.resize(degree);
+    plainInd.parms_id() = parms_id_zero;
+    for (int i = 0; i < (int) degree; i++) {
+        plainInd.data()[i] = 0;
+    }
+
+    for(int i = 0; i < secondLevel; i++) {
+        Ciphertext levelSum;
+        bool flag = false;
+        for(int j = 0; j < firstLevel; j++) {
+            if(rangeCheckIndices[i*firstLevel+j] != 0) {
+                plainInd.data()[0] = rangeCheckIndices[i*firstLevel+j];
+                if (!flag) {
+                    evaluator.multiply_plain(kCTs[j], plainInd, levelSum);
+                    flag = true;
+                } else {
+                    Ciphertext tmp;
+                    evaluator.multiply_plain(kCTs[j], plainInd, tmp);
+                    evaluator.add_inplace(levelSum, tmp);
+                }
+            }
+        }
+        evaluator.mod_switch_to_inplace(levelSum, kToMCTs[i].parms_id()); // mod down the plaintext multiplication noise
+        if(i == 0) {
+            output = levelSum;
+        } else if (i == 1) { // initialize for temp_relin, which is of ct size = 3
+            evaluator.multiply(levelSum, kToMCTs[i - 1], temp_relin);
+        } else {
+            evaluator.multiply_inplace(levelSum, kToMCTs[i - 1]);
+            evaluator.add_inplace(temp_relin, levelSum);
+        }
+    }
+
+    for(int i = 0; i < firstLevel; i++){
+        kCTs[i].release();
+    }
+    for(int i = 0; i < secondLevel; i++){
+        kToMCTs[i].release();
+    }
+
+    evaluator.relinearize_inplace(temp_relin, relin_keys);
+    evaluator.add_inplace(output, temp_relin);
+    temp_relin.release();
+
+    MemoryManager::SwitchProfile(std::move(old_prof_larger));
+}
+
+
+Ciphertext rangeCheck_OPVW(SecretKey& sk, vector<Ciphertext>& output, const RelinKeys &relin_keys, const size_t& degree, 
+                     const SEALContext& context, const OPVWParam& param){
+    BatchEncoder batch_encoder(context);
+    Evaluator evaluator(context);
+    Decryptor decryptor(context, sk);
+
+    vector<Ciphertext> res(param.ell);
+
+    vector<uint64_t> intInd(degree, 1);
+    Plaintext pl;
+    batch_encoder.encode(intInd, pl);
+
+    map<int, bool> raise_mod = {{4, false}, {16, false}, {64, false}, {256, false}};
+
+    for(int j = 0; j < param.ell; j++){
+        {
+            MemoryPoolHandle my_pool_larger = MemoryPoolHandle::New(true);
+            auto old_prof_larger = MemoryManager::SwitchProfile(std::make_unique<MMProfFixed>(std::move(my_pool_larger)));
+            evaluator.multiply_inplace(output[j], output[j]);
+            evaluator.relinearize_inplace(output[j], relin_keys);
+            // first use range check to obtain 0 and 1
+            map<int, bool> level_mod_1 = {{4, false}};
+            map<int, bool> level_mod_2 = {{4, false}};
+            
+            FastRangeCheck_Random(sk, res[j], output[j], degree, relin_keys, context, rangeCheckIndices_opt_19square,
+                                  4, 10, level_mod_1, level_mod_2);
+
+            Ciphertext tmp = raisePowerToPrime(context, relin_keys, res[j], raise_mod, raise_mod, 256, 256, param.q);
+
+            evaluator.negate_inplace(tmp);
+            evaluator.add_plain_inplace(tmp, pl);
+            res[j] = tmp;
+        }
+    }
+    // Multiply them to reduce the false positive rate
+    EvalMultMany_inpace(res, relin_keys, context);
+
+    evaluator.mod_switch_to_next_inplace(res[0]);
+    return res[0];
 }

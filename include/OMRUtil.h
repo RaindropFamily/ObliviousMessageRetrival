@@ -18,15 +18,23 @@ void choosePertinentMsg(int numOfTransactions, int pertinentMsgNum, vector<int>&
     auto rng = make_shared<Blake2xbPRNGFactory>(Blake2xbPRNGFactory(seed));
     RandomToStandardAdapter engine(rng->create());
     uniform_int_distribution<uint64_t> dist(0, numOfTransactions - 1);
-    for (int i = 0; i < pertinentMsgNum; i++) {
-        auto temp = dist(engine);
-        while(find(pertinentMsgIndices.begin(), pertinentMsgIndices.end(), temp) != pertinentMsgIndices.end()){
-            temp = dist(engine);
-        }
-        pertinentMsgIndices.push_back(temp);
-    }
-    sort(pertinentMsgIndices.begin(), pertinentMsgIndices.end());
-    // pertinentMsgIndices.push_back(0);
+    // for (int i = 0; i < pertinentMsgNum; i++) {
+    //     auto temp = dist(engine);
+    //     while(find(pertinentMsgIndices.begin(), pertinentMsgIndices.end(), temp) != pertinentMsgIndices.end()){
+    //         temp = dist(engine);
+    //     }
+    //     pertinentMsgIndices.push_back(temp);
+    // }
+    // sort(pertinentMsgIndices.begin(), pertinentMsgIndices.end());
+    pertinentMsgIndices.push_back(0);
+    // pertinentMsgIndices.push_back(1);
+    // pertinentMsgIndices.push_back(2);
+    // pertinentMsgIndices.push_back(3);
+    // pertinentMsgIndices.push_back(4);
+    // pertinentMsgIndices.push_back(5);
+    // pertinentMsgIndices.push_back(6);
+    // pertinentMsgIndices.push_back(7);
+
 
     cout << "Expected Message Indices: " << pertinentMsgIndices << endl;
 }
@@ -676,4 +684,199 @@ vector<vector<uint64_t>> preparingMREGroupClue(vector<int>& pertinentMsgIndices,
     cout << "\nSender average running time: " << total_time / pertinentMsgIndices.size() << "us." << "\n";
 
     return ret;
+}
+
+
+
+////////////////////////////////////////////////////// FOR OMR Optimization with RLWE clues /////////////////////////////////////////////
+
+
+// generate numOfTransactions * party_size messages, but due to grouping by party_size_glb, and utilizing the GOMR2 scheme to boost
+// the OMR performance, we consider each party_size payload+clue as a huge payload+chunk
+// By: 1) concate all party_size payloads into a big one
+//     2) add up all party_size PV values
+// Therefore, the expected indices are still within [0, numOfTransactions]
+// and the ret payload vector contains pertinent chunks, instead of single pertinent messages
+vector<vector<uint64_t>> preparingTransactionsFormal_opt(vector<int>& pertinentMsgIndices, OPVWpk& pk, int numOfTransactions,
+                                                         int pertinentMsgNum, const OPVWParam& params,
+                                                         const int party_size = party_size_glb) {
+
+
+    vector<vector<uint64_t>> ret;
+    vector<int> zeros(params.ell, 0);
+
+    prng_seed_type seed;
+    for (auto &i : seed) {
+        i = random_uint64();
+    }
+
+    choosePertinentMsg(numOfTransactions * party_size, pertinentMsgNum, pertinentMsgIndices, seed);
+
+    vector<int> p_reduced;
+
+    for(int i = 0; i < numOfTransactions * party_size; i++){
+        OPVWCiphertext tempclue;
+
+        if(find(pertinentMsgIndices.begin(), pertinentMsgIndices.end(), i) != pertinentMsgIndices.end()) {
+            int ind = i / party_size;
+
+            if(find(p_reduced.begin(), p_reduced.end(), ind) == p_reduced.end()) { // the whole chunk never get stored before
+                p_reduced.push_back(ind);
+                expectedIndices.push_back(ind);
+                ret.push_back(loadDataSingle_chunk(ind, party_size));
+            }
+
+            OPVWEncPK(tempclue, zeros, pk, params);
+        } else {
+            auto sk2 = OPVWGenerateSecretKey(params);
+            OPVWEncSK(tempclue, zeros, sk2, params);
+        }
+        saveClues_OPVE(tempclue, i);
+    }
+
+    pertinentMsgIndices = p_reduced;
+
+    return ret;
+}
+
+
+Ciphertext obtainPackedSICFromRingLWEClue(SecretKey& sk, vector<OPVWCiphertext>& SICPVW, Ciphertext switchingKey, const RelinKeys& relin_keys,
+                                          const GaloisKeys& gal_keys, const size_t& degree, const SEALContext& context, const OPVWParam& params,
+                                          const int numOfTransactions, const int partialSize = 0) {
+    Evaluator evaluator(context);
+    Decryptor decryptor(context, sk);
+    
+    vector<Ciphertext> packedSIC(params.ell);
+    computeBplusAS_OPVW(packedSIC, SICPVW, switchingKey, gal_keys, context, params);
+
+    // int rangeToCheck = 20; // range check is from [-rangeToCheck, rangeToCheck-1]
+    return rangeCheck_OPVW(sk, packedSIC, relin_keys, degree, context, params);
+}
+
+
+// Phase 2, retrieving for OMR3
+void serverOperations3therest_opt(vector<Ciphertext>& lhsCounter, vector<vector<int>>& bipartite_map, Ciphertext& rhs, Ciphertext& packedSIC,
+                              const vector<vector<uint64_t>>& payload, const RelinKeys& relin_keys, const GaloisKeys& gal_keys,
+                              const PublicKey& public_key, const size_t& degree, const SEALContext& context, const SEALContext& context2,
+                              const int numOfTransactions,  int& counter, int numberOfCt = 1, int partySize = 1, int slotPerBucket = 3,
+                              const int payloadSize = 306) {
+
+    Evaluator evaluator(context);
+
+    chrono::high_resolution_clock::time_point s1, e1, s2,e2;
+    int t1 = 0, t2 = 0;
+
+    int step = 32;
+    for(int i = counter; i < counter+numOfTransactions; i += step){
+        // step 1. expand PV
+        vector<Ciphertext> expandedSIC;
+        s1 = chrono::high_resolution_clock::now();
+        expandSIC_Alt(expandedSIC, packedSIC, gal_keys, gal_keys_last, int(degree), context, context2, step, i-counter);
+        // transform to ntt form for better efficiency for all of the following steps
+        for(size_t j = 0; j < expandedSIC.size(); j++)
+            if(!expandedSIC[j].is_ntt_form())
+                evaluator.transform_to_ntt_inplace(expandedSIC[j]);
+
+        e1 = chrono::high_resolution_clock::now();
+        t1 += chrono::duration_cast<chrono::microseconds>(e1 - s1).count();
+
+        // step 2. randomized retrieval
+        s2 = chrono::high_resolution_clock::now();
+        randomizedIndexRetrieval_opt(lhsCounter, expandedSIC, context, public_key, i, degree,
+                                     repetition_glb, numberOfCt, num_bucket_glb, partySize, slotPerBucket);
+        // step 3-4. multiply weights and pack them
+        // The following two steps are for streaming updates
+        vector<vector<Ciphertext>> payloadUnpacked;
+        payloadRetrievalOptimizedwithWeights(payloadUnpacked, payload, bipartite_map_glb, weights_glb, expandedSIC, context, degree, i, i-counter);
+        // Note that if number of repeatitions is already set, this is the only step needed for streaming updates
+        payloadPackingOptimized(rhs, payloadUnpacked, bipartite_map_glb, degree, context, gal_keys, i);
+        e2 = chrono::high_resolution_clock::now();
+        t2 += chrono::duration_cast<chrono::microseconds>(e2 - s2).count();
+    }
+
+    s2 = chrono::high_resolution_clock::now();
+    for(size_t i = 0; i < lhsCounter.size(); i++){
+            evaluator.transform_from_ntt_inplace(lhsCounter[i]);
+    }
+    if(rhs.is_ntt_form())
+        evaluator.transform_from_ntt_inplace(rhs);
+    
+    counter += numOfTransactions;
+    e2 = chrono::high_resolution_clock::now();
+    t2 += chrono::duration_cast<chrono::microseconds>(e2 - s2).count();
+
+
+    cout << "Unpack PV time: " << t1 << endl;
+    cout << "digest encoding time: " << t2 << endl;
+}
+
+
+// Phase 2, retrieving for OMR take 3
+void serverOperations3therest_obliviousExpansion(EncryptionParameters& enc_param, vector<Ciphertext>& lhsCounter, vector<vector<int>>& bipartite_map,
+                                                 Ciphertext& rhs, Ciphertext& packedSIC, const vector<vector<uint64_t>>& payload,
+                                                 const RelinKeys& relin_keys, const GaloisKeys& gal_keys, const SecretKey& secretKey,
+                                                 const PublicKey& public_key, const size_t& degree, const SEALContext& context_next,
+                                                 const SEALContext& context_last, const int numOfTransactions, int& counter, int numberOfCt = 1,
+                                                 int partySize = 1, int slotPerBucket = 3, const int payloadSize = 306, const int t = 65537) {
+
+    Evaluator evaluator(context_next);
+    Decryptor decryptor(context_next, secretKey);
+
+    chrono::high_resolution_clock::time_point s1, e1, s2,e2;
+    int t1 = 0, t2 = 0;
+
+    int sq_ct = sqrt(degree/2);
+    vector<Ciphertext> packSIC_sqrt_list(2*sq_ct);
+
+    // step 1. expand PV
+    s1 = chrono::high_resolution_clock::now();
+    vector<Ciphertext> expandedSIC = expand(context_next, enc_param, packedSIC, poly_modulus_degree_glb, gal_keys, poly_modulus_degree_glb);
+
+    cout << "After expansion noise: " << decryptor.invariant_noise_budget(expandedSIC[0]) << endl;
+    for (int i = 0; i < 10; i++) {
+        Plaintext t;
+        decryptor.decrypt(expandedSIC[i], t);
+        for (int j = 0; j < (int) 100; j++) {
+            cout << t.data()[j] << " ";
+        }
+        cout << endl;
+    }
+
+    for(size_t j = 0; j < expandedSIC.size(); j++) {
+        if(!expandedSIC[j].is_ntt_form()) {
+            evaluator.transform_to_ntt_inplace(expandedSIC[j]);
+        }
+    }
+
+    e1 = chrono::high_resolution_clock::now();
+    t1 += chrono::duration_cast<chrono::microseconds>(e1 - s1).count();
+
+    // step 2. randomized retrieval
+    s2 = chrono::high_resolution_clock::now();
+    randomizedIndexRetrieval_opt(lhsCounter, expandedSIC, context_next, public_key, counter, degree,
+                                    repetition_glb, numberOfCt, num_bucket_glb, partySize, slotPerBucket);
+    // step 3-4. multiply weights and pack them
+    // The following two steps are for streaming updates
+    vector<vector<Ciphertext>> payloadUnpacked;
+    payloadRetrievalOptimizedwithWeights(payloadUnpacked, payload, bipartite_map_glb, weights_glb, expandedSIC, context_next, degree, counter, 0);
+    // Note that if number of repeatitions is already set, this is the only step needed for streaming updates
+    payloadPackingOptimized(rhs, payloadUnpacked, bipartite_map_glb, degree, context_next, gal_keys, counter);
+    e2 = chrono::high_resolution_clock::now();
+    t2 += chrono::duration_cast<chrono::microseconds>(e2 - s2).count();
+
+
+    s2 = chrono::high_resolution_clock::now();
+    for(size_t i = 0; i < lhsCounter.size(); i++){
+            evaluator.transform_from_ntt_inplace(lhsCounter[i]);
+    }
+    if(rhs.is_ntt_form())
+        evaluator.transform_from_ntt_inplace(rhs);
+    
+    counter += numOfTransactions;
+    e2 = chrono::high_resolution_clock::now();
+    t2 += chrono::duration_cast<chrono::microseconds>(e2 - s2).count();
+
+
+    cout << "Unpack PV time: " << t1 << endl;
+    cout << "digest encoding time: " << t2 << endl;
 }

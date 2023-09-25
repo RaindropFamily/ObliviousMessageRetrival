@@ -4,6 +4,7 @@
 #pragma once
 
 #include "seal/seal.h"
+#include "seal/util/polyarithsmallmod.h"
 #include <algorithm>
 #include <chrono>
 #include <cstddef>
@@ -19,6 +20,11 @@
 #include <string>
 #include <thread>
 #include <vector>
+
+using namespace std;
+using namespace seal;
+using namespace seal::util;
+
 /*
 Helper function: Prints the name of the example in a fancy banner.
 */
@@ -203,4 +209,205 @@ Helper function: Print line number.
 inline void print_line(int line_number)
 {
     std::cout << "Line " << std::setw(3) << line_number << " --> ";
+}
+
+inline
+long power_seal(long x, long y, long m)
+{
+    if (y == 0)
+        return 1;
+    long p = power_seal(x, y / 2, m) % m;
+    p = (p * p) % m;
+ 
+    return (y % 2 == 0) ? p : (x * p) % m;
+}
+
+inline
+long modInverse_seal(long a, long m)
+{
+    return power_seal(a, m - 2, m);
+}
+
+
+inline void multiply_power_of_X(EncryptionParameters& enc_param, const Ciphertext &encrypted, Ciphertext &destination, uint32_t index) {
+
+    auto coeff_mod_count = enc_param.coeff_modulus().size() - 1;
+    auto coeff_count = enc_param.poly_modulus_degree();
+    auto encrypted_count = encrypted.size();
+
+    destination = encrypted;
+
+    for (int i = 0; i < encrypted_count; i++) {
+        for (int j = 0; j < coeff_mod_count; j++) {
+            negacyclic_shift_poly_coeffmod(encrypted.data(i) + (j * coeff_count),
+                                           coeff_count, index,
+                                           enc_param.coeff_modulus()[j],
+                                           destination.data(i) + (j * coeff_count));
+        }
+    }
+}
+
+
+
+inline vector<Ciphertext> expand(const SEALContext& context, EncryptionParameters& enc_param, const Ciphertext &encrypted, uint32_t m,
+                                 const GaloisKeys& galkey, int poly_modulus_degree, int t = 65537) {
+
+    Evaluator evaluator(context);
+    uint32_t logm = ceil(log2(m));
+    Plaintext two("2");
+
+    vector<int> galois_elts;
+    auto n = poly_modulus_degree;
+    if (logm > ceil(log2(n))) {
+        throw logic_error("m > n is not allowed.");
+    }
+    for (int i = 0; i < ceil(log2(n)); i++) {
+        galois_elts.push_back((n + exponentiate_uint(2, i)) / exponentiate_uint(2, i));
+    }
+
+    vector<Ciphertext> temp;
+    temp.push_back(encrypted);
+    Ciphertext tempctxt;
+    Ciphertext tempctxt_rotated;
+    Ciphertext tempctxt_shifted;
+    Ciphertext tempctxt_rotatedshifted;
+
+    for (uint32_t i = 0; i < logm - 1; i++) {
+        vector<Ciphertext> newtemp(temp.size() << 1);
+        int index_raw = (n << 1) - (1 << i);
+        int index = (index_raw * galois_elts[i]) % (n << 1);
+
+        for (uint32_t a = 0; a < temp.size(); a++) {
+
+            evaluator.apply_galois(temp[a], galois_elts[i], galkey, tempctxt_rotated);
+
+            evaluator.add(temp[a], tempctxt_rotated, newtemp[a]);
+            multiply_power_of_X(enc_param, temp[a], tempctxt_shifted, index_raw);
+            multiply_power_of_X(enc_param, tempctxt_rotated, tempctxt_rotatedshifted, index);
+
+            evaluator.add(tempctxt_shifted, tempctxt_rotatedshifted, newtemp[a + temp.size()]);
+        }
+
+        temp = newtemp;
+    }
+    // Last step of the loop
+    vector<Ciphertext> newtemp(temp.size() << 1);
+    int index_raw = (n << 1) - (1 << (logm - 1));
+    int index = (index_raw * galois_elts[logm - 1]) % (n << 1);
+    for (uint32_t a = 0; a < temp.size(); a++) {
+        if (a >= (m - (1 << (logm - 1)))) { // corner case.
+            evaluator.multiply_plain(temp[a], two, newtemp[a]); // plain multiplication by 2.
+            // cout << client.decryptor_->invariant_noise_budget(newtemp[a]) << ", ";
+        } else {
+            evaluator.apply_galois(temp[a], galois_elts[logm - 1], galkey, tempctxt_rotated);
+            evaluator.add(temp[a], tempctxt_rotated, newtemp[a]);
+            multiply_power_of_X(enc_param, temp[a], tempctxt_shifted, index_raw);
+            multiply_power_of_X(enc_param, tempctxt_rotated, tempctxt_rotatedshifted, index);
+            evaluator.add(tempctxt_shifted, tempctxt_rotatedshifted, newtemp[a + temp.size()]);
+        }
+    }
+
+    vector<Ciphertext>::const_iterator first = newtemp.begin();
+    vector<Ciphertext>::const_iterator last = newtemp.begin() + m;
+    vector<Ciphertext> newVec(first, last);
+
+    uint64_t inv = modInverse_seal(poly_modulus_degree, t);
+    cout << "check inv: " << inv << endl;
+    Plaintext plainInd;
+    plainInd.resize(poly_modulus_degree);
+    plainInd.parms_id() = parms_id_zero;
+    for (int i = 1; i < poly_modulus_degree; i++) {
+        plainInd.data()[i] = 0;
+    }
+    plainInd.data()[0] = inv;
+
+    for (int i = 0; i < poly_modulus_degree; i++) {
+        evaluator.multiply_plain_inplace(newVec[i], plainInd);
+    }
+
+    return newVec;
+}
+
+vector<vector<int>> generateMatrixU_transpose(int n, const int q = 65537, const int primitive_root = 3) {
+    cout << "Generating... " << n << endl;
+    vector<vector<int>> U(n,  vector<int>(n));
+    for (int i = 0; i < n; i++) {
+        for (int j = 0; j < n; j++) {
+            if (i == 0) {
+                U[i][j] = (int) power_seal(primitive_root, j, q);
+            } else if (i == n/2) {
+                U[i][j] = (int) modInverse_seal(U[0][j], q);
+            } else {
+                U[i][j] = (int) power_seal(U[i-1][j], 3, q);
+            }
+        }
+    }
+    cout << "Generation finished. " << endl;
+    return U;
+}
+
+
+Ciphertext slotToCoeff_WOPrepreocess(const SEALContext& context, const SEALContext& context_coeff, vector<Ciphertext>& ct_sqrt_list, const GaloisKeys& gal_keys,
+                                     const int sq_rt = 128, const int degree=32768, const uint64_t q = 65537, const uint64_t scalar = 1) {
+    Evaluator evaluator(context), evaluator_rotate(context_coeff);
+    BatchEncoder batch_encoder(context_coeff);
+
+    chrono::high_resolution_clock::time_point time_start, time_end;
+    uint64_t total_U = 0;
+
+    time_start = chrono::high_resolution_clock::now();
+    vector<vector<int>> U = generateMatrixU_transpose(degree, q);
+    time_end = chrono::high_resolution_clock::now();
+    total_U += chrono::duration_cast<chrono::microseconds>(time_end - time_start).count();
+    cout << "after U.\n";
+
+    vector<Ciphertext> result(sq_rt);
+    for (int iter = 0; iter < sq_rt; iter++) {
+        // cout << "       " << iter << endl;
+        for (int j = 0; j < (int) ct_sqrt_list.size(); j++) {
+
+            time_start = chrono::high_resolution_clock::now();
+            vector<uint64_t> U_tmp(degree);
+            for (int i = 0; i < degree; i++) {
+                int row_index = (i-iter) % (degree/2) < 0 ? (i-iter) % (degree/2) + degree/2 : (i-iter) % (degree/2);
+                row_index = i < degree/2 ? row_index : row_index + degree/2;
+                int col_index = (i + j*sq_rt) % (degree/2);
+                if (j < (int) ct_sqrt_list.size() / 2) { // first half
+                    col_index = i < degree/2 ? col_index : col_index + degree/2;
+                } else {
+                    col_index = i < degree/2 ? col_index + degree/2 : col_index;
+                }
+                U_tmp[i] = ((uint64_t) (U[row_index][col_index] * scalar)) % q;
+            }
+            // writeUtemp(U_tmp, j*sq_rt + iter);
+
+            Plaintext U_plain;
+            batch_encoder.encode(U_tmp, U_plain);
+            evaluator.transform_to_ntt_inplace(U_plain, ct_sqrt_list[j].parms_id());
+
+            time_end = chrono::high_resolution_clock::now();
+            total_U += chrono::duration_cast<chrono::microseconds>(time_end - time_start).count();
+
+            if (j == 0) {
+                evaluator.multiply_plain(ct_sqrt_list[j], U_plain, result[iter]);
+            } else {
+                Ciphertext temp;
+                evaluator.multiply_plain(ct_sqrt_list[j], U_plain, temp);
+                evaluator.add_inplace(result[iter], temp);
+            }
+        }
+    }
+
+    for (int i = 0; i < (int) result.size(); i++) {
+        evaluator.transform_from_ntt_inplace(result[i]);
+    }
+
+    for (int iter = sq_rt-1; iter > 0; iter--) {
+        evaluator_rotate.rotate_rows_inplace(result[iter], 1, gal_keys);
+        evaluator.add_inplace(result[iter-1], result[iter]);
+    }
+
+    cout << "   TOTAL process U time: " << total_U << endl;
+
+    return result[0];
 }

@@ -333,7 +333,6 @@ void loadSingleAESKey(unsigned char* key, const int index) {
     if (byte_read != AES_KEY_SIZE) {
         cout << "Warning!!! AES Key not 16 bytes." << endl;
     }
-    fclose(file);
 }
 
 
@@ -341,4 +340,61 @@ void batchLoadRandomSeeds(const PVWParam& param, const int start, const int end,
     for (int c = start; c < end; c++) {
         loadSingleAESKey(random_seeds[c - start], c);
     }
+}
+
+
+void saveClues_OPVE(const OPVWCiphertext& clue, int transaction_num){
+    ofstream datafile;
+    datafile.open ("../data/clues/"+to_string(transaction_num)+".txt");
+
+    for (size_t i = 0; i < clue.a.GetLength(); i++) {
+        datafile << clue.a[i].ConvertToInt() << "\n";
+    }
+    for (size_t i = 0; i < clue.b.GetLength(); i++) {
+        datafile << clue.b[i].ConvertToInt() << "\n";
+    }
+
+    datafile.close();
+}
+
+
+void loadClues_OPVW(vector<OPVWCiphertext>& clues, const int& start, const int& end, const OPVWParam& param, int party_ind = 0, int partySize = 1) {
+    clues.resize(end-start);
+    for(int i = start; i < end; i++){
+        clues[i-start].a = NativeVector(param.n);
+        clues[i-start].b = NativeVector(param.n);
+
+        ifstream datafile;
+        datafile.open ("../data/clues/"+to_string(i * partySize + party_ind)+".txt");
+
+        for(int j = 0; j < param.n; j++){
+            uint64_t temp;
+            datafile >> temp;
+            clues[i-start].a[j] = temp;
+        }
+
+        for(int j = 0; j < param.n; j++){
+            uint64_t temp;
+            datafile >> temp;
+            clues[i-start].b[j] = temp;
+        }
+    }
+}
+
+
+vector<uint64_t> loadDataSingle_chunk(int i, int party_size = party_size_glb,
+                                      const string folder = "payloads", int payloadSize = 306) {
+    vector<uint64_t> ret;
+
+    ret.resize(payloadSize * party_size);
+    ifstream datafile;
+    for (int c = 0; c < party_size; c++) {
+        datafile.open ("../data/"+folder+"/"+to_string(i + c)+".txt");
+        for(int j = 0; j < payloadSize; j++){
+            datafile >> ret[c*payloadSize + j];
+        }
+        datafile.close();
+    }
+
+    return ret;
 }

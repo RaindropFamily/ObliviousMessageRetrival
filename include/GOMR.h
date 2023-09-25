@@ -264,8 +264,8 @@ void GOMR2() {
     size_t poly_modulus_degree = poly_modulus_degree_glb;
 
     int numOfTransactions = numOfTransactions_glb;
-    createDatabase(numOfTransactions, 306);
-    cout << "Finishing createDatabase\n";
+    // createDatabase(numOfTransactions, 306);
+    // cout << "Finishing createDatabase\n";
 
     // step 1. generate PVW sk
     // recipient side
@@ -335,7 +335,7 @@ void GOMR2() {
 
     /////////////////////////////////////// Level specific keys
     vector<Modulus> coeff_modulus_next = coeff_modulus;
-    coeff_modulus_next.erase(coeff_modulus_next.begin() + 4, coeff_modulus_next.end()-1);
+    coeff_modulus_next.erase(coeff_modulus_next.begin() + 6, coeff_modulus_next.end()-1);
     EncryptionParameters parms_next = parms;
     parms_next.set_coeff_modulus(coeff_modulus_next);
     SEALContext context_next = SEALContext(parms_next, true, sec_level_type::none);
@@ -352,7 +352,7 @@ void GOMR2() {
     keygen_next.create_galois_keys(steps, gal_keys_next);
         //////////////////////////////////////
     vector<Modulus> coeff_modulus_last = coeff_modulus;
-    coeff_modulus_last.erase(coeff_modulus_last.begin() + 3, coeff_modulus_last.end()-1);
+    coeff_modulus_last.erase(coeff_modulus_last.begin() + 6, coeff_modulus_last.end()-1);
     EncryptionParameters parms_last = parms;
     parms_last.set_coeff_modulus(coeff_modulus_last);
     SEALContext context_last = SEALContext(parms_last, true, sec_level_type::none);
