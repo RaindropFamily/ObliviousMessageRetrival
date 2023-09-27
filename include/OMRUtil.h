@@ -825,45 +825,40 @@ void serverOperations3therest_obliviousExpansion(EncryptionParameters& enc_param
     chrono::high_resolution_clock::time_point s1, e1, s2,e2;
     int t1 = 0, t2 = 0;
 
-    int sq_ct = sqrt(degree/2);
-    vector<Ciphertext> packSIC_sqrt_list(2*sq_ct);
+    int step = 32, counter = 0;
+    vector<Ciphertext> expanded_subtree_leaves = subExpand(context_next, enc_param, packedSIC, poly_modulus_degree_glb, gal_keys, poly_modulus_degree_glb/step);
+    vector<Ciphertext> partial_expandedSIC(step);
 
-    // step 1. expand PV
-    s1 = chrono::high_resolution_clock::now();
-    vector<Ciphertext> expandedSIC = expand(context_next, enc_param, packedSIC, poly_modulus_degree_glb, gal_keys, poly_modulus_degree_glb);
+    for (int i = counter; i < counter+numOfTransactions; i += step) {
+        // step 1. expand PV
+        s1 = chrono::high_resolution_clock::now();
+        partial_expandedSIC = expand(context_next, enc_param, expanded_subtree_leaves[counter], poly_modulus_degree_glb, gal_keys, step);
 
-    cout << "After expansion noise: " << decryptor.invariant_noise_budget(expandedSIC[0]) << endl;
-    for (int i = 0; i < 10; i++) {
-        Plaintext t;
-        decryptor.decrypt(expandedSIC[i], t);
-        for (int j = 0; j < (int) 100; j++) {
-            cout << t.data()[j] << " ";
+        cout << "After expansion noise: " << decryptor.invariant_noise_budget(partial_expandedSIC[0]) << endl;
+
+        for(size_t j = 0; j < partial_expandedSIC.size(); j++) {
+            if(!partial_expandedSIC[j].is_ntt_form()) {
+                evaluator.transform_to_ntt_inplace(partial_expandedSIC[j]);
+            }
         }
-        cout << endl;
+
+        e1 = chrono::high_resolution_clock::now();
+        t1 += chrono::duration_cast<chrono::microseconds>(e1 - s1).count();
+
+        // step 2. randomized retrieval
+        s2 = chrono::high_resolution_clock::now();
+        randomizedIndexRetrieval_opt(lhsCounter, partial_expandedSIC, context_next, public_key, counter, degree,
+                                        repetition_glb, numberOfCt, num_bucket_glb, partySize, slotPerBucket);
+        // step 3-4. multiply weights and pack them
+        // The following two steps are for streaming updates
+        vector<vector<Ciphertext>> payloadUnpacked;
+        payloadRetrievalOptimizedwithWeights(payloadUnpacked, payload, bipartite_map_glb, weights_glb, partial_expandedSIC, context_next, degree, counter, 0);
+        // Note that if number of repeatitions is already set, this is the only step needed for streaming updates
+        payloadPackingOptimized(rhs, payloadUnpacked, bipartite_map_glb, degree, context_next, gal_keys, counter);
+        e2 = chrono::high_resolution_clock::now();
+        t2 += chrono::duration_cast<chrono::microseconds>(e2 - s2).count();
+        counter++;
     }
-
-    for(size_t j = 0; j < expandedSIC.size(); j++) {
-        if(!expandedSIC[j].is_ntt_form()) {
-            evaluator.transform_to_ntt_inplace(expandedSIC[j]);
-        }
-    }
-
-    e1 = chrono::high_resolution_clock::now();
-    t1 += chrono::duration_cast<chrono::microseconds>(e1 - s1).count();
-
-    // step 2. randomized retrieval
-    s2 = chrono::high_resolution_clock::now();
-    randomizedIndexRetrieval_opt(lhsCounter, expandedSIC, context_next, public_key, counter, degree,
-                                    repetition_glb, numberOfCt, num_bucket_glb, partySize, slotPerBucket);
-    // step 3-4. multiply weights and pack them
-    // The following two steps are for streaming updates
-    vector<vector<Ciphertext>> payloadUnpacked;
-    payloadRetrievalOptimizedwithWeights(payloadUnpacked, payload, bipartite_map_glb, weights_glb, expandedSIC, context_next, degree, counter, 0);
-    // Note that if number of repeatitions is already set, this is the only step needed for streaming updates
-    payloadPackingOptimized(rhs, payloadUnpacked, bipartite_map_glb, degree, context_next, gal_keys, counter);
-    e2 = chrono::high_resolution_clock::now();
-    t2 += chrono::duration_cast<chrono::microseconds>(e2 - s2).count();
-
 
     s2 = chrono::high_resolution_clock::now();
     for(size_t i = 0; i < lhsCounter.size(); i++){

@@ -237,8 +237,8 @@ inline void multiply_power_of_X(EncryptionParameters& enc_param, const Ciphertex
 
     destination = encrypted;
 
-    for (int i = 0; i < encrypted_count; i++) {
-        for (int j = 0; j < coeff_mod_count; j++) {
+    for (int i = 0; i < (int) encrypted_count; i++) {
+        for (int j = 0; j < (int) coeff_mod_count; j++) {
             negacyclic_shift_poly_coeffmod(encrypted.data(i) + (j * coeff_count),
                                            coeff_count, index,
                                            enc_param.coeff_modulus()[j],
@@ -248,21 +248,22 @@ inline void multiply_power_of_X(EncryptionParameters& enc_param, const Ciphertex
 }
 
 
-
-inline vector<Ciphertext> expand(const SEALContext& context, EncryptionParameters& enc_param, const Ciphertext &encrypted, uint32_t m,
-                                 const GaloisKeys& galkey, int poly_modulus_degree, int t = 65537) {
+// for a tree with m leaf node, m >> stepSize, we first expand it to a subtree with m / stepSize leaf node
+// (i.e., this subtree is the top of the whole tree)
+// and then for each leaf node in this subtree, expand it into a small subtree with stepSize leaf node
+// this function is the assistant function that return the top-part subtree
+inline vector<Ciphertext> subExpand(const SEALContext& context, EncryptionParameters& enc_param, const Ciphertext &encrypted, uint32_t m,
+                                    const GaloisKeys& galkey, int first_expansion_size, int t = 65537) {
 
     Evaluator evaluator(context);
-    uint32_t logm = ceil(log2(m));
     Plaintext two("2");
 
+    int logFirst = ceil(log2(first_expansion_size));
+
     vector<int> galois_elts;
-    auto n = poly_modulus_degree;
-    if (logm > ceil(log2(n))) {
-        throw logic_error("m > n is not allowed.");
-    }
-    for (int i = 0; i < ceil(log2(n)); i++) {
-        galois_elts.push_back((n + exponentiate_uint(2, i)) / exponentiate_uint(2, i));
+
+    for (int i = 0; i < ceil(log2(m)); i++) {
+        galois_elts.push_back((m + exponentiate_uint(2, i)) / exponentiate_uint(2, i));
     }
 
     vector<Ciphertext> temp;
@@ -272,10 +273,69 @@ inline vector<Ciphertext> expand(const SEALContext& context, EncryptionParameter
     Ciphertext tempctxt_shifted;
     Ciphertext tempctxt_rotatedshifted;
 
-    for (uint32_t i = 0; i < logm - 1; i++) {
+    for (uint32_t i = 0; i < logFirst; i++) {
         vector<Ciphertext> newtemp(temp.size() << 1);
-        int index_raw = (n << 1) - (1 << i);
-        int index = (index_raw * galois_elts[i]) % (n << 1);
+        int index_raw = (m << 1) - (1 << i);
+        int index = (index_raw * galois_elts[i]) % (m << 1);
+
+        for (uint32_t a = 0; a < temp.size(); a++) {
+
+            evaluator.apply_galois(temp[a], galois_elts[i], galkey, tempctxt_rotated);
+
+            evaluator.add(temp[a], tempctxt_rotated, newtemp[a]);
+            multiply_power_of_X(enc_param, temp[a], tempctxt_shifted, index_raw);
+            multiply_power_of_X(enc_param, tempctxt_rotated, tempctxt_rotatedshifted, index);
+
+            evaluator.add(tempctxt_shifted, tempctxt_rotatedshifted, newtemp[a + temp.size()]);
+        }
+
+        temp = newtemp;
+
+        // for (int k = 0; k < newtemp.size(); k++) {
+        //     newtemp[k].release();
+        // }
+    }
+
+    vector<Ciphertext>::const_iterator first = temp.begin();
+    vector<Ciphertext>::const_iterator last = temp.begin() + first_expansion_size;
+    vector<Ciphertext> newVec(first, last);
+
+    return newVec;
+}
+
+
+
+
+// for a tree with m leaf node, m >> stepSize, we first expand it to a subtree with m / stepSize leaf node
+// (i.e., this subtree is the top of the whole tree)
+// and then for each leaf node in this subtree, expand it into a small subtree with stepSize leaf node
+inline vector<Ciphertext> expand(const SEALContext& context, EncryptionParameters& enc_param, const Ciphertext &encrypted, uint32_t m,
+                                 const GaloisKeys& galkey, int stepSize, int t = 65537) {
+
+    Evaluator evaluator(context);
+    Plaintext two("2");
+
+    int first_expansion_size = m / stepSize;
+    int logFirst = ceil(log2(first_expansion_size));
+    int logm = ceil(log2(m));
+
+    vector<int> galois_elts;
+
+    for (int i = 0; i < ceil(log2(m)); i++) {
+        galois_elts.push_back((m + exponentiate_uint(2, i)) / exponentiate_uint(2, i));
+    }
+
+    vector<Ciphertext> temp;
+    temp.push_back(encrypted);
+    Ciphertext tempctxt;
+    Ciphertext tempctxt_rotated;
+    Ciphertext tempctxt_shifted;
+    Ciphertext tempctxt_rotatedshifted;
+
+    for (uint32_t i = logFirst; i < logm - 1; i++) {
+        vector<Ciphertext> newtemp(temp.size() << 1);
+        int index_raw = (m << 1) - (1 << i);
+        int index = (index_raw * galois_elts[i]) % (m << 1);
 
         for (uint32_t a = 0; a < temp.size(); a++) {
 
@@ -290,10 +350,12 @@ inline vector<Ciphertext> expand(const SEALContext& context, EncryptionParameter
 
         temp = newtemp;
     }
+
     // Last step of the loop
     vector<Ciphertext> newtemp(temp.size() << 1);
-    int index_raw = (n << 1) - (1 << (logm - 1));
-    int index = (index_raw * galois_elts[logm - 1]) % (n << 1);
+    int index_raw = (m << 1) - (1 << (logm - 1));
+    int index = (index_raw * galois_elts[logm - 1]) % (m << 1);
+
     for (uint32_t a = 0; a < temp.size(); a++) {
         if (a >= (m - (1 << (logm - 1)))) { // corner case.
             evaluator.multiply_plain(temp[a], two, newtemp[a]); // plain multiplication by 2.
@@ -308,22 +370,23 @@ inline vector<Ciphertext> expand(const SEALContext& context, EncryptionParameter
     }
 
     vector<Ciphertext>::const_iterator first = newtemp.begin();
-    vector<Ciphertext>::const_iterator last = newtemp.begin() + m;
+    vector<Ciphertext>::const_iterator last = newtemp.begin() + stepSize;
     vector<Ciphertext> newVec(first, last);
 
-    uint64_t inv = modInverse_seal(poly_modulus_degree, t);
-    cout << "check inv: " << inv << endl;
-    Plaintext plainInd;
-    plainInd.resize(poly_modulus_degree);
-    plainInd.parms_id() = parms_id_zero;
-    for (int i = 1; i < poly_modulus_degree; i++) {
-        plainInd.data()[i] = 0;
-    }
-    plainInd.data()[0] = inv;
 
-    for (int i = 0; i < poly_modulus_degree; i++) {
-        evaluator.multiply_plain_inplace(newVec[i], plainInd);
-    }
+    // uint64_t inv = modInverse_seal(poly_modulus_degree, t);
+    // cout << "check inv: " << inv << endl;
+    // Plaintext plainInd;
+    // plainInd.resize(poly_modulus_degree);
+    // plainInd.parms_id() = parms_id_zero;
+    // for (int i = 1; i < poly_modulus_degree; i++) {
+    //     plainInd.data()[i] = 0;
+    // }
+    // plainInd.data()[0] = inv;
+
+    // for (int i = 0; i < poly_modulus_degree; i++) {
+    //     evaluator.multiply_plain_inplace(newVec[i], plainInd);
+    // }
 
     return newVec;
 }

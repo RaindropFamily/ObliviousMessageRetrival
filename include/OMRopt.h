@@ -10,12 +10,13 @@
 
 void test() {
     size_t poly_modulus_degree = 32768;
+    int stepSize = 32;
 
     EncryptionParameters parms(scheme_type::bfv);
     auto degree = poly_modulus_degree;
     parms.set_poly_modulus_degree(poly_modulus_degree);
-    auto coeff_modulus = CoeffModulus::Create(poly_modulus_degree, { 28, 60, 60, 
-                                                                     60, 30, 60 });
+    auto coeff_modulus = CoeffModulus::Create(poly_modulus_degree, { 28,
+                                                                     60, 60 });
     parms.set_coeff_modulus(coeff_modulus);
     parms.set_plain_modulus(65537);
 
@@ -39,7 +40,7 @@ void test() {
     Decryptor decryptor(context, secret_key);
     BatchEncoder batch_encoder(context);
 
-    GaloisKeys glk, gal_keys_slotToCoeff;
+    GaloisKeys glk; //gal_keys_slotToCoeff;
     vector<uint32_t> galois_elts;
     auto n = poly_modulus_degree;
     for (int i = 0; i < ceil(log2(poly_modulus_degree)); i++) {
@@ -49,67 +50,36 @@ void test() {
     keygen.create_galois_keys(galois_elts, glk);
     cout << "Finished generating keys...\n";
 
-
     Plaintext plainInd;
-    vector<uint64_t> tt(degree, 1);
-    batch_encoder.encode(tt, plainInd);
-    // plainInd.resize(degree);
-    // plainInd.parms_id() = parms_id_zero;
-    // for (int i = 0; i < (int) degree; i++) {
-    //     plainInd.data()[i] = 0;
-    // }
-    // plainInd.data()[1] = 1;
-    // plainInd.data()[2] = 1;
-    // plainInd.data()[5] = 1;
+    plainInd.resize(degree);
+    plainInd.parms_id() = parms_id_zero;
+    for (int i = 0; i < (int) degree; i++) {
+        plainInd.data()[i] = 0;
+    }
+    plainInd.data()[1] = 1;
+    plainInd.data()[2] = 1;
+    plainInd.data()[5] = 1;
+    plainInd.data()[1024] = 1;
 
     Ciphertext c1;
     encryptor.encrypt(plainInd, c1);
 
-    int sq_ct = sqrt(degree/2);
-    vector<Ciphertext> packSIC_sqrt_list(2*sq_ct);
+    vector<Ciphertext> expanded_subtree_leaves = subExpand(context, parms, c1, poly_modulus_degree, glk, poly_modulus_degree/stepSize);
 
-    vector<int> slotToCoeff_steps_coeff = {1};
-    for (int i = 0; i < degree/2;) {
-        if (find(slotToCoeff_steps_coeff.begin(), slotToCoeff_steps_coeff.end(), i) == slotToCoeff_steps_coeff.end()) {
-            slotToCoeff_steps_coeff.push_back(i);
+    vector<Ciphertext> partial_final_leaves(32);
+    for (int i = 0; i < expanded_subtree_leaves.size(); i++) {
+        cout << "final expand " << i << endl;
+                partial_final_leaves = expand(context, parms, expanded_subtree_leaves[i], poly_modulus_degree, glk, stepSize);
+
+        for (int j = 0; j < 10; j++) {
+            Plaintext t;
+            decryptor.decrypt(partial_final_leaves[j], t);
+            for (int k = 0; k < (int) 10; k++) {
+                cout << t.data()[k] << " ";
+            }
+            cout << endl;
         }
-        i += sqrt(degree/2);
     }
-    keygen.create_galois_keys(slotToCoeff_steps_coeff, gal_keys_slotToCoeff);
-
-    Ciphertext packSIC_copy(c1);
-    evaluator.rotate_columns_inplace(packSIC_copy, gal_keys_slotToCoeff);
-
-    for (int c = 0; c < sq_ct; c++) {
-        // cout << "   " << i << endl;
-        evaluator.rotate_rows(c1, sq_ct * c, gal_keys_slotToCoeff, packSIC_sqrt_list[c]);
-        evaluator.transform_to_ntt_inplace(packSIC_sqrt_list[c]);
-        evaluator.rotate_rows(packSIC_copy, sq_ct * c, gal_keys_slotToCoeff, packSIC_sqrt_list[c+sq_ct]);
-        evaluator.transform_to_ntt_inplace(packSIC_sqrt_list[c+sq_ct]);
-    }
-    cout << "Finished prepare rotated PackSIC.\n";
-    
-    Ciphertext packSIC_coeff = slotToCoeff_WOPrepreocess(context, context, packSIC_sqrt_list,
-                                                         gal_keys_slotToCoeff, 128, degree, 65537, 1);
-
-
-    for (int i = 0; i < degree; i++) {
-        cout << packSIC_coeff.data()[i] << " ";
-    }
-    cout << endl;
-
-    // vector<Ciphertext> expanded = expand(context, parms, c1, poly_modulus_degree, glk, poly_modulus_degree);
-
-    // for (int i = 0; i < 10; i++) {
-    //     Plaintext t;
-    //     decryptor.decrypt(expanded[i], t);
-    //     for (int j = 0; j < (int) degree; j++) {
-    //         cout << t.data()[j] << " ";
-    //     }
-    //     cout << endl;
-    // }
-
-
 }
 
 void OMR3_opt() {
@@ -118,7 +88,7 @@ void OMR3_opt() {
     int t = 65537;
 
     int numOfTransactions = numOfTransactions_glb;
-    // createDatabase(numOfTransactions * party_size_glb, 306); 
+    createDatabase(numOfTransactions * party_size_glb, 306);
     cout << "Finishing createDatabase\n";
 
     // step 1. generate OPVW sk
