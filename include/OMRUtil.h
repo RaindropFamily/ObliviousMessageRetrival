@@ -816,23 +816,23 @@ void serverOperations3therest_obliviousExpansion(EncryptionParameters& enc_param
                                                  Ciphertext& rhs, Ciphertext& packedSIC, const vector<vector<uint64_t>>& payload,
                                                  const RelinKeys& relin_keys, const GaloisKeys& gal_keys, const SecretKey& secretKey,
                                                  const PublicKey& public_key, const size_t& degree, const SEALContext& context_next,
-                                                 const SEALContext& context_last, const int numOfTransactions, int& counter, int numberOfCt = 1,
+                                                 const SEALContext& context_expand, const int numOfTransactions, int& counter, int numberOfCt = 1,
                                                  int partySize = 1, int slotPerBucket = 3, const int payloadSize = 306, const int t = 65537) {
 
-    Evaluator evaluator(context_next);
-    Decryptor decryptor(context_next, secretKey);
+    Evaluator evaluator(context_expand);
+    Decryptor decryptor(context_expand, secretKey);
 
     chrono::high_resolution_clock::time_point s1, e1, s2,e2;
     int t1 = 0, t2 = 0;
 
-    int step = 32, counter = 0;
-    vector<Ciphertext> expanded_subtree_leaves = subExpand(context_next, enc_param, packedSIC, poly_modulus_degree_glb, gal_keys, poly_modulus_degree_glb/step);
+    int step = 32, k = 0;
+    vector<Ciphertext> expanded_subtree_leaves = subExpand(context_expand, enc_param, packedSIC, poly_modulus_degree_glb, gal_keys, poly_modulus_degree_glb/step);
     vector<Ciphertext> partial_expandedSIC(step);
 
     for (int i = counter; i < counter+numOfTransactions; i += step) {
         // step 1. expand PV
         s1 = chrono::high_resolution_clock::now();
-        partial_expandedSIC = expand(context_next, enc_param, expanded_subtree_leaves[counter], poly_modulus_degree_glb, gal_keys, step);
+        partial_expandedSIC = expand(context_expand, enc_param, expanded_subtree_leaves[k], poly_modulus_degree_glb, gal_keys, step);
 
         cout << "After expansion noise: " << decryptor.invariant_noise_budget(partial_expandedSIC[0]) << endl;
 
@@ -857,7 +857,7 @@ void serverOperations3therest_obliviousExpansion(EncryptionParameters& enc_param
         payloadPackingOptimized(rhs, payloadUnpacked, bipartite_map_glb, degree, context_next, gal_keys, counter);
         e2 = chrono::high_resolution_clock::now();
         t2 += chrono::duration_cast<chrono::microseconds>(e2 - s2).count();
-        counter++;
+        k++;
     }
 
     s2 = chrono::high_resolution_clock::now();

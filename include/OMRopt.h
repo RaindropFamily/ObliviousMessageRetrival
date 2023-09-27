@@ -145,7 +145,7 @@ void OMR3_opt() {
     vector<vector<vector<uint64_t>>> payload_multicore(numcores);
     vector<int> counter(numcores);
 
-    GaloisKeys gal_keys, gal_keys_slotToCoeff;
+    GaloisKeys gal_keys, gal_keys_slotToCoeff, gal_keys_expand;
     vector<int> stepsfirst = {1};
     // for (int i = 0; i < ceil(log2(poly_modulus_degree)); i++) {
     //     stepsfirst.push_back((poly_modulus_degree + exponentiate_uint(2, i)) / exponentiate_uint(2, i));
@@ -191,6 +191,28 @@ void OMR3_opt() {
     }
     keygen_next.create_galois_keys(slotToCoeff_steps_coeff, gal_keys_slotToCoeff);
 
+
+    //////////////////////////////////////////////////////
+    vector<Modulus> coeff_modulus_expand = coeff_modulus;
+    coeff_modulus_expand.erase(coeff_modulus_expand.begin() + 2, coeff_modulus_expand.end()-1);
+    EncryptionParameters parms_expand = parms;
+    parms_expand.set_coeff_modulus(coeff_modulus_expand);
+    SEALContext context_expand = SEALContext(parms_expand, true, sec_level_type::none);
+
+    SecretKey sk_expand;
+    sk_expand.data().resize(coeff_modulus_expand.size() * degree);
+    sk_expand.parms_id() = context_expand.key_parms_id();
+    util::set_poly(secret_key.data().data(), degree, coeff_modulus_expand.size() - 1, sk_expand.data().data());
+    util::set_poly(
+        secret_key.data().data() + degree * (coeff_modulus.size() - 1), degree, 1,
+        sk_expand.data().data() + degree * (coeff_modulus_expand.size() - 1));
+    KeyGenerator keygen_expand(context_expand, sk_expand); 
+    vector<uint32_t> galois_elts;
+    auto n = poly_modulus_degree;
+    for (int i = 0; i < ceil(log2(poly_modulus_degree)); i++) {
+        galois_elts.push_back((n + exponentiate_uint(2, i)) / exponentiate_uint(2, i));
+    }
+    keygen_expand.create_galois_keys(galois_elts, gal_keys_expand);
 
         //////////////////////////////////////
     vector<Modulus> coeff_modulus_last = coeff_modulus;
@@ -334,7 +356,7 @@ void OMR3_opt() {
             cout << endl;
 
             serverOperations3therest_obliviousExpansion(parms, templhsctr, bipartite_map[i], temprhs, packSIC_coeff, payload_multicore[i],
-                            relin_keys, gal_keys_next, secret_key, public_key_last, poly_modulus_degree, context_next, context_last,
+                            relin_keys, gal_keys_expand, secret_key, public_key_last, poly_modulus_degree, context_next, context_expand,
                             poly_modulus_degree, counter[i], number_of_ct, party_size_glb, acc_slots+1);
 
             if(j == 0){
