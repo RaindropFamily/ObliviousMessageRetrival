@@ -15,10 +15,20 @@ void test() {
     EncryptionParameters parms(scheme_type::bfv);
     auto degree = poly_modulus_degree;
     parms.set_poly_modulus_degree(poly_modulus_degree);
-    auto coeff_modulus = CoeffModulus::Create(poly_modulus_degree, { 28,
-                                                                     60, 60 });
+    auto coeff_modulus = CoeffModulus::Create(poly_modulus_degree, { 28, 60, 60, 60, 60,
+                                                                     60, 60, 60, 60, 60, 
+                                                                     60, 60, 60, 60, 60,
+                                                                     60, 60, 30, 60});
     parms.set_coeff_modulus(coeff_modulus);
     parms.set_plain_modulus(65537);
+
+
+    // EncryptionParameters parms2(scheme_type::bfv);
+    // parms2.set_poly_modulus_degree(poly_modulus_degree);
+    // auto coeff_modulus2 = CoeffModulus::Create(poly_modulus_degree, { 28, 60, 60, 60,
+    //                                                                  60, 60 });
+    // parms2.set_coeff_modulus(coeff_modulus2);
+    // parms2.set_plain_modulus(65537);
 
 	prng_seed_type seed;
     for (auto &i : seed) {
@@ -26,6 +36,7 @@ void test() {
     }
     auto rng = make_shared<Blake2xbPRNGFactory>(Blake2xbPRNGFactory(seed));
     parms.set_random_generator(rng);
+    // parms2.set_random_generator(rng);
 
     SEALContext context(parms, true, sec_level_type::none);
     print_parameters(context); 
@@ -40,7 +51,7 @@ void test() {
     Decryptor decryptor(context, secret_key);
     BatchEncoder batch_encoder(context);
 
-    GaloisKeys glk; //gal_keys_slotToCoeff;
+    GaloisKeys glk, gal_keys_expand; //gal_keys_slotToCoeff;
     vector<uint32_t> galois_elts;
     auto n = poly_modulus_degree;
     for (int i = 0; i < ceil(log2(poly_modulus_degree)); i++) {
@@ -50,6 +61,25 @@ void test() {
     keygen.create_galois_keys(galois_elts, glk);
     cout << "Finished generating keys...\n";
 
+    vector<Modulus> coeff_modulus_expand = coeff_modulus;
+    coeff_modulus_expand.erase(coeff_modulus_expand.begin() + 2, coeff_modulus_expand.end()-1);
+    EncryptionParameters parms_expand = parms;
+    parms_expand.set_coeff_modulus(coeff_modulus_expand);
+    SEALContext context_expand = SEALContext(parms_expand, true, sec_level_type::none);
+
+    SecretKey sk_expand;
+    sk_expand.data().resize(coeff_modulus_expand.size() * degree);
+    sk_expand.parms_id() = context_expand.key_parms_id();
+    util::set_poly(secret_key.data().data(), degree, coeff_modulus_expand.size() - 1, sk_expand.data().data());
+    util::set_poly(
+        secret_key.data().data() + degree * (coeff_modulus.size() - 1), degree, 1,
+        sk_expand.data().data() + degree * (coeff_modulus_expand.size() - 1));
+    KeyGenerator keygen_expand(context_expand, sk_expand); 
+    // for (int i = 0; i < ceil(log2(poly_modulus_degree)); i++) {
+    //     galois_elts.push_back((n + exponentiate_uint(2, i)) / exponentiate_uint(2, i));
+    // }
+    keygen_expand.create_galois_keys(galois_elts, gal_keys_expand);
+
     Plaintext plainInd;
     plainInd.resize(degree);
     plainInd.parms_id() = parms_id_zero;
@@ -57,19 +87,27 @@ void test() {
         plainInd.data()[i] = 0;
     }
     plainInd.data()[1] = 1;
-    plainInd.data()[2] = 1;
-    plainInd.data()[5] = 1;
-    plainInd.data()[1024] = 1;
+    // plainInd.data()[2] = 1;
+    // plainInd.data()[5] = 1;
+    // plainInd.data()[1024] = 1;
 
     Ciphertext c1;
     encryptor.encrypt(plainInd, c1);
 
-    vector<Ciphertext> expanded_subtree_leaves = subExpand(context, parms, c1, poly_modulus_degree, glk, poly_modulus_degree/stepSize);
+    for (int i = 0; i < 15; i++) {
+    evaluator.mod_switch_to_next_inplace(c1);
+    }
+    // evaluator.mod_switch_to_next_inplace(c1);
+    // evaluator.mod_switch_to_next_inplace(c1);
+
+    vector<Ciphertext> expanded_subtree_leaves = subExpand(context_expand, parms, c1, poly_modulus_degree, gal_keys_expand, poly_modulus_degree/stepSize);
+
+    cout << "after subexpand\n";
 
     vector<Ciphertext> partial_final_leaves(32);
-    for (int i = 0; i < expanded_subtree_leaves.size(); i++) {
+    for (int i = 0; i < (int) expanded_subtree_leaves.size(); i++) {
         cout << "final expand " << i << endl;
-                partial_final_leaves = expand(context, parms, expanded_subtree_leaves[i], poly_modulus_degree, glk, stepSize);
+                partial_final_leaves = expand(context, parms, expanded_subtree_leaves[i], poly_modulus_degree, gal_keys_expand, stepSize);
 
         for (int j = 0; j < 10; j++) {
             Plaintext t;
@@ -109,10 +147,10 @@ void OMR3_opt() {
     EncryptionParameters parms(scheme_type::bfv);
     auto degree = poly_modulus_degree;
     parms.set_poly_modulus_degree(poly_modulus_degree);
-    auto coeff_modulus = CoeffModulus::Create(poly_modulus_degree, { 28, 60, 60, 60,
+    auto coeff_modulus = CoeffModulus::Create(poly_modulus_degree, { 28, 60, 60, 60, 60,
                                                                      60, 60, 60, 60, 60, 
-                                                                     60, 60, 60, 60, 60, 60,
-                                                                     60, 30, 60 });
+                                                                     60, 60, 60, 60, 60,
+                                                                     60, 60, 30, 60});
     parms.set_coeff_modulus(coeff_modulus);
     parms.set_plain_modulus(t);
 
@@ -183,7 +221,7 @@ void OMR3_opt() {
     keygen_next.create_galois_keys(steps, gal_keys_next);
 
     vector<int> slotToCoeff_steps_coeff = {1};
-    for (int i = 0; i < degree/2;) {
+    for (int i = 0; i < (int) degree/2;) {
         if (find(slotToCoeff_steps_coeff.begin(), slotToCoeff_steps_coeff.end(), i) == slotToCoeff_steps_coeff.end()) {
             slotToCoeff_steps_coeff.push_back(i);
         }
@@ -194,7 +232,7 @@ void OMR3_opt() {
 
     //////////////////////////////////////////////////////
     vector<Modulus> coeff_modulus_expand = coeff_modulus;
-    coeff_modulus_expand.erase(coeff_modulus_expand.begin() + 2, coeff_modulus_expand.end()-1);
+    coeff_modulus_expand.erase(coeff_modulus_expand.begin() + 3, coeff_modulus_expand.end()-1);
     EncryptionParameters parms_expand = parms;
     parms_expand.set_coeff_modulus(coeff_modulus_expand);
     SEALContext context_expand = SEALContext(parms_expand, true, sec_level_type::none);
@@ -267,6 +305,8 @@ void OMR3_opt() {
                 
                 packedSIC_temp = obtainPackedSICFromRingLWEClue(secret_key, SICPVW_multicore[i], switchingKey, relin_keys, gal_keys,
                                                                 poly_modulus_degree, context, params, poly_modulus_degree);
+                evaluator.mod_switch_to_next_inplace(packedSIC_temp);
+                evaluator.mod_switch_to_next_inplace(packedSIC_temp);
 
                 decryptor.decrypt(packedSIC_temp, pl);
                 cout << "noise: " << decryptor.invariant_noise_budget(packedSIC_temp) << endl;
@@ -350,13 +390,13 @@ void OMR3_opt() {
             decryptor.decrypt(packSIC_coeff, pl);
             cout << "noise: " << decryptor.invariant_noise_budget(packSIC_coeff) << endl;
             cout << "SIC plaintext after slotToCoeff: ------------------------------ \n";
-            for (int c = 0; c < degree; c++) {
+            for (int c = 0; c < (int) degree; c++) {
                 cout << pl.data()[c] << " ";
             }
             cout << endl;
 
-            serverOperations3therest_obliviousExpansion(parms, templhsctr, bipartite_map[i], temprhs, packSIC_coeff, payload_multicore[i],
-                            relin_keys, gal_keys_expand, secret_key, public_key_last, poly_modulus_degree, context_next, context_expand,
+            serverOperations3therest_obliviousExpansion(parms_expand, templhsctr, bipartite_map[i], temprhs, packSIC_coeff, payload_multicore[i],
+                            relin_keys, gal_keys_expand, sk_expand, public_key_last, poly_modulus_degree, context_next, context_expand,
                             poly_modulus_degree, counter[i], number_of_ct, party_size_glb, acc_slots+1);
 
             if(j == 0){

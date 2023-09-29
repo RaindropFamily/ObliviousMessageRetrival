@@ -826,7 +826,10 @@ void serverOperations3therest_obliviousExpansion(EncryptionParameters& enc_param
     int t1 = 0, t2 = 0;
 
     int step = 32, k = 0;
+    s1 = chrono::high_resolution_clock::now();
     vector<Ciphertext> expanded_subtree_leaves = subExpand(context_expand, enc_param, packedSIC, poly_modulus_degree_glb, gal_keys, poly_modulus_degree_glb/step);
+    e1 = chrono::high_resolution_clock::now();
+    t1 += chrono::duration_cast<chrono::microseconds>(e1 - s1).count();
     vector<Ciphertext> partial_expandedSIC(step);
 
     for (int i = counter; i < counter+numOfTransactions; i += step) {
@@ -847,14 +850,14 @@ void serverOperations3therest_obliviousExpansion(EncryptionParameters& enc_param
 
         // step 2. randomized retrieval
         s2 = chrono::high_resolution_clock::now();
-        randomizedIndexRetrieval_opt(lhsCounter, partial_expandedSIC, context_next, public_key, counter, degree,
+        randomizedIndexRetrieval_opt(lhsCounter, partial_expandedSIC, context_next, public_key, i, degree,
                                         repetition_glb, numberOfCt, num_bucket_glb, partySize, slotPerBucket);
         // step 3-4. multiply weights and pack them
         // The following two steps are for streaming updates
         vector<vector<Ciphertext>> payloadUnpacked;
-        payloadRetrievalOptimizedwithWeights(payloadUnpacked, payload, bipartite_map_glb, weights_glb, partial_expandedSIC, context_next, degree, counter, 0);
+        payloadRetrievalOptimizedwithWeights(payloadUnpacked, payload, bipartite_map_glb, weights_glb, partial_expandedSIC, context_next, degree, i, i-counter);
         // Note that if number of repeatitions is already set, this is the only step needed for streaming updates
-        payloadPackingOptimized(rhs, payloadUnpacked, bipartite_map_glb, degree, context_next, gal_keys, counter);
+        payloadPackingOptimized(rhs, payloadUnpacked, bipartite_map_glb, degree, context_next, gal_keys, i);
         e2 = chrono::high_resolution_clock::now();
         t2 += chrono::duration_cast<chrono::microseconds>(e2 - s2).count();
         k++;

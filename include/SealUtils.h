@@ -234,6 +234,7 @@ inline void multiply_power_of_X(EncryptionParameters& enc_param, const Ciphertex
     auto coeff_mod_count = enc_param.coeff_modulus().size() - 1;
     auto coeff_count = enc_param.poly_modulus_degree();
     auto encrypted_count = encrypted.size();
+    cout << coeff_mod_count << " " << coeff_count << " " << encrypted_count << endl;
 
     destination = encrypted;
 
@@ -257,6 +258,7 @@ inline vector<Ciphertext> subExpand(const SEALContext& context, EncryptionParame
 
     Evaluator evaluator(context);
     Plaintext two("2");
+    cout << "Inside\n";
 
     int logFirst = ceil(log2(first_expansion_size));
 
@@ -273,7 +275,7 @@ inline vector<Ciphertext> subExpand(const SEALContext& context, EncryptionParame
     Ciphertext tempctxt_shifted;
     Ciphertext tempctxt_rotatedshifted;
 
-    for (uint32_t i = 0; i < logFirst; i++) {
+    for (int i = 0; i < logFirst; i++) {
         vector<Ciphertext> newtemp(temp.size() << 1);
         int index_raw = (m << 1) - (1 << i);
         int index = (index_raw * galois_elts[i]) % (m << 1);
@@ -332,12 +334,12 @@ inline vector<Ciphertext> expand(const SEALContext& context, EncryptionParameter
     Ciphertext tempctxt_shifted;
     Ciphertext tempctxt_rotatedshifted;
 
-    for (uint32_t i = logFirst; i < logm - 1; i++) {
+    for (int i = logFirst; i < logm - 1; i++) {
         vector<Ciphertext> newtemp(temp.size() << 1);
         int index_raw = (m << 1) - (1 << i);
         int index = (index_raw * galois_elts[i]) % (m << 1);
 
-        for (uint32_t a = 0; a < temp.size(); a++) {
+        for (int a = 0; a < (int) temp.size(); a++) {
 
             evaluator.apply_galois(temp[a], galois_elts[i], galkey, tempctxt_rotated);
 
@@ -372,21 +374,6 @@ inline vector<Ciphertext> expand(const SEALContext& context, EncryptionParameter
     vector<Ciphertext>::const_iterator first = newtemp.begin();
     vector<Ciphertext>::const_iterator last = newtemp.begin() + stepSize;
     vector<Ciphertext> newVec(first, last);
-
-
-    // uint64_t inv = modInverse_seal(poly_modulus_degree, t);
-    // cout << "check inv: " << inv << endl;
-    // Plaintext plainInd;
-    // plainInd.resize(poly_modulus_degree);
-    // plainInd.parms_id() = parms_id_zero;
-    // for (int i = 1; i < poly_modulus_degree; i++) {
-    //     plainInd.data()[i] = 0;
-    // }
-    // plainInd.data()[0] = inv;
-
-    // for (int i = 0; i < poly_modulus_degree; i++) {
-    //     evaluator.multiply_plain_inplace(newVec[i], plainInd);
-    // }
 
     return newVec;
 }
