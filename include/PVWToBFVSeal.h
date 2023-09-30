@@ -120,7 +120,7 @@ void expandSIC(vector<Ciphertext>& expanded, Ciphertext& toExpand, const GaloisK
 void expandSIC_Alt(vector<Ciphertext>& expanded, Ciphertext& toExpand, const GaloisKeys& gal_keys, const GaloisKeys& gal_keys_lower,
                 const size_t& degree, const SEALContext& context, const SEALContext& context2, const size_t& toExpandNum, const size_t& start = 0){
     
-    if(toExpandNum != 32){
+    if(toExpandNum != step_size_glb){
         cerr << "Not implemented for toExpandNum = " << toExpandNum << endl;
         exit(1);
     }
@@ -1083,7 +1083,7 @@ void FastRangeCheck_Random(SecretKey& sk, Ciphertext& output, const Ciphertext& 
     BatchEncoder batch_encoder(context);
 
     vector<Ciphertext> terms(20);
-    for (int i = 0; i < terms.size(); i++) {
+    for (int i = 0; i < (int) terms.size(); i++) {
         terms[i] = input;
     }
 
@@ -1103,7 +1103,7 @@ void FastRangeCheck_Random(SecretKey& sk, Ciphertext& output, const Ciphertext& 
     EvalMultMany_inpace_modImprove(terms, relin_keys, context);
     output = terms[0];
 
-    for(int i = 0; i < terms.size(); i++){
+    for(int i = 0; i < (int) terms.size(); i++){
         terms[i].release();
     }
 

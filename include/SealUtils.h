@@ -257,7 +257,6 @@ inline vector<Ciphertext> subExpand(const SEALContext& context, EncryptionParame
 
     Evaluator evaluator(context);
     Plaintext two("2");
-    cout << "Inside\n";
 
     int logFirst = ceil(log2(first_expansion_size));
 
@@ -291,10 +290,6 @@ inline vector<Ciphertext> subExpand(const SEALContext& context, EncryptionParame
         }
 
         temp = newtemp;
-
-        // for (int k = 0; k < newtemp.size(); k++) {
-        //     newtemp[k].release();
-        // }
     }
 
     vector<Ciphertext>::const_iterator first = temp.begin();
@@ -360,7 +355,6 @@ inline vector<Ciphertext> expand(const SEALContext& context, EncryptionParameter
     for (uint32_t a = 0; a < temp.size(); a++) {
         if (a >= (m - (1 << (logm - 1)))) { // corner case.
             evaluator.multiply_plain(temp[a], two, newtemp[a]); // plain multiplication by 2.
-            // cout << client.decryptor_->invariant_noise_budget(newtemp[a]) << ", ";
         } else {
             evaluator.apply_galois(temp[a], galois_elts[logm - 1], galkey, tempctxt_rotated);
             evaluator.add(temp[a], tempctxt_rotated, newtemp[a]);
@@ -412,7 +406,6 @@ Ciphertext slotToCoeff_WOPrepreocess(const SEALContext& context, const SEALConte
 
     vector<Ciphertext> result(sq_rt);
     for (int iter = 0; iter < sq_rt; iter++) {
-        // cout << "       " << iter << endl;
         for (int j = 0; j < (int) ct_sqrt_list.size(); j++) {
 
             time_start = chrono::high_resolution_clock::now();

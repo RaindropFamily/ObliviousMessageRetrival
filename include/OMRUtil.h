@@ -135,7 +135,7 @@ void serverOperations2therest(Ciphertext& lhs, vector<vector<int>>& bipartite_ma
                         int& counter, int partySize = 1, const int payloadSize = 306){
 
     Evaluator evaluator(context);
-    int step = 32; // simply to save memory so process 32 msgs at a time
+    int step = step_size_glb; // simply to save memory so process 32 msgs at a time
     
     bool expandAlter = true;
     
@@ -181,7 +181,7 @@ void serverOperations3therest(vector<Ciphertext>& lhsCounter, vector<vector<int>
     chrono::high_resolution_clock::time_point s1, e1, s2,e2;
     int t1 = 0, t2 = 0;
 
-    int step = 32;
+    int step = step_size_glb;
     for(int i = counter; i < counter+numOfTransactions; i += step){
         // step 1. expand PV
         vector<Ciphertext> expandedSIC;
@@ -754,63 +754,6 @@ Ciphertext obtainPackedSICFromRingLWEClue(SecretKey& sk, vector<OPVWCiphertext>&
 }
 
 
-// Phase 2, retrieving for OMR3
-void serverOperations3therest_opt(vector<Ciphertext>& lhsCounter, vector<vector<int>>& bipartite_map, Ciphertext& rhs, Ciphertext& packedSIC,
-                              const vector<vector<uint64_t>>& payload, const RelinKeys& relin_keys, const GaloisKeys& gal_keys,
-                              const PublicKey& public_key, const size_t& degree, const SEALContext& context, const SEALContext& context2,
-                              const int numOfTransactions,  int& counter, int numberOfCt = 1, int partySize = 1, int slotPerBucket = 3,
-                              const int payloadSize = 306) {
-
-    Evaluator evaluator(context);
-
-    chrono::high_resolution_clock::time_point s1, e1, s2,e2;
-    int t1 = 0, t2 = 0;
-
-    int step = 32;
-    for(int i = counter; i < counter+numOfTransactions; i += step){
-        // step 1. expand PV
-        vector<Ciphertext> expandedSIC;
-        s1 = chrono::high_resolution_clock::now();
-        expandSIC_Alt(expandedSIC, packedSIC, gal_keys, gal_keys_last, int(degree), context, context2, step, i-counter);
-        // transform to ntt form for better efficiency for all of the following steps
-        for(size_t j = 0; j < expandedSIC.size(); j++)
-            if(!expandedSIC[j].is_ntt_form())
-                evaluator.transform_to_ntt_inplace(expandedSIC[j]);
-
-        e1 = chrono::high_resolution_clock::now();
-        t1 += chrono::duration_cast<chrono::microseconds>(e1 - s1).count();
-
-        // step 2. randomized retrieval
-        s2 = chrono::high_resolution_clock::now();
-        randomizedIndexRetrieval_opt(lhsCounter, expandedSIC, context, public_key, i, degree,
-                                     repetition_glb, numberOfCt, num_bucket_glb, partySize, slotPerBucket);
-        // step 3-4. multiply weights and pack them
-        // The following two steps are for streaming updates
-        vector<vector<Ciphertext>> payloadUnpacked;
-        payloadRetrievalOptimizedwithWeights(payloadUnpacked, payload, bipartite_map_glb, weights_glb, expandedSIC, context, degree, i, i-counter);
-        // Note that if number of repeatitions is already set, this is the only step needed for streaming updates
-        payloadPackingOptimized(rhs, payloadUnpacked, bipartite_map_glb, degree, context, gal_keys, i);
-        e2 = chrono::high_resolution_clock::now();
-        t2 += chrono::duration_cast<chrono::microseconds>(e2 - s2).count();
-    }
-
-    s2 = chrono::high_resolution_clock::now();
-    for(size_t i = 0; i < lhsCounter.size(); i++){
-            evaluator.transform_from_ntt_inplace(lhsCounter[i]);
-    }
-    if(rhs.is_ntt_form())
-        evaluator.transform_from_ntt_inplace(rhs);
-    
-    counter += numOfTransactions;
-    e2 = chrono::high_resolution_clock::now();
-    t2 += chrono::duration_cast<chrono::microseconds>(e2 - s2).count();
-
-
-    cout << "Unpack PV time: " << t1 << endl;
-    cout << "digest encoding time: " << t2 << endl;
-}
-
-
 // Phase 2, retrieving for OMR take 3
 void serverOperations3therest_obliviousExpansion(EncryptionParameters& enc_param, vector<Ciphertext>& lhsCounter, vector<vector<int>>& bipartite_map,
                                                  Ciphertext& rhs, Ciphertext& packedSIC, const vector<vector<uint64_t>>& payload,
@@ -825,7 +768,7 @@ void serverOperations3therest_obliviousExpansion(EncryptionParameters& enc_param
     chrono::high_resolution_clock::time_point s1, e1, s2,e2;
     int t1 = 0, t2 = 0;
 
-    int step = 32, k = 0;
+    int step = step_size_glb, k = 0;
     s1 = chrono::high_resolution_clock::now();
     vector<Ciphertext> expanded_subtree_leaves = subExpand(context_expand, enc_param, packedSIC, poly_modulus_degree_glb, gal_keys, poly_modulus_degree_glb/step);
     e1 = chrono::high_resolution_clock::now();
@@ -851,12 +794,14 @@ void serverOperations3therest_obliviousExpansion(EncryptionParameters& enc_param
         // step 2. randomized retrieval
         s2 = chrono::high_resolution_clock::now();
         randomizedIndexRetrieval_opt(lhsCounter, partial_expandedSIC, context_next, public_key, i, degree,
-                                        repetition_glb, numberOfCt, num_bucket_glb, partySize, slotPerBucket);
+                                     repetition_glb, numberOfCt, num_bucket_glb, partySize, slotPerBucket,
+                                     step_size_glb, k);
         // step 3-4. multiply weights and pack them
         // The following two steps are for streaming updates
         vector<vector<Ciphertext>> payloadUnpacked;
-        payloadRetrievalOptimizedwithWeights(payloadUnpacked, payload, bipartite_map_glb, weights_glb, partial_expandedSIC, context_next, degree, i, i-counter);
-        // Note that if number of repeatitions is already set, this is the only step needed for streaming updates
+        payloadRetrievalOptimizedwithWeights(payloadUnpacked, payload, bipartite_map_glb, weights_glb, partial_expandedSIC,
+                                             context_next, degree, i, i-counter, k, step_size_glb);
+        // Note that if number of repetitions is already set, this is the only step needed for streaming updates
         payloadPackingOptimized(rhs, payloadUnpacked, bipartite_map_glb, degree, context_next, gal_keys, i);
         e2 = chrono::high_resolution_clock::now();
         t2 += chrono::duration_cast<chrono::microseconds>(e2 - s2).count();

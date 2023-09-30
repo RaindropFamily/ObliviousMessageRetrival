@@ -138,11 +138,16 @@ uint128_t encodeIndexWithPartySize(size_t index, int partySize) {
 // Each msg is randomly assigned to one accumulator
 // Then we repeat this process C times and gather partial information to reduce failure probability
 void randomizedIndexRetrieval_opt(vector<Ciphertext>& buckets, vector<Ciphertext>& SIC, const SEALContext& context, 
-                                        const PublicKey& BFVpk, int counter, const size_t& degree, size_t C, size_t C_prime, size_t num_buckets,
-                                        int partySize = 1, size_t slots_per_bucket = 3) {
+                                        const PublicKey& BFVpk, int counter, const size_t& degree, size_t C, size_t C_prime,
+                                        size_t num_buckets, int partySize = 1, size_t slots_per_bucket = 3, int step_size = 32768,
+                                        int expand_bucket_index = 0) {
     BatchEncoder batch_encoder(context);
     Evaluator evaluator(context);
     Encryptor encryptor(context, BFVpk);
+
+    cout << "---------- randomizedIndexRetrieval_opt function ------------\n";
+
+    int gap = degree / step_size; // assume both power of 2, default gap = 1024
 
     prng_seed_type seed;
     for (auto &i : seed) {
@@ -153,7 +158,7 @@ void randomizedIndexRetrieval_opt(vector<Ciphertext>& buckets, vector<Ciphertext
     RandomToStandardAdapter engine(rng->create());
     uniform_int_distribution<uint64_t> dist(0, num_buckets-1);
 
-    if((counter % degree) == 0){ // first msg
+    if ((counter % degree) == 0) { // first msg
         buckets.resize(C_prime);
         for(size_t i = 0; i < C_prime; i++){
             encryptor.encrypt_zero(buckets[i]);
@@ -164,7 +169,16 @@ void randomizedIndexRetrieval_opt(vector<Ciphertext>& buckets, vector<Ciphertext
         }
     }
 
+    int index_in_curr_ring = counter % degree;
+    int index_in_expansion_bucket = index_in_curr_ring % step_size;
+
+    counter = (counter - index_in_curr_ring) + (index_in_expansion_bucket * gap) + expand_bucket_index;
+
+    cout << "   init counter: " << counter << endl;
+
     for(size_t i = 0; i < SIC.size(); i++){
+
+        // cout << "       loop: " << counter << endl;
         vector<vector<uint64_t>> pod_matrices(C_prime);
         for(size_t i = 0; i < C_prime; i++){
             pod_matrices[i] = vector<uint64_t>(degree, 0ULL);
@@ -193,10 +207,11 @@ void randomizedIndexRetrieval_opt(vector<Ciphertext>& buckets, vector<Ciphertext
             evaluator.add_inplace(buckets[j], temp);
         }
         
-        counter += 1;
+        counter += gap;
     }
     return;
 }
+
 
 // generate the random assignment of each message represented as a bipartite grap
 // generate weights for each assignment
@@ -240,19 +255,38 @@ void bipartiteGraphWeightsGeneration(vector<vector<int>>& bipartite_map, vector<
 // We will always have 100*integer combinations, 
 // because it optimizes the efficiency and reduces the failure probability
 // as any number from 1 to 100 slots use only one ciphertext
-void payloadRetrievalOptimizedwithWeights(vector<vector<Ciphertext>>& results, const vector<vector<uint64_t>>& payloads, const vector<vector<int>>& bipartite_map, vector<vector<int>>& weights,
-                        const vector<Ciphertext>& SIC, const SEALContext& context, const size_t& degree = 32768, const size_t& start = 0, const size_t& local_start = 0, const int payloadSize = 306){ // TODOmulti: can be multithreaded extremely easily
+void payloadRetrievalOptimizedwithWeights(vector<vector<Ciphertext>>& results, const vector<vector<uint64_t>>& payloads, const vector<vector<int>>& bipartite_map,
+                                          vector<vector<int>>& weights, const vector<Ciphertext>& SIC, const SEALContext& context, const size_t& degree = 32768,
+                                          const size_t& start = 0, const size_t& local_start = 0, int expand_bucket_index = 0, int step_size = 32768,
+                                          const int payloadSize = 306){ // TODOmulti: can be multithreaded extremely easily
     Evaluator evaluator(context);
     BatchEncoder batch_encoder(context);
     results.resize(SIC.size());
 
+    cout << "---------- payloadRetrievalOptimizedwithWeights function ------------\n";
+
+    int gap = degree / step_size;
+
+    int index_in_curr_ring = local_start;
+    int index_in_expansion_bucket = index_in_curr_ring % step_size;
+
+    int new_start = (start - local_start) + (index_in_expansion_bucket * gap) + expand_bucket_index;
+    int new_local_start = (index_in_expansion_bucket * gap) + expand_bucket_index;
+
+    cout << "   init start: " << new_start << endl;
+    cout << "   init local_start: " << new_local_start << endl;
+
     for(size_t i = 0; i < SIC.size(); i++){
         results[i].resize(1);
         vector<uint64_t> padded(degree, 0);
-        for(size_t j = 0; j < bipartite_map[i+start].size(); j++){
-            auto paddedStart = bipartite_map[i+start][j]*payloadSize;
-            for(size_t k = 0; k < payloads[i+local_start].size(); k++){
-                auto toAdd = payloads[i+local_start][k] *weights[i+start][j];
+
+        int bipart_map_index = i*gap + new_start;
+        int payload_index = i*gap + new_local_start;
+        // cout << "       loop: " << bipart_map_index << ", " << payload_index << endl;
+        for(size_t j = 0; j < bipartite_map[bipart_map_index].size(); j++){
+            auto paddedStart = bipartite_map[bipart_map_index][j]*payloadSize;
+            for(size_t k = 0; k < payloads[payload_index].size(); k++){
+                auto toAdd = payloads[payload_index][k] *weights[bipart_map_index][j];
                 toAdd %= 65537;
                 padded[k+paddedStart] += toAdd;
             }

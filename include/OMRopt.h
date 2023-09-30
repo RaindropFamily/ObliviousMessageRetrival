@@ -104,7 +104,7 @@ void test() {
 
     cout << "after subexpand\n";
 
-    vector<Ciphertext> partial_final_leaves(32);
+    vector<Ciphertext> partial_final_leaves(stepSize);
     for (int i = 0; i < (int) expanded_subtree_leaves.size(); i++) {
         cout << "final expand " << i << endl;
                 partial_final_leaves = expand(context, parms, expanded_subtree_leaves[i], poly_modulus_degree, gal_keys_expand, stepSize);
@@ -376,13 +376,11 @@ void OMR3_opt() {
             evaluator_next.rotate_columns_inplace(packSIC_copy, gal_keys_slotToCoeff);
 
             for (int c = 0; c < sq_ct; c++) {
-                // cout << "   " << i << endl;
                 evaluator_next.rotate_rows(curr_PackSIC, sq_ct * c, gal_keys_slotToCoeff, packSIC_sqrt_list[c]);
                 evaluator_next.transform_to_ntt_inplace(packSIC_sqrt_list[c]);
                 evaluator_next.rotate_rows(packSIC_copy, sq_ct * c, gal_keys_slotToCoeff, packSIC_sqrt_list[c+sq_ct]);
                 evaluator_next.transform_to_ntt_inplace(packSIC_sqrt_list[c+sq_ct]);
             }
-            cout << "Finished prepare rotated PackSIC.\n";
             
             Ciphertext packSIC_coeff = slotToCoeff_WOPrepreocess(context, context_next, packSIC_sqrt_list,
                                                                  gal_keys_slotToCoeff, 128, degree, t, inv);

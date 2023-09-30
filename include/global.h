@@ -7,6 +7,8 @@ int OMRtwoM = 100;
 int OMRthreeM = 100;
 int num_bucket_glb = 400;
 
+int step_size_glb = 32; // used for oblivious expansion
+
 int mod_switch_counter = 0; 
 GaloisKeys gal_keys_next; 
 GaloisKeys gal_keys_last;
