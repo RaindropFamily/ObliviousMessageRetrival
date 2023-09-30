@@ -837,7 +837,7 @@ void serverOperations3therest_obliviousExpansion(EncryptionParameters& enc_param
         s1 = chrono::high_resolution_clock::now();
         partial_expandedSIC = expand(context_expand, enc_param, expanded_subtree_leaves[k], poly_modulus_degree_glb, gal_keys, step);
 
-        cout << "After expansion noise: " << decryptor.invariant_noise_budget(partial_expandedSIC[0]) << endl;
+        if (i == 0) cout << "After expansion noise: " << decryptor.invariant_noise_budget(partial_expandedSIC[0]) << endl;
 
         for(size_t j = 0; j < partial_expandedSIC.size(); j++) {
             if(!partial_expandedSIC[j].is_ntt_form()) {

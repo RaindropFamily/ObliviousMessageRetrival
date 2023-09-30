@@ -38,6 +38,34 @@ void EvalMultMany_inpace(vector<Ciphertext>& ciphertexts, const RelinKeys &relin
     }
 }
 
+inline
+void EvalMultMany_inpace_modImprove(vector<Ciphertext>& ciphertexts, const RelinKeys &relin_keys, const SEALContext& context){ // TODOmulti: can be multithreaded easily
+    Evaluator evaluator(context);
+    int counter = 0;
+
+    while(ciphertexts.size() != 1){
+        for(size_t i = 0; i < ciphertexts.size()/2; i++){
+            evaluator.multiply_inplace(ciphertexts[i], ciphertexts[ciphertexts.size()/2+i]);
+            evaluator.relinearize_inplace(ciphertexts[i], relin_keys);
+            if(counter & 1) {
+                cout << "mod.... " << counter << endl;
+                evaluator.mod_switch_to_next_inplace(ciphertexts[i]);
+            }
+        }
+        if(ciphertexts.size()%2 == 0)
+            ciphertexts.resize(ciphertexts.size()/2);
+        else{ // if odd, take the last one and mod down to make them compatible
+            ciphertexts[ciphertexts.size()/2] = ciphertexts[ciphertexts.size()-1];
+            if(counter & 1) {
+                cout << "mod....\n";
+                evaluator.mod_switch_to_next_inplace(ciphertexts[ciphertexts.size()/2]);
+            }
+            ciphertexts.resize(ciphertexts.size()/2+1);
+        }
+        counter += 1;
+    }
+}
+
 // innersum up to toCover amount, O(log(toCover)) time
 void innerSum_inplace(Ciphertext& output, const GaloisKeys& gal_keys, const size_t& degree,
                 const size_t& toCover, const SEALContext& context){
@@ -1044,6 +1072,7 @@ Ciphertext raisePowerToPrime(const SEALContext& context, const RelinKeys &relin_
 }
 
 
+// get the x^2 as input
 void FastRangeCheck_Random(SecretKey& sk, Ciphertext& output, const Ciphertext& input, int degree, const RelinKeys &relin_keys,
                            const SEALContext& context, const vector<uint64_t>& rangeCheckIndices, const int firstLevel,
                            const int secondLevel, map<int, bool>& firstLevelMod, map<int, bool>& secondLevelMod) {
@@ -1052,57 +1081,31 @@ void FastRangeCheck_Random(SecretKey& sk, Ciphertext& output, const Ciphertext& 
 
     Evaluator evaluator(context);
     BatchEncoder batch_encoder(context);
-    vector<Ciphertext> kCTs(firstLevel), kToMCTs(secondLevel);
 
-    calUptoDegreeK_bigPrime(kCTs, input, firstLevel, relin_keys, context, firstLevelMod);
-    calUptoDegreeK_bigPrime(kToMCTs, kCTs[kCTs.size()-1], secondLevel, relin_keys, context, secondLevelMod);
+    vector<Ciphertext> terms(20);
+    for (int i = 0; i < terms.size(); i++) {
+        terms[i] = input;
+    }
 
-    Ciphertext temp_relin(context);
-
+    // get all (x-xi) terms
     Plaintext plainInd;
     plainInd.resize(degree);
     plainInd.parms_id() = parms_id_zero;
     for (int i = 0; i < (int) degree; i++) {
         plainInd.data()[i] = 0;
     }
-
-    for(int i = 0; i < secondLevel; i++) {
-        Ciphertext levelSum;
-        bool flag = false;
-        for(int j = 0; j < firstLevel; j++) {
-            if(rangeCheckIndices[i*firstLevel+j] != 0) {
-                plainInd.data()[0] = rangeCheckIndices[i*firstLevel+j];
-                if (!flag) {
-                    evaluator.multiply_plain(kCTs[j], plainInd, levelSum);
-                    flag = true;
-                } else {
-                    Ciphertext tmp;
-                    evaluator.multiply_plain(kCTs[j], plainInd, tmp);
-                    evaluator.add_inplace(levelSum, tmp);
-                }
-            }
-        }
-        evaluator.mod_switch_to_inplace(levelSum, kToMCTs[i].parms_id()); // mod down the plaintext multiplication noise
-        if(i == 0) {
-            output = levelSum;
-        } else if (i == 1) { // initialize for temp_relin, which is of ct size = 3
-            evaluator.multiply(levelSum, kToMCTs[i - 1], temp_relin);
-        } else {
-            evaluator.multiply_inplace(levelSum, kToMCTs[i - 1]);
-            evaluator.add_inplace(temp_relin, levelSum);
-        }
+    for (int i = 1; i < 20; i++) {
+        plainInd.data()[0] = i*i;
+        evaluator.negate_inplace(terms[i]);
+        evaluator.add_plain_inplace(terms[i], plainInd);
     }
 
-    for(int i = 0; i < firstLevel; i++){
-        kCTs[i].release();
-    }
-    for(int i = 0; i < secondLevel; i++){
-        kToMCTs[i].release();
-    }
+    EvalMultMany_inpace_modImprove(terms, relin_keys, context);
+    output = terms[0];
 
-    evaluator.relinearize_inplace(temp_relin, relin_keys);
-    evaluator.add_inplace(output, temp_relin);
-    temp_relin.release();
+    for(int i = 0; i < terms.size(); i++){
+        terms[i].release();
+    }
 
     MemoryManager::SwitchProfile(std::move(old_prof_larger));
 }

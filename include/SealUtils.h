@@ -234,7 +234,6 @@ inline void multiply_power_of_X(EncryptionParameters& enc_param, const Ciphertex
     auto coeff_mod_count = enc_param.coeff_modulus().size() - 1;
     auto coeff_count = enc_param.poly_modulus_degree();
     auto encrypted_count = encrypted.size();
-    cout << coeff_mod_count << " " << coeff_count << " " << encrypted_count << endl;
 
     destination = encrypted;
 

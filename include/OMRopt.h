@@ -148,8 +148,8 @@ void OMR3_opt() {
     auto degree = poly_modulus_degree;
     parms.set_poly_modulus_degree(poly_modulus_degree);
     auto coeff_modulus = CoeffModulus::Create(poly_modulus_degree, { 28, 60, 60, 60, 60,
-                                                                     60, 60, 60, 60, 60, 
-                                                                     60, 60, 60, 60, 60,
+                                                                     60, 60, 60, 60,
+                                                                     60, 60, 60, 60,
                                                                      60, 60, 30, 60});
     parms.set_coeff_modulus(coeff_modulus);
     parms.set_plain_modulus(t);
@@ -305,8 +305,8 @@ void OMR3_opt() {
                 
                 packedSIC_temp = obtainPackedSICFromRingLWEClue(secret_key, SICPVW_multicore[i], switchingKey, relin_keys, gal_keys,
                                                                 poly_modulus_degree, context, params, poly_modulus_degree);
-                evaluator.mod_switch_to_next_inplace(packedSIC_temp);
-                evaluator.mod_switch_to_next_inplace(packedSIC_temp);
+                // evaluator.mod_switch_to_next_inplace(packedSIC_temp);
+                // evaluator.mod_switch_to_next_inplace(packedSIC_temp);
 
                 decryptor.decrypt(packedSIC_temp, pl);
                 cout << "noise: " << decryptor.invariant_noise_budget(packedSIC_temp) << endl;
