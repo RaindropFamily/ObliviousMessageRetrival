@@ -21,7 +21,6 @@ void EvalMultMany_inpace(vector<Ciphertext>& ciphertexts, const RelinKeys &relin
             evaluator.multiply_inplace(ciphertexts[i], ciphertexts[ciphertexts.size()/2+i]);
             evaluator.relinearize_inplace(ciphertexts[i], relin_keys);
             if(counter & 1) {
-                cout << "mod....\n";
                 evaluator.mod_switch_to_next_inplace(ciphertexts[i]);
             }
         }
@@ -30,7 +29,6 @@ void EvalMultMany_inpace(vector<Ciphertext>& ciphertexts, const RelinKeys &relin
         else{ // if odd, take the last one and mod down to make them compatible
             ciphertexts[ciphertexts.size()/2] = ciphertexts[ciphertexts.size()-1];
             if(counter & 1) {
-                cout << "mod....\n";
                 evaluator.mod_switch_to_next_inplace(ciphertexts[ciphertexts.size()/2]);
             }
             ciphertexts.resize(ciphertexts.size()/2+1);
@@ -48,7 +46,6 @@ void EvalMultMany_inpace_modImprove(vector<Ciphertext>& ciphertexts, const Relin
             evaluator.multiply_inplace(ciphertexts[i], ciphertexts[ciphertexts.size()/2+i]);
             evaluator.relinearize_inplace(ciphertexts[i], relin_keys);
             if(counter & 1) {
-                cout << "mod.... " << counter << endl;
                 evaluator.mod_switch_to_next_inplace(ciphertexts[i]);
             }
         }
@@ -57,7 +54,6 @@ void EvalMultMany_inpace_modImprove(vector<Ciphertext>& ciphertexts, const Relin
         else{ // if odd, take the last one and mod down to make them compatible
             ciphertexts[ciphertexts.size()/2] = ciphertexts[ciphertexts.size()-1];
             if(counter & 1) {
-                cout << "mod....\n";
                 evaluator.mod_switch_to_next_inplace(ciphertexts[ciphertexts.size()/2]);
             }
             ciphertexts.resize(ciphertexts.size()/2+1);
@@ -118,7 +114,7 @@ void expandSIC(vector<Ciphertext>& expanded, Ciphertext& toExpand, const GaloisK
 
 // Takes one SIC compressed and expand then into SIC's each encrypt 0/1 in slots up to toExpandNum
 void expandSIC_Alt(vector<Ciphertext>& expanded, Ciphertext& toExpand, const GaloisKeys& gal_keys, const GaloisKeys& gal_keys_lower,
-                const size_t& degree, const SEALContext& context, const SEALContext& context2, const size_t& toExpandNum, const size_t& start = 0){
+                const size_t& degree, const SEALContext& context, const SEALContext& context2, const int toExpandNum, const size_t& start = 0){
     
     if(toExpandNum != step_size_glb){
         cerr << "Not implemented for toExpandNum = " << toExpandNum << endl;
@@ -131,7 +127,7 @@ void expandSIC_Alt(vector<Ciphertext>& expanded, Ciphertext& toExpand, const Gal
 
     // 1. Extract the first 32 element and rotate toExpand by 32, rotate to fill out for every 32 element
     vector<uint64_t> pod_matrix(degree, 0ULL);
-    for(size_t i = 0; i < toExpandNum; i++){
+    for(int i = 0; i < toExpandNum; i++){
         pod_matrix[i] = 1ULL;
     }
     Plaintext plain_matrix;

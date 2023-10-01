@@ -128,6 +128,27 @@ void loadData(vector<vector<uint64_t>>& msgs, const int& start, const int& end, 
     }
 }
 
+// for omr take3
+void loadPackedData(vector<vector<uint64_t>>& msgs, const int& start, const int& end, int payloadSize = 306,
+                    int partySize = 1, string folder = "payloads") {
+    msgs.resize((end-start) * partySize);
+    ifstream datafile;
+
+    for(int i = start; i < end; i++){
+        for (int p = 0; p < partySize; p++) {
+            int msg_index = (i-start) * partySize + p;
+            msgs[msg_index].resize(payloadSize);
+
+            datafile.open("../data/"+folder+"/"+to_string(i*partySize + p)+".txt");
+            datafile.seekg(0, ios::beg);
+            for(int j = 0; j < payloadSize; j++){
+                datafile >> msgs[msg_index][j];
+            }
+            datafile.close();
+        }
+    }
+}
+
 
 void loadClues(vector<PVWCiphertext>& clues, const int& start, const int& end, const PVWParam& param, int party_ind = 0, int partySize = 1) {
     clues.resize(end-start);
@@ -382,8 +403,7 @@ void loadClues_OPVW(vector<OPVWCiphertext>& clues, const int& start, const int& 
 }
 
 
-vector<uint64_t> loadDataSingle_chunk(int i, int party_size = party_size_glb,
-                                      const string folder = "payloads", int payloadSize = 306) {
+vector<uint64_t> loadDataSingle_chunk(int i, int party_size, int payloadSize = 306, const string folder = "payloads") {
     vector<uint64_t> ret;
 
     ret.resize(payloadSize * party_size);

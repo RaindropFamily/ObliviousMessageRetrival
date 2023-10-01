@@ -145,8 +145,6 @@ void randomizedIndexRetrieval_opt(vector<Ciphertext>& buckets, vector<Ciphertext
     Evaluator evaluator(context);
     Encryptor encryptor(context, BFVpk);
 
-    cout << "---------- randomizedIndexRetrieval_opt function ------------\n";
-
     int gap = degree / step_size; // assume both power of 2, default gap = 1024
 
     prng_seed_type seed;
@@ -174,11 +172,7 @@ void randomizedIndexRetrieval_opt(vector<Ciphertext>& buckets, vector<Ciphertext
 
     counter = (counter - index_in_curr_ring) + (index_in_expansion_bucket * gap) + expand_bucket_index;
 
-    cout << "   init counter: " << counter << endl;
-
     for(size_t i = 0; i < SIC.size(); i++){
-
-        // cout << "       loop: " << counter << endl;
         vector<vector<uint64_t>> pod_matrices(C_prime);
         for(size_t i = 0; i < C_prime; i++){
             pod_matrices[i] = vector<uint64_t>(degree, 0ULL);
@@ -263,8 +257,6 @@ void payloadRetrievalOptimizedwithWeights(vector<vector<Ciphertext>>& results, c
     BatchEncoder batch_encoder(context);
     results.resize(SIC.size());
 
-    cout << "---------- payloadRetrievalOptimizedwithWeights function ------------\n";
-
     int gap = degree / step_size;
 
     int index_in_curr_ring = local_start;
@@ -273,16 +265,12 @@ void payloadRetrievalOptimizedwithWeights(vector<vector<Ciphertext>>& results, c
     int new_start = (start - local_start) + (index_in_expansion_bucket * gap) + expand_bucket_index;
     int new_local_start = (index_in_expansion_bucket * gap) + expand_bucket_index;
 
-    cout << "   init start: " << new_start << endl;
-    cout << "   init local_start: " << new_local_start << endl;
-
     for(size_t i = 0; i < SIC.size(); i++){
         results[i].resize(1);
         vector<uint64_t> padded(degree, 0);
 
         int bipart_map_index = i*gap + new_start;
         int payload_index = i*gap + new_local_start;
-        // cout << "       loop: " << bipart_map_index << ", " << payload_index << endl;
         for(size_t j = 0; j < bipartite_map[bipart_map_index].size(); j++){
             auto paddedStart = bipartite_map[bipart_map_index][j]*payloadSize;
             for(size_t k = 0; k < payloads[payload_index].size(); k++){
@@ -312,6 +300,66 @@ void payloadPackingOptimized(Ciphertext& result, const vector<vector<Ciphertext>
                 for(size_t k = 0; k < 1; k++){ 
                     evaluator.add_inplace(result, payloads[i][j]); 
                 }
+            }
+        }
+    }
+}
+
+
+void payloadRetrievalOptimizedwithWeights_omrtake3(vector<vector<Ciphertext>>& results, const vector<vector<uint64_t>>& payloads, const vector<vector<int>>& bipartite_map,
+                                          vector<vector<int>>& weights, const vector<Ciphertext>& SIC, const SEALContext& context, const size_t& degree = 32768,
+                                          const size_t& start = 0, const size_t& local_start = 0, int expand_bucket_index = 0, int step_size = 32768,
+                                          const int payloadSize = 306, int party_size = party_size_glb){ // TODOmulti: can be multithreaded extremely easily
+    Evaluator evaluator(context);
+    BatchEncoder batch_encoder(context);
+    results.resize(SIC.size());
+
+    int gap = degree / step_size;
+
+    int index_in_curr_ring = local_start;
+    int index_in_expansion_bucket = index_in_curr_ring % step_size;
+
+    int new_start = (start - local_start) + (index_in_expansion_bucket * gap) + expand_bucket_index;
+    int new_local_start = (index_in_expansion_bucket * gap) + expand_bucket_index;
+
+    for (size_t i = 0; i < SIC.size(); i++) {
+        results[i].resize(party_size);
+        vector<uint64_t> padded(degree, 0);
+
+        int bipart_map_index = i*gap + new_start;
+        int payload_index = i*gap + new_local_start;
+
+        for (int h = 0; h < party_size; h++) {
+            payload_index = payload_index * party_size + h;
+
+            for (size_t j = 0; j < bipartite_map[bipart_map_index].size(); j++) {
+                auto paddedStart = bipartite_map[bipart_map_index][j] * payloadSize;
+                for (size_t k = 0; k < payloads[payload_index].size(); k++) {
+                    auto toAdd = payloads[payload_index][k] * weights[bipart_map_index][j];
+                    toAdd %= 65537;
+                    padded[k + paddedStart] += toAdd;
+                }
+            }
+            Plaintext plain_matrix;
+            batch_encoder.encode(padded, plain_matrix);
+            evaluator.transform_to_ntt_inplace(plain_matrix, SIC[i].parms_id());
+
+            evaluator.multiply_plain(SIC[i], plain_matrix, results[i][h]);  
+        }
+    }
+}
+
+// use only addition to pack
+void payloadPackingOptimized_omrtake3(vector<Ciphertext>& result, const vector<vector<Ciphertext>>& payloads, const vector<vector<int>>& bipartite_map,
+                                      const size_t& degree, const SEALContext& context, const size_t& start = 0) {
+    Evaluator evaluator(context);
+
+    for (size_t i = 0; i < payloads[0].size(); i++) {
+        for (size_t j = 0; j < payloads.size(); j++) {
+            if (i == 0 && j == 0 && (start%degree) == 0)
+                result[i] = payloads[j][i];
+            else {
+                evaluator.add_inplace(result[i], payloads[j][i]); 
             }
         }
     }

@@ -257,7 +257,7 @@ vector<vector<long>> receiverDecoding(Ciphertext& lhsEnc, vector<vector<int>>& b
 
 vector<vector<long>> receiverDecodingOMR3(vector<Ciphertext>& lhsCounter, vector<vector<int>>& bipartite_map, Ciphertext& rhsEnc,
                         const size_t& degree, const SecretKey& secret_key, const SEALContext& context, const int numOfTransactions,
-                        int partySize = 1, int slot_per_bucket = 3, int seed = 3, const int payloadUpperBound = 306, const int payloadSize = 306){
+                        int partySize = 1, int slot_per_bucket = 3, int seed = 3, const int payloadSize = 306){
     // 1. find pertinent indices
     map<int, pair<int, int>> pertinentIndices;
     decodeIndicesRandom_opt(pertinentIndices, lhsCounter, secret_key, context, partySize, slot_per_bucket);
@@ -280,6 +280,51 @@ vector<vector<long>> receiverDecodingOMR3(vector<Ciphertext>& lhsCounter, vector
     auto newrhs = equationSolving(lhs, rhs, payloadSize);
 
     return newrhs;
+}
+
+vector<vector<long>> receiverDecodingOMR3_omrtake3(vector<Ciphertext>& lhsCounter, vector<vector<int>>& bipartite_map, vector<Ciphertext>& rhsEnc,
+                                                   const size_t& degree, const SecretKey& secret_key, const SEALContext& context,
+                                                   const int numOfTransactions, int partySize = 1, int slot_per_bucket = 3, const int payloadSize = 306) {
+    // 1. find pertinent indices
+    map<int, pair<int, int>> pertinentIndices;
+    decodeIndicesRandom_opt(pertinentIndices, lhsCounter, secret_key, context, partySize, slot_per_bucket);
+    for (map<int, pair<int, int>>::iterator it = pertinentIndices.begin(); it != pertinentIndices.end(); it++)
+    {
+        cout << it->first << "," << it->second.second << "  ";
+    }
+    cout << std::endl;
+
+    // 2. forming lhs
+    vector<vector<int>> lhs;
+    formLhsWeights(lhs, pertinentIndices, bipartite_map_glb, weights_glb, 0, OMRthreeM);
+
+    vector<vector<long>> concated_res;
+    vector<vector<int>> rhs;
+    
+    for (int i = 0; i < partySize; i++) {
+        // 3. forming rhs
+        vector<Ciphertext> rhsEncVec{rhsEnc[i]};
+        formRhs(rhs, rhsEncVec, secret_key, degree, context, OMRthreeM);
+
+        vector<vector<int>> temp_lhs = lhs;
+
+        // 4. solving equation
+        auto newrhs = equationSolving(temp_lhs, rhs, payloadSize);
+
+        if (i == 0) {
+            concated_res.resize(newrhs.size());
+            for (int j = 0; j < concated_res.size(); j++) {
+                concated_res[j].resize(partySize * payloadSize);
+            }
+        }
+        for (int j = 0; j < (int) newrhs.size(); j++) {
+            for (int k = 0; k < (int) newrhs[j].size(); k++) {
+                concated_res[j][i * payloadSize + k] = newrhs[j][k];
+            }
+        }
+    }
+
+    return concated_res;
 }
 
 // to check whether the result is as expected
@@ -714,6 +759,8 @@ vector<vector<uint64_t>> preparingTransactionsFormal_opt(vector<int>& pertinentM
 
     vector<int> p_reduced;
 
+    int half_party_size = ceil(((double) party_size_glb) / 2.0);
+
     for(int i = 0; i < numOfTransactions * party_size; i++){
         OPVWCiphertext tempclue;
 
@@ -723,7 +770,7 @@ vector<vector<uint64_t>> preparingTransactionsFormal_opt(vector<int>& pertinentM
             if(find(p_reduced.begin(), p_reduced.end(), ind) == p_reduced.end()) { // the whole chunk never get stored before
                 p_reduced.push_back(ind);
                 expectedIndices.push_back(ind);
-                ret.push_back(loadDataSingle_chunk(ind, party_size));
+                ret.push_back(loadDataSingle_chunk(ind, half_party_size, 306*2));
             }
 
             OPVWEncPK(tempclue, zeros, pk, params);
@@ -756,7 +803,7 @@ Ciphertext obtainPackedSICFromRingLWEClue(SecretKey& sk, vector<OPVWCiphertext>&
 
 // Phase 2, retrieving for OMR take 3
 void serverOperations3therest_obliviousExpansion(EncryptionParameters& enc_param, vector<Ciphertext>& lhsCounter, vector<vector<int>>& bipartite_map,
-                                                 Ciphertext& rhs, Ciphertext& packedSIC, const vector<vector<uint64_t>>& payload,
+                                                 vector<Ciphertext>& rhs, Ciphertext& packedSIC, const vector<vector<uint64_t>>& payload,
                                                  const RelinKeys& relin_keys, const GaloisKeys& gal_keys, const SecretKey& secretKey,
                                                  const PublicKey& public_key, const size_t& degree, const SEALContext& context_next,
                                                  const SEALContext& context_expand, const int numOfTransactions, int& counter, int numberOfCt = 1,
@@ -799,10 +846,10 @@ void serverOperations3therest_obliviousExpansion(EncryptionParameters& enc_param
         // step 3-4. multiply weights and pack them
         // The following two steps are for streaming updates
         vector<vector<Ciphertext>> payloadUnpacked;
-        payloadRetrievalOptimizedwithWeights(payloadUnpacked, payload, bipartite_map_glb, weights_glb, partial_expandedSIC,
-                                             context_next, degree, i, i-counter, k, step_size_glb);
+        payloadRetrievalOptimizedwithWeights_omrtake3(payloadUnpacked, payload, bipartite_map_glb, weights_glb, partial_expandedSIC,
+                                                      context_next, degree, i, i-counter, k, step_size_glb, payloadSize * 2, ceil(partySize / 2));
         // Note that if number of repetitions is already set, this is the only step needed for streaming updates
-        payloadPackingOptimized(rhs, payloadUnpacked, bipartite_map_glb, degree, context_next, gal_keys, i);
+        payloadPackingOptimized_omrtake3(rhs, payloadUnpacked, bipartite_map_glb, degree, context_next, i);
         e2 = chrono::high_resolution_clock::now();
         t2 += chrono::duration_cast<chrono::microseconds>(e2 - s2).count();
         k++;
@@ -812,8 +859,11 @@ void serverOperations3therest_obliviousExpansion(EncryptionParameters& enc_param
     for(size_t i = 0; i < lhsCounter.size(); i++){
             evaluator.transform_from_ntt_inplace(lhsCounter[i]);
     }
-    if(rhs.is_ntt_form())
-        evaluator.transform_from_ntt_inplace(rhs);
+    for (int i = 0; i < (int) rhs.size(); i++) {
+        if (rhs[i].is_ntt_form()) {
+            evaluator.transform_from_ntt_inplace(rhs[i]);
+        }
+    }
     
     counter += numOfTransactions;
     e2 = chrono::high_resolution_clock::now();

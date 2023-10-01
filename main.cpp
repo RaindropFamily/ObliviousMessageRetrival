@@ -110,7 +110,7 @@ DEFAULT:
 
         case 4:
             numcores = 1;
-            test();
+            OMR2();
             break;
 
         case 5:
