@@ -282,51 +282,6 @@ vector<vector<long>> receiverDecodingOMR3(vector<Ciphertext>& lhsCounter, vector
     return newrhs;
 }
 
-vector<vector<long>> receiverDecodingOMR3_omrtake3(vector<Ciphertext>& lhsCounter, vector<vector<int>>& bipartite_map, vector<Ciphertext>& rhsEnc,
-                                                   const size_t& degree, const SecretKey& secret_key, const SEALContext& context,
-                                                   const int numOfTransactions, int partySize = 1, int slot_per_bucket = 3, const int payloadSize = 306) {
-    // 1. find pertinent indices
-    map<int, pair<int, int>> pertinentIndices;
-    decodeIndicesRandom_opt(pertinentIndices, lhsCounter, secret_key, context, partySize, slot_per_bucket);
-    for (map<int, pair<int, int>>::iterator it = pertinentIndices.begin(); it != pertinentIndices.end(); it++)
-    {
-        cout << it->first << "," << it->second.second << "  ";
-    }
-    cout << std::endl;
-
-    // 2. forming lhs
-    vector<vector<int>> lhs;
-    formLhsWeights(lhs, pertinentIndices, bipartite_map_glb, weights_glb, 0, OMRthreeM);
-
-    vector<vector<long>> concated_res;
-    vector<vector<int>> rhs;
-    
-    for (int i = 0; i < partySize; i++) {
-        // 3. forming rhs
-        vector<Ciphertext> rhsEncVec{rhsEnc[i]};
-        formRhs(rhs, rhsEncVec, secret_key, degree, context, OMRthreeM, payloadSize);
-
-        vector<vector<int>> temp_lhs = lhs;
-
-        // 4. solving equation
-        auto newrhs = equationSolving(temp_lhs, rhs, payloadSize);
-
-        if (i == 0) {
-            concated_res.resize(newrhs.size());
-            for (int j = 0; j < concated_res.size(); j++) {
-                concated_res[j].resize(partySize * payloadSize);
-            }
-        }
-        for (int j = 0; j < (int) newrhs.size(); j++) {
-            for (int k = 0; k < (int) newrhs[j].size(); k++) {
-                concated_res[j][i * payloadSize + k] = newrhs[j][k];
-            }
-        }
-    }
-
-    return concated_res;
-}
-
 // to check whether the result is as expected
 bool checkRes(vector<vector<uint64_t>> expected, vector<vector<long>> res){
     for(size_t i = 0; i < expected.size(); i++){
@@ -875,4 +830,55 @@ void serverOperations3therest_obliviousExpansion(EncryptionParameters& enc_param
 
     cout << "Unpack PV time: " << t1 << endl;
     cout << "digest encoding time: " << t2 << endl;
+}
+
+vector<vector<long>> receiverDecodingOMR3_omrtake3(vector<Ciphertext>& lhsCounter, vector<vector<int>>& bipartite_map, vector<Ciphertext>& rhsEnc,
+                                                   const size_t& degree, const SecretKey& secret_key, const SEALContext& context,
+                                                   const int numOfTransactions, int partySize = 1, int slot_per_bucket = 3, const int payloadSize = 306) {
+    // 1. find pertinent indices
+    map<int, pair<int, int>> pertinentIndices;
+    decodeIndicesRandom_opt(pertinentIndices, lhsCounter, secret_key, context, partySize, slot_per_bucket);
+    for (map<int, pair<int, int>>::iterator it = pertinentIndices.begin(); it != pertinentIndices.end(); it++)
+    {
+        cout << it->first << "," << it->second.second << "  ";
+    }
+    cout << std::endl;
+
+    // 2. forming lhs
+    vector<vector<int>> lhs;
+    formLhsWeights(lhs, pertinentIndices, bipartite_map_glb, weights_glb, 0, OMRthreeM);
+
+    vector<vector<long>> concated_res;
+
+    for (int i = 0; i < partySize; i++) {
+        // 3. forming rhs
+        vector<Ciphertext> rhsEncVec{rhsEnc[i]};
+        vector<vector<int>> rhs;
+        formRhs(rhs, rhsEncVec, secret_key, degree, context, OMRthreeM, payloadSize);
+
+        vector<vector<int>> temp_lhs = lhs;
+
+        for (int j = 0; j < (int) lhs.size(); j++) {
+            for (int k = 0; k < (int) lhs[0].size(); k++) {
+                temp_lhs[j][k] = lhs[j][k];
+            }
+        }
+
+        // 4. solving equation
+        auto newrhs = equationSolving(temp_lhs, rhs, payloadSize);
+
+        if (i == 0) {
+            concated_res.resize(newrhs.size());
+            for (int j = 0; j < (int) concated_res.size(); j++) {
+                concated_res[j].resize(partySize * payloadSize);
+            }
+        }
+        for (int j = 0; j < (int) newrhs.size(); j++) {
+            for (int k = 0; k < (int) newrhs[j].size(); k++) {
+                concated_res[j][i * payloadSize + k] = newrhs[j][k];
+            }
+        }
+    }
+
+    return concated_res;
 }

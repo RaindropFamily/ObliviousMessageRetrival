@@ -324,13 +324,13 @@ void payloadRetrievalOptimizedwithWeights_omrtake3(vector<vector<Ciphertext>>& r
 
     for (size_t i = 0; i < SIC.size(); i++) {
         results[i].resize(party_size);
-        vector<uint64_t> padded(degree, 0);
 
         int bipart_map_index = i*gap + new_start;
-        int payload_index = i*gap + new_local_start;
+        int tmp_payload_index = i*gap + new_local_start;
 
         for (int h = 0; h < party_size; h++) {
-            payload_index = payload_index * party_size + h;
+            int payload_index = tmp_payload_index * party_size + h;
+            vector<uint64_t> padded(degree, 0);
 
             for (size_t j = 0; j < bipartite_map[bipart_map_index].size(); j++) {
                 auto paddedStart = bipartite_map[bipart_map_index][j] * payloadSize;
@@ -356,9 +356,9 @@ void payloadPackingOptimized_omrtake3(vector<Ciphertext>& result, const vector<v
 
     for (size_t i = 0; i < payloads[0].size(); i++) {
         for (size_t j = 0; j < payloads.size(); j++) {
-            if (i == 0 && j == 0 && (start%degree) == 0)
+            if (j == 0 && (start%degree) == 0) {
                 result[i] = payloads[j][i];
-            else {
+            } else {
                 evaluator.add_inplace(result[i], payloads[j][i]); 
             }
         }
