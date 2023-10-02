@@ -282,6 +282,24 @@ void OMR3_opt() {
             }
             cout << endl;
 
+            ////////////////////////////////////////////// for phase 2 fast debugging //////////////////////////////////////////
+            // Ciphertext packSIC_coeff;
+            // Plaintext plainInd;
+            // plainInd.resize(poly_modulus_degree);
+            // plainInd.parms_id() = parms_id_zero;
+            // plainInd.data()[0] = 65535;
+            // for (int i = 1; i < (int) poly_modulus_degree; i++) {
+            //     plainInd.data()[i] = 0;
+            // }
+            // encryptor.encrypt(plainInd, packSIC_coeff);
+            // cout << "prepared fake SIC\n";
+
+            // for (int i = 0; i < 13; i++ ) {
+            //     evaluator.mod_switch_to_next_inplace(packSIC_coeff);
+            // }
+            // cout << "noise: " << decryptor.invariant_noise_budget(packSIC_coeff) << endl;
+            ////////////////////////////////////////////// for phase 2 fast debugging //////////////////////////////////////////
+
             serverOperations3therest_obliviousExpansion(parms_expand, templhsctr, bipartite_map[i], temprhs, packSIC_coeff, payload_multicore[i],
                             relin_keys, gal_keys_expand, sk_expand, public_key_last, poly_modulus_degree, context_next, context_expand,
                             poly_modulus_degree, counter[i], number_of_ct, party_size_glb, acc_slots+1);
@@ -322,16 +340,19 @@ void OMR3_opt() {
             evaluator.mod_switch_to_next_inplace(lhs_multi_ctr[0][q]);
         }
     }
-    cout << "after mod lhs\n";
-    // while(context.last_parms_id() != rhs_multi[0][0].parms_id()) {
-    //     cout << "mod rhs...\n";
-    //     for (int m = 0; m < half_party_size; m++) {
-    //         cout << "   " << m << endl;
-    //         evaluator_next.mod_switch_to_next_inplace(rhs_multi[0][m]);
-    //         cout << "   after " << m << endl;
-    //     }
-    // }
+    while(context.last_parms_id() != rhs_multi[0][0].parms_id()) {
+        for (int m = 0; m < half_party_size; m++) {
+            evaluator_next.mod_switch_to_next_inplace(rhs_multi[0][m]);
+        }
+    }
 
+    // if (rhs_multi[0][0].is_ntt_form()) {
+    //     evaluator.transform_from_ntt_inplace(rhs_multi[0][0]);
+    //     decryptor.decrypt(rhs_multi[0][0], pl);
+    //     evaluator.transform_to_ntt_inplace(rhs_multi[0][0]);
+    // }
+    // batch_encoder.decode(pl, tm);
+    // cout << "before detector ends: " << tm << endl;
 
     time_end = chrono::high_resolution_clock::now();
     time_diff = chrono::duration_cast<chrono::microseconds>(time_end - time_start);
@@ -356,8 +377,8 @@ void OMR3_opt() {
     time_diff = chrono::duration_cast<chrono::microseconds>(time_end - time_start);
     cout << "\nRecipient running time: " << time_diff.count() << "us." << "\n";
 
-    // cout << "EXPECTED -------------------------------------------------------- \n" << expected << endl;
-    // cout << "RESULT ---------------------------------------------------------- \n" << res << endl;
+    cout << "EXPECTED -------------------------------------------------------- \n" << expected << endl;
+    cout << "RESULT ---------------------------------------------------------- \n" << res << endl;
 
     if(checkRes(expected, res))
         cout << "Result is correct!" << endl;

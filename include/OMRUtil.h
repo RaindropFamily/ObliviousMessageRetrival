@@ -304,7 +304,7 @@ vector<vector<long>> receiverDecodingOMR3_omrtake3(vector<Ciphertext>& lhsCounte
     for (int i = 0; i < partySize; i++) {
         // 3. forming rhs
         vector<Ciphertext> rhsEncVec{rhsEnc[i]};
-        formRhs(rhs, rhsEncVec, secret_key, degree, context, OMRthreeM);
+        formRhs(rhs, rhsEncVec, secret_key, degree, context, OMRthreeM, payloadSize);
 
         vector<vector<int>> temp_lhs = lhs;
 
@@ -811,6 +811,7 @@ void serverOperations3therest_obliviousExpansion(EncryptionParameters& enc_param
 
     Evaluator evaluator(context_expand);
     Decryptor decryptor(context_expand, secretKey);
+    // BatchEncoder batch_encoder(context_expand);
 
     chrono::high_resolution_clock::time_point s1, e1, s2,e2;
     int t1 = 0, t2 = 0;
@@ -821,6 +822,8 @@ void serverOperations3therest_obliviousExpansion(EncryptionParameters& enc_param
     e1 = chrono::high_resolution_clock::now();
     t1 += chrono::duration_cast<chrono::microseconds>(e1 - s1).count();
     vector<Ciphertext> partial_expandedSIC(step);
+
+    int half_party_size = ceil(((double) partySize) / 2.0);
 
     for (int i = counter; i < counter+numOfTransactions; i += step) {
         // step 1. expand PV
@@ -847,7 +850,7 @@ void serverOperations3therest_obliviousExpansion(EncryptionParameters& enc_param
         // The following two steps are for streaming updates
         vector<vector<Ciphertext>> payloadUnpacked;
         payloadRetrievalOptimizedwithWeights_omrtake3(payloadUnpacked, payload, bipartite_map_glb, weights_glb, partial_expandedSIC,
-                                                      context_next, degree, i, i-counter, k, step_size_glb, payloadSize * 2, ceil(partySize / 2));
+                                                      context_next, degree, i, i-counter, k, step_size_glb, payloadSize * 2, half_party_size);
         // Note that if number of repetitions is already set, this is the only step needed for streaming updates
         payloadPackingOptimized_omrtake3(rhs, payloadUnpacked, bipartite_map_glb, degree, context_next, i);
         e2 = chrono::high_resolution_clock::now();
