@@ -18,23 +18,15 @@ void choosePertinentMsg(int numOfTransactions, int pertinentMsgNum, vector<int>&
     auto rng = make_shared<Blake2xbPRNGFactory>(Blake2xbPRNGFactory(seed));
     RandomToStandardAdapter engine(rng->create());
     uniform_int_distribution<uint64_t> dist(0, numOfTransactions - 1);
-    // for (int i = 0; i < pertinentMsgNum; i++) {
-    //     auto temp = dist(engine);
-    //     while(find(pertinentMsgIndices.begin(), pertinentMsgIndices.end(), temp) != pertinentMsgIndices.end()){
-    //         temp = dist(engine);
-    //     }
-    //     pertinentMsgIndices.push_back(temp);
-    // }
-    // sort(pertinentMsgIndices.begin(), pertinentMsgIndices.end());
-    pertinentMsgIndices.push_back(0);
-    // pertinentMsgIndices.push_back(1);
-    // pertinentMsgIndices.push_back(2);
-    // pertinentMsgIndices.push_back(3);
-    // pertinentMsgIndices.push_back(4);
-    // pertinentMsgIndices.push_back(5);
-    // pertinentMsgIndices.push_back(6);
-    // pertinentMsgIndices.push_back(7);
-
+    for (int i = 0; i < pertinentMsgNum; i++) {
+        auto temp = dist(engine);
+        while(find(pertinentMsgIndices.begin(), pertinentMsgIndices.end(), temp) != pertinentMsgIndices.end()){
+            temp = dist(engine);
+        }
+        pertinentMsgIndices.push_back(temp);
+    }
+    sort(pertinentMsgIndices.begin(), pertinentMsgIndices.end());
+    // pertinentMsgIndices.push_back(0);
 
     cout << "Expected Message Indices: " << pertinentMsgIndices << endl;
 }
@@ -749,7 +741,13 @@ Ciphertext obtainPackedSICFromRingLWEClue(SecretKey& sk, vector<OPVWCiphertext>&
     Decryptor decryptor(context, sk);
     
     vector<Ciphertext> packedSIC(params.ell);
+    chrono::high_resolution_clock::time_point s,e;
+    s = chrono::high_resolution_clock::now();
     computeBplusAS_OPVW(packedSIC, SICPVW, switchingKey, gal_keys, context, params);
+    e = chrono::high_resolution_clock::now();
+    cout << "   computeBplusAS_OPVW time: " << chrono::duration_cast<chrono::microseconds>(e - s).count() << endl;
+
+    cout << "** Noise after b-aSK: " << decryptor.invariant_noise_budget(packedSIC[0]) << endl;
 
     // int rangeToCheck = 20; // range check is from [-rangeToCheck, rangeToCheck-1]
     return rangeCheck_OPVW(sk, packedSIC, relin_keys, degree, context, params);
@@ -778,6 +776,8 @@ void serverOperations3therest_obliviousExpansion(EncryptionParameters& enc_param
     t1 += chrono::duration_cast<chrono::microseconds>(e1 - s1).count();
     vector<Ciphertext> partial_expandedSIC(step);
 
+    cout << "** Noise after first expand: " << decryptor.invariant_noise_budget(expanded_subtree_leaves[0]) << endl;
+
     int half_party_size = ceil(((double) partySize) / 2.0);
 
     for (int i = counter; i < counter+numOfTransactions; i += step) {
@@ -785,7 +785,7 @@ void serverOperations3therest_obliviousExpansion(EncryptionParameters& enc_param
         s1 = chrono::high_resolution_clock::now();
         partial_expandedSIC = expand(context_expand, enc_param, expanded_subtree_leaves[k], poly_modulus_degree_glb, gal_keys, step);
 
-        if (i == 0) cout << "After expansion noise: " << decryptor.invariant_noise_budget(partial_expandedSIC[0]) << endl;
+        if (i == 0) cout << "** Noise after second expansion: " << decryptor.invariant_noise_budget(partial_expandedSIC[0]) << endl;
 
         for(size_t j = 0; j < partial_expandedSIC.size(); j++) {
             if(!partial_expandedSIC[j].is_ntt_form()) {
@@ -834,7 +834,8 @@ void serverOperations3therest_obliviousExpansion(EncryptionParameters& enc_param
 
 vector<vector<long>> receiverDecodingOMR3_omrtake3(vector<Ciphertext>& lhsCounter, vector<vector<int>>& bipartite_map, vector<Ciphertext>& rhsEnc,
                                                    const size_t& degree, const SecretKey& secret_key, const SEALContext& context,
-                                                   const int numOfTransactions, int partySize = 1, int slot_per_bucket = 3, const int payloadSize = 306) {
+                                                   const int numOfTransactions, int partySize = 1, int halfPartySize = 1, int slot_per_bucket = 3,
+                                                   const int payloadSize = 306) {
     // 1. find pertinent indices
     map<int, pair<int, int>> pertinentIndices;
     decodeIndicesRandom_opt(pertinentIndices, lhsCounter, secret_key, context, partySize, slot_per_bucket);
@@ -850,7 +851,7 @@ vector<vector<long>> receiverDecodingOMR3_omrtake3(vector<Ciphertext>& lhsCounte
 
     vector<vector<long>> concated_res;
 
-    for (int i = 0; i < partySize; i++) {
+    for (int i = 0; i < halfPartySize; i++) {
         // 3. forming rhs
         vector<Ciphertext> rhsEncVec{rhsEnc[i]};
         vector<vector<int>> rhs;
@@ -870,7 +871,7 @@ vector<vector<long>> receiverDecodingOMR3_omrtake3(vector<Ciphertext>& lhsCounte
         if (i == 0) {
             concated_res.resize(newrhs.size());
             for (int j = 0; j < (int) concated_res.size(); j++) {
-                concated_res[j].resize(partySize * payloadSize);
+                concated_res[j].resize(halfPartySize * payloadSize);
             }
         }
         for (int j = 0; j < (int) newrhs.size(); j++) {

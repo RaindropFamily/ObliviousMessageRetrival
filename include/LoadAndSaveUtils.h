@@ -409,7 +409,7 @@ vector<uint64_t> loadDataSingle_chunk(int i, int party_size, int payloadSize = 3
     ret.resize(payloadSize * party_size);
     ifstream datafile;
     for (int c = 0; c < party_size; c++) {
-        datafile.open ("../data/"+folder+"/"+to_string(i + c)+".txt");
+        datafile.open ("../data/"+folder+"/"+to_string(i * party_size + c)+".txt");
         for(int j = 0; j < payloadSize; j++){
             datafile >> ret[c*payloadSize + j];
         }

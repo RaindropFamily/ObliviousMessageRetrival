@@ -1121,6 +1121,11 @@ Ciphertext rangeCheck_OPVW(SecretKey& sk, vector<Ciphertext>& output, const Reli
 
     map<int, bool> raise_mod = {{4, false}, {16, false}, {64, false}, {256, false}};
 
+    chrono::high_resolution_clock::time_point s,e, s1, e1;
+    s = chrono::high_resolution_clock::now();
+
+    int range_time = 0, raise_time = 0;
+
     for(int j = 0; j < param.ell; j++){
         {
             MemoryPoolHandle my_pool_larger = MemoryPoolHandle::New(true);
@@ -1130,11 +1135,17 @@ Ciphertext rangeCheck_OPVW(SecretKey& sk, vector<Ciphertext>& output, const Reli
             // first use range check to obtain 0 and 1
             map<int, bool> level_mod_1 = {{4, false}};
             map<int, bool> level_mod_2 = {{4, false}};
-            
+
+            s1 = chrono::high_resolution_clock::now();
             FastRangeCheck_Random(sk, res[j], output[j], degree, relin_keys, context, rangeCheckIndices_opt_19square,
                                   4, 10, level_mod_1, level_mod_2);
+            e1 = chrono::high_resolution_clock::now();
+            range_time += chrono::duration_cast<chrono::microseconds>(e - s).count();
 
+            s1 = chrono::high_resolution_clock::now();
             Ciphertext tmp = raisePowerToPrime(context, relin_keys, res[j], raise_mod, raise_mod, 256, 256, param.q);
+            e1 = chrono::high_resolution_clock::now();
+            raise_time += chrono::duration_cast<chrono::microseconds>(e - s).count();
 
             evaluator.negate_inplace(tmp);
             evaluator.add_plain_inplace(tmp, pl);
@@ -1143,7 +1154,13 @@ Ciphertext rangeCheck_OPVW(SecretKey& sk, vector<Ciphertext>& output, const Reli
     }
     // Multiply them to reduce the false positive rate
     EvalMultMany_inpace(res, relin_keys, context);
+    e = chrono::high_resolution_clock::now();
+    cout << "   rangeCheck_OPVW time: " << chrono::duration_cast<chrono::microseconds>(e - s).count() << endl;
+    cout << "       range time: " << range_time << endl;
+    cout << "       raise time: " << raise_time << endl;
 
+    cout << "** Noise after rangecheck before mod: " << decryptor.invariant_noise_budget(res[0]) << endl;
     evaluator.mod_switch_to_next_inplace(res[0]);
+    cout << "** Noise after rangecheck after mod: " << decryptor.invariant_noise_budget(res[0]) << endl;    
     return res[0];
 }

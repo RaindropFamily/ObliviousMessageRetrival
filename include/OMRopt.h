@@ -20,7 +20,7 @@ void OMR3_opt() {
     int payload_size = 306;
 
     // pack each two message into one bfv ciphertext, since 306*2*50 < ring_dim = 32768, where 50 is the upper bound of # pertinent messages
-    // createDatabase(numOfTransactions * half_party_size, payload_size*2);
+    createDatabase(numOfTransactions * half_party_size, payload_size*2);
     cout << "Finishing createDatabase\n";
 
     // step 1. generate OPVW sk
@@ -198,13 +198,13 @@ void OMR3_opt() {
                                                                 poly_modulus_degree, context, params, poly_modulus_degree);
 
                 decryptor.decrypt(packedSIC_temp, pl);
-                cout << "noise: " << decryptor.invariant_noise_budget(packedSIC_temp) << endl;
-                batch_encoder.decode(pl, tm);
-                cout << "SIC before rangeCheck: ------------------------------ \n";
-                for (int c = 0; c < 10; c++) {
-                    cout << tm[c] << " ";
-                }
-                cout << endl;
+                cout << "** Noise after phase 1: " << decryptor.invariant_noise_budget(packedSIC_temp) << endl;
+                // batch_encoder.decode(pl, tm);
+                // cout << "SIC before rangeCheck: ------------------------------ \n";
+                // for (int c = 0; c < 10; c++) {
+                //     cout << tm[c] << " ";
+                // }
+                // cout << endl;
 
                 if (p == 0){
                     packedSICfromPhase1[i][j] = packedSIC_temp;
@@ -261,6 +261,7 @@ void OMR3_opt() {
             vector<Ciphertext> temprhs(half_party_size);
 
             Ciphertext curr_PackSIC(packedSICfromPhase1[i][j]);
+            s = chrono::high_resolution_clock::now();
             Ciphertext packSIC_copy(curr_PackSIC);
             evaluator_next.rotate_columns_inplace(packSIC_copy, gal_keys_slotToCoeff);
 
@@ -274,13 +275,15 @@ void OMR3_opt() {
             Ciphertext packSIC_coeff = slotToCoeff_WOPrepreocess(context, context_next, packSIC_sqrt_list,
                                                                  gal_keys_slotToCoeff, 128, degree, t, inv);
 
+            e = chrono::high_resolution_clock::now();
+            cout << "SlotToCoeff time: " << chrono::duration_cast<chrono::microseconds>(e - s).count() << endl;
             decryptor.decrypt(packSIC_coeff, pl);
-            cout << "noise: " << decryptor.invariant_noise_budget(packSIC_coeff) << endl;
-            cout << "SIC plaintext after slotToCoeff: ------------------------------ \n";
-            for (int c = 0; c < (int) degree; c++) {
-                cout << pl.data()[c] << " ";
-            }
-            cout << endl;
+            cout << "** Noise after slotToCoeff: " << decryptor.invariant_noise_budget(packSIC_coeff) << endl;
+            // cout << "SIC plaintext after slotToCoeff: ------------------------------ \n";
+            // for (int c = 0; c < (int) degree; c++) {
+            //     cout << pl.data()[c] << " ";
+            // }
+            // cout << endl;
 
             ////////////////////////////////////////////// for phase 2 fast debugging //////////////////////////////////////////
             // Ciphertext packSIC_coeff;
@@ -334,7 +337,8 @@ void OMR3_opt() {
         }
     }
 
-    cout << "!!! FINAL NOISE: " << decryptor.invariant_noise_budget(lhs_multi_ctr[0][0]) << endl;
+    cout << "** FINAL LHS NOISE before mod: " << decryptor.invariant_noise_budget(lhs_multi_ctr[0][0]) << endl;
+    cout << "** FINAL RHS NOISE before mod: " << decryptor.invariant_noise_budget(rhs_multi[0][0]) << endl;
     while(context.last_parms_id() != lhs_multi_ctr[0][0].parms_id()) {
         for(size_t q = 0; q < lhs_multi_ctr[0].size(); q++){
             evaluator.mod_switch_to_next_inplace(lhs_multi_ctr[0][q]);
@@ -345,6 +349,8 @@ void OMR3_opt() {
             evaluator_next.mod_switch_to_next_inplace(rhs_multi[0][m]);
         }
     }
+    cout << "** FINAL LHS NOISE after mod: " << decryptor.invariant_noise_budget(lhs_multi_ctr[0][0]) << endl;
+    cout << "** FINAL RHS NOISE after mod: " << decryptor.invariant_noise_budget(rhs_multi[0][0]) << endl;
 
     // if (rhs_multi[0][0].is_ntt_form()) {
     //     evaluator.transform_from_ntt_inplace(rhs_multi[0][0]);
@@ -372,7 +378,7 @@ void OMR3_opt() {
     bipartiteGraphWeightsGeneration(bipartite_map_glb, weights_glb, numOfTransactions, OMRthreeM, repeatition_glb, seed_glb);
     time_start = chrono::high_resolution_clock::now();
     auto res = receiverDecodingOMR3_omrtake3(lhs_multi_ctr[0], bipartite_map[0], rhs_multi[0], poly_modulus_degree, secret_key, context,
-                                             numOfTransactions, half_party_size, acc_slots+1, payload_size * 2);
+                                             numOfTransactions, party_size_glb, half_party_size, acc_slots+1, payload_size * 2);
     time_end = chrono::high_resolution_clock::now();
     time_diff = chrono::duration_cast<chrono::microseconds>(time_end - time_start);
     cout << "\nRecipient running time: " << time_diff.count() << "us." << "\n";

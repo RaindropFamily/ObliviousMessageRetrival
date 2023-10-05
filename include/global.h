@@ -19,14 +19,14 @@ prng_seed_type seed_glb;
 size_t C_glb = 5;
 int numOfTransactions_glb = 32768;
 size_t poly_modulus_degree_glb = 32768;
-size_t num_of_pertinent_msgs_glb = 50;
+size_t num_of_pertinent_msgs_glb = 40;
 
 // (root, ring_dim) --> root^(2*ring_dim) % 65537 = 1
 // (4, 8), (2, 16), (255, 32), (141, 128), (431, 512), (21, 2048), (15, 8192), (9, 16384), (3, 32768) with prime = 65537
 // (8, 65536), (5, 131072) with prime = 786433
 int primitive_root = 3;
 
-int party_size_glb = 3;
+int party_size_glb = 1;
 int secure_extra_length_glb = 4; // T + secure_extra_length_glb = T', for a rand matrix to be full rank
 
 int id_size_glb = 19;
