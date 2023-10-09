@@ -734,7 +734,7 @@ vector<vector<uint64_t>> preparingTransactionsFormal_opt(vector<int>& pertinentM
 }
 
 
-Ciphertext obtainPackedSICFromRingLWEClue(SecretKey& sk, vector<OPVWCiphertext>& SICPVW, Ciphertext switchingKey, const RelinKeys& relin_keys,
+Ciphertext obtainPackedSICFromRingLWEClue(SecretKey& sk, vector<OPVWCiphertext>& SICPVW, vector<Ciphertext>& switchingKey, const RelinKeys& relin_keys,
                                           const GaloisKeys& gal_keys, const size_t& degree, const SEALContext& context, const OPVWParam& params,
                                           const int numOfTransactions, const int partialSize = 0) {
     Evaluator evaluator(context);

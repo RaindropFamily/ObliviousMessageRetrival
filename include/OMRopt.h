@@ -41,7 +41,7 @@ void OMR3_opt() {
     EncryptionParameters parms(scheme_type::bfv);
     auto degree = poly_modulus_degree;
     parms.set_poly_modulus_degree(poly_modulus_degree);
-    auto coeff_modulus = CoeffModulus::Create(poly_modulus_degree, { 28, 60, 60, 60, 60,
+    auto coeff_modulus = CoeffModulus::Create(poly_modulus_degree, { 35, 60, 60, 60,
                                                                      60, 60, 60, 60,
                                                                      60, 60, 60, 60,
                                                                      60, 60, 30, 60});
@@ -123,7 +123,7 @@ void OMR3_opt() {
 
     //////////////////////////////////////////////////////
     vector<Modulus> coeff_modulus_expand = coeff_modulus;
-    coeff_modulus_expand.erase(coeff_modulus_expand.begin() + 3, coeff_modulus_expand.end()-1);
+    coeff_modulus_expand.erase(coeff_modulus_expand.begin() + 2, coeff_modulus_expand.end()-1);
     EncryptionParameters parms_expand = parms;
     parms_expand.set_coeff_modulus(coeff_modulus_expand);
     SEALContext context_expand = SEALContext(parms_expand, true, sec_level_type::none);
@@ -181,6 +181,19 @@ void OMR3_opt() {
     MemoryPoolHandle my_pool = MemoryPoolHandle::New();
     auto old_prof = MemoryManager::SwitchProfile(std::make_unique<MMProfFixed>(std::move(my_pool)));
     NTL_EXEC_RANGE(numcores, first, last);
+
+    // prepare all rotated switching keys
+    s = chrono::high_resolution_clock::now();
+    int tempn;
+    for(tempn = 1; tempn < params.n; tempn*=2) {}
+    vector<Ciphertext> rotated_switchingKey(tempn);
+    for(int i = 0; i < tempn; i++){
+        evaluator.rotate_rows(switchingKey, 1, gal_keys, rotated_switchingKey[i]);
+        evaluator_next.transform_to_ntt_inplace(rotated_switchingKey[i]);
+    }
+    e = chrono::high_resolution_clock::now();
+    cout << "Prepare switching key time: " << chrono::duration_cast<chrono::microseconds>(e - s).count() << endl;
+
     for(int i = first; i < last; i++){
         counter[i] = numOfTransactions/numcores*i;
         
@@ -194,7 +207,7 @@ void OMR3_opt() {
             for (int p = 0; p < party_size_glb; p++) {
                 loadClues_OPVW(SICPVW_multicore[i], counter[i], counter[i]+poly_modulus_degree, params, p, party_size_glb);
                 
-                packedSIC_temp = obtainPackedSICFromRingLWEClue(secret_key, SICPVW_multicore[i], switchingKey, relin_keys, gal_keys,
+                packedSIC_temp = obtainPackedSICFromRingLWEClue(secret_key, SICPVW_multicore[i], rotated_switchingKey, relin_keys, gal_keys,
                                                                 poly_modulus_degree, context, params, poly_modulus_degree);
 
                 decryptor.decrypt(packedSIC_temp, pl);
@@ -219,6 +232,11 @@ void OMR3_opt() {
             cout << "BB to PV time: " << chrono::duration_cast<chrono::microseconds>(e - s).count() << endl;
         }
     }
+
+    for(int i = 0; i < tempn; i++){
+        rotated_switchingKey[i].release();
+    }
+
     NTL_EXEC_RANGE_END;
     MemoryManager::SwitchProfile(std::move(old_prof));
 

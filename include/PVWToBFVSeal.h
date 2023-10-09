@@ -865,13 +865,16 @@ void newRangeCheckPVW(vector<Ciphertext>& output, const int& range, const RelinK
 ////////////////////////////////////////////////////// FOR OMR Optimization with RLWE clues /////////////////////////////////////////////
 
 // compute b - aSK with packed swk but also only requires one rot key
-void computeBplusAS_OPVW(vector<Ciphertext>& output, const vector<OPVWCiphertext>& toPack, Ciphertext switchingKey,
+void computeBplusAS_OPVW(vector<Ciphertext>& output, const vector<OPVWCiphertext>& toPack, vector<Ciphertext>& switchingKey,
                          const GaloisKeys& gal_keys, const SEALContext& context, const OPVWParam& param) {
     MemoryPoolHandle my_pool = MemoryPoolHandle::New(true);
     auto old_prof = MemoryManager::SwitchProfile(std::make_unique<MMProfFixed>(std::move(my_pool)));
 
     int tempn, sk_size = param.n;
     for(tempn = 1; tempn < sk_size; tempn*=2){}
+
+    // chrono::high_resolution_clock::time_point time_start, time_end;
+    // int tt = 0;
 
     Evaluator evaluator(context);
     BatchEncoder batch_encoder(context);
@@ -899,16 +902,20 @@ void computeBplusAS_OPVW(vector<Ciphertext>& output, const vector<OPVWCiphertext
             batch_encoder.encode(vectorOfInts, plaintext);
         
             if(i == 0){
-                evaluator.multiply_plain(switchingKey, plaintext, output[l]); // times s[i]
+                evaluator.multiply_plain(switchingKey[i], plaintext, output[l]); // times s[i]
             }
             else{
                 Ciphertext temp;
-                evaluator.multiply_plain(switchingKey, plaintext, temp);
+                evaluator.multiply_plain(switchingKey[i], plaintext, temp);
                 evaluator.add_inplace(output[l], temp);
             }
         }
-        evaluator.rotate_rows_inplace(switchingKey, 1, gal_keys);
+        // time_start = chrono::high_resolution_clock::now();
+        // evaluator.rotate_rows_inplace(switchingKey, 1, gal_keys);
+        // time_end = chrono::high_resolution_clock::now();
+        // tt += chrono::duration_cast<chrono::microseconds>(time_end - time_start).count();
     }
+    // cout << "SK total rotation time: " << tt << endl;
 
     for(int i = 0; i < param.ell; i++){
         vector<uint64_t> vectorOfInts(toPack.size());
@@ -1140,12 +1147,12 @@ Ciphertext rangeCheck_OPVW(SecretKey& sk, vector<Ciphertext>& output, const Reli
             FastRangeCheck_Random(sk, res[j], output[j], degree, relin_keys, context, rangeCheckIndices_opt_19square,
                                   4, 10, level_mod_1, level_mod_2);
             e1 = chrono::high_resolution_clock::now();
-            range_time += chrono::duration_cast<chrono::microseconds>(e - s).count();
+            range_time += chrono::duration_cast<chrono::microseconds>(e1 - s1).count();
 
             s1 = chrono::high_resolution_clock::now();
             Ciphertext tmp = raisePowerToPrime(context, relin_keys, res[j], raise_mod, raise_mod, 256, 256, param.q);
             e1 = chrono::high_resolution_clock::now();
-            raise_time += chrono::duration_cast<chrono::microseconds>(e - s).count();
+            raise_time += chrono::duration_cast<chrono::microseconds>(e1 - s1).count();
 
             evaluator.negate_inplace(tmp);
             evaluator.add_plain_inplace(tmp, pl);
