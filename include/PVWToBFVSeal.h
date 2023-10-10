@@ -917,6 +917,10 @@ void computeBplusAS_OPVW(vector<Ciphertext>& output, const vector<OPVWCiphertext
     }
     // cout << "SK total rotation time: " << tt << endl;
 
+    for (int i = 0; i < (int) output.size(); i++) {
+        evaluator.transform_from_ntt_inplace(output[i]);
+    }
+
     for(int i = 0; i < param.ell; i++){
         vector<uint64_t> vectorOfInts(toPack.size());
         for(size_t j = 0; j < toPack.size(); j++){

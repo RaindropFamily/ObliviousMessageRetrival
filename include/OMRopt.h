@@ -187,9 +187,12 @@ void OMR3_opt() {
     int tempn;
     for(tempn = 1; tempn < params.n; tempn*=2) {}
     vector<Ciphertext> rotated_switchingKey(tempn);
-    for(int i = 0; i < tempn; i++){
-        evaluator.rotate_rows(switchingKey, 1, gal_keys, rotated_switchingKey[i]);
-        evaluator_next.transform_to_ntt_inplace(rotated_switchingKey[i]);
+    rotated_switchingKey[0] = switchingKey;
+    for(int i = 1; i < tempn; i++){
+        evaluator.rotate_rows(rotated_switchingKey[i-1], 1, gal_keys, rotated_switchingKey[i]);
+    }
+    for (int i = 0; i < tempn; i++) {
+        evaluator.transform_to_ntt_inplace(rotated_switchingKey[i]);
     }
     e = chrono::high_resolution_clock::now();
     cout << "Prepare switching key time: " << chrono::duration_cast<chrono::microseconds>(e - s).count() << endl;
