@@ -40,13 +40,6 @@ void OMR3_opt() {
     }
     cout << endl;
 
-    for (int i = 0; i < params.n; i++) {
-        sk[i] = sk[i] == 399 ? 65536 : sk[i];
-    }
-
-    for (int i = 0; i < params.n; i++) {
-        cout << sk[i] << " ";
-    }
     cout << endl;
     cout << "Finishing generating sk for OPVW cts\n";
 
@@ -91,7 +84,18 @@ void OMR3_opt() {
     Decryptor decryptor(context, secret_key);
     BatchEncoder batch_encoder(context);
 
+    for (int i = 0; i < params.n; i++) {
+        sk[i] = sk[i] == params.q-1 ? 65536 : sk[i];
+    }
+
+    for (int i = 0; i < params.n; i++) {
+        cout << sk[i] << " ";
+    }
     Ciphertext switchingKey = omr::generateDetectionKeyForOPVWsk(context, poly_modulus_degree, public_key, secret_key, sk, params);
+    for (int i = 0; i < params.n; i++) {
+        sk[i] = sk[i] == 65536 ? params.q-1 : sk[i];
+    }
+
     Ciphertext packedSIC;
     
     vector<vector<OPVWCiphertext>> SICPVW_multicore(numcores);

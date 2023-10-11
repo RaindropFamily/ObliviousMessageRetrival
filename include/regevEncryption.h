@@ -230,7 +230,7 @@ void OPVWEncPK(OPVWCiphertext& ct, const vector<int>& msg, const OPVWpk& pk, con
     RandomToStandardAdapter engine(rng->create());
 
     lbcrypto::TernaryUniformGeneratorImpl<regevSK> tug;
-    NativeVector x = tug.GenerateVector(param.n, 65537, param.h);
+    NativeVector x = tug.GenerateVector(param.n, param.q, param.h);
 
     for (int i = 0; i < param.n; i++) {
         cout << x[i] << " ";
