@@ -228,13 +228,14 @@ void OPVWEncPK(OPVWCiphertext& ct, const vector<int>& msg, const OPVWpk& pk, con
 
     auto rng = make_shared<Blake2xbPRNGFactory>(Blake2xbPRNGFactory(seed));
     RandomToStandardAdapter engine(rng->create());
-    uniform_int_distribution<uint64_t> dist(0, 1); // 0 --> 0, 1 --> 1, 2 --> -1, sample from {0,+/-1}
 
-    NativeVector x = NativeVector(param.n);
+    lbcrypto::TernaryUniformGeneratorImpl<regevSK> tug;
+    NativeVector x = tug.GenerateVector(param.n, 65537, param.h);
+
     for (int i = 0; i < param.n; i++) {
-        x[i] = dist(engine);
-        x[i] = (x[i].ConvertToInt() == 2) ? param.q - 1 : x[i];
+        cout << x[i] << " ";
     }
+    cout << endl;
 
     NativeInteger q = param.q;
     ct.a = OPVWRingMultiply(pk.a, x, param.n, q.ConvertToInt());

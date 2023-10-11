@@ -18,15 +18,15 @@ void choosePertinentMsg(int numOfTransactions, int pertinentMsgNum, vector<int>&
     auto rng = make_shared<Blake2xbPRNGFactory>(Blake2xbPRNGFactory(seed));
     RandomToStandardAdapter engine(rng->create());
     uniform_int_distribution<uint64_t> dist(0, numOfTransactions - 1);
-    for (int i = 0; i < pertinentMsgNum; i++) {
-        auto temp = dist(engine);
-        while(find(pertinentMsgIndices.begin(), pertinentMsgIndices.end(), temp) != pertinentMsgIndices.end()){
-            temp = dist(engine);
-        }
-        pertinentMsgIndices.push_back(temp);
-    }
-    sort(pertinentMsgIndices.begin(), pertinentMsgIndices.end());
-    // pertinentMsgIndices.push_back(0);
+    // for (int i = 0; i < pertinentMsgNum; i++) {
+    //     auto temp = dist(engine);
+    //     while(find(pertinentMsgIndices.begin(), pertinentMsgIndices.end(), temp) != pertinentMsgIndices.end()){
+    //         temp = dist(engine);
+    //     }
+    //     pertinentMsgIndices.push_back(temp);
+    // }
+    // sort(pertinentMsgIndices.begin(), pertinentMsgIndices.end());
+    pertinentMsgIndices.push_back(0);
 
     cout << "Expected Message Indices: " << pertinentMsgIndices << endl;
 }
@@ -719,6 +719,7 @@ vector<vector<uint64_t>> preparingTransactionsFormal_opt(vector<int>& pertinentM
                 expectedIndices.push_back(ind);
                 ret.push_back(loadDataSingle_chunk(ind, half_party_size, 306*2));
             }
+            cout << "---> pertinent: " << ind << endl;
 
             OPVWEncPK(tempclue, zeros, pk, params);
         } else {
