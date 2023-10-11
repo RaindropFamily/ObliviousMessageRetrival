@@ -1208,7 +1208,7 @@ Ciphertext rangeCheck_OPVW(SecretKey& sk, vector<Ciphertext>& output, const Reli
             }
 
             s1 = chrono::high_resolution_clock::now();
-            FastRangeCheck_Random(sk, res[j], output[j], degree, relin_keys, context, rangeCheckIndices,
+            FastRangeCheck_Random(sk, res[j], output[j], degree, relin_keys, context, rangeCheckIndices_opt_B,
                                   100, 240, level_mod_1, level_mod_2, default_param_set);
             e1 = chrono::high_resolution_clock::now();
             range_time += chrono::duration_cast<chrono::microseconds>(e1 - s1).count();
