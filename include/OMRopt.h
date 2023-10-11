@@ -25,16 +25,35 @@ void OMR3_opt() {
 
     // step 1. generate OPVW sk
     // recipient side
-    auto params = OPVWParam(475, 400, 0.5, 6, 32);
+    auto params = OPVWParam(475, 400, 0.5, 1, 32);
     bool default_param_set = false;
     auto sk = OPVWGenerateSecretKey(params);
+    
     auto pk = OPVWGeneratePublicKey(params, sk);
+    for (int i = 0; i < params.n; i++) {
+        cout << pk.a[i] << " ";
+    }
+    cout << endl;
+
+    for (int i = 0; i < params.n; i++) {
+        cout << pk.b[i] << " ";
+    }
+    cout << endl;
+
+    for (int i = 0; i < params.n; i++) {
+        sk[i] = sk[i] == 399 ? 65536 : sk[i];
+    }
+
+    for (int i = 0; i < params.n; i++) {
+        cout << sk[i] << " ";
+    }
+    cout << endl;
     cout << "Finishing generating sk for OPVW cts\n";
 
     // step 2. prepare transactions
     vector<int> pertinentMsgIndices;
-    // auto expected = preparingTransactionsFormal_opt(pertinentMsgIndices, pk, numOfTransactions, num_of_pertinent_msgs_glb,  params);
-    vector<vector<uint64_t>> expected = {{0}};
+    auto expected = preparingTransactionsFormal_opt(pertinentMsgIndices, pk, numOfTransactions, num_of_pertinent_msgs_glb,  params);
+    // vector<vector<uint64_t>> expected = {{0}};
     cout << expected.size() << " pertinent msg: Finishing preparing messages\n";
     cout << "Perty: "<< pertinentMsgIndices << endl;
 
@@ -217,12 +236,12 @@ void OMR3_opt() {
 
                 decryptor.decrypt(packedSIC_temp, pl);
                 cout << "** Noise after phase 1: " << decryptor.invariant_noise_budget(packedSIC_temp) << endl;
-                // batch_encoder.decode(pl, tm);
-                // cout << "SIC before rangeCheck: ------------------------------ \n";
-                // for (int c = 0; c < 10; c++) {
-                //     cout << tm[c] << " ";
-                // }
-                // cout << endl;
+                batch_encoder.decode(pl, tm);
+                cout << "SIC before rangeCheck: ------------------------------ \n";
+                for (int c = 0; c < poly_modulus_degree; c++) {
+                    cout << tm[c] << " ";
+                }
+                cout << endl;
 
                 if (p == 0){
                     packedSICfromPhase1[i][j] = packedSIC_temp;

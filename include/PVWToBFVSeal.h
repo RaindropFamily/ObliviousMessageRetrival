@@ -1207,6 +1207,12 @@ Ciphertext rangeCheck_OPVW(SecretKey& sk, vector<Ciphertext>& output, const Reli
                 level_mod_2 = {{2, false}, {8, false}, {32, false}, {128, false}};
             }
 
+            Plaintext pp;
+            vector<uint64_t> tt(degree);
+            decryptor.decrypt(output[j], pp);
+            batch_encoder.decode(pp, tt);
+            cout << "============================= check before\n" << tt << endl;
+
             s1 = chrono::high_resolution_clock::now();
             FastRangeCheck_Random(sk, res[j], output[j], degree, relin_keys, context, rangeCheckIndices_opt_B,
                                   100, 240, level_mod_1, level_mod_2, default_param_set);
