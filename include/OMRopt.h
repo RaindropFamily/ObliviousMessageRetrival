@@ -25,7 +25,8 @@ void OMR3_opt() {
 
     // step 1. generate OPVW sk
     // recipient side
-    auto params = OPVWParam(750, 65537, 0.5, 2, 32); 
+    auto params = OPVWParam(475, 400, 0.5, 6, 32);
+    bool default_param_set = false;
     auto sk = OPVWGenerateSecretKey(params);
     auto pk = OPVWGeneratePublicKey(params, sk);
     cout << "Finishing generating sk for OPVW cts\n";
@@ -41,7 +42,7 @@ void OMR3_opt() {
     EncryptionParameters parms(scheme_type::bfv);
     auto degree = poly_modulus_degree;
     parms.set_poly_modulus_degree(poly_modulus_degree);
-    auto coeff_modulus = CoeffModulus::Create(poly_modulus_degree, { 35, 60, 60, 60,
+    auto coeff_modulus = CoeffModulus::Create(poly_modulus_degree, { 35, 60, 60,
                                                                      60, 60, 60, 60,
                                                                      60, 60, 60, 60,
                                                                      60, 60, 30, 60});
@@ -211,7 +212,7 @@ void OMR3_opt() {
                 loadClues_OPVW(SICPVW_multicore[i], counter[i], counter[i]+poly_modulus_degree, params, p, party_size_glb);
                 
                 packedSIC_temp = obtainPackedSICFromRingLWEClue(secret_key, SICPVW_multicore[i], rotated_switchingKey, relin_keys, gal_keys,
-                                                                poly_modulus_degree, context, params, poly_modulus_degree);
+                                                                poly_modulus_degree, context, params, poly_modulus_degree, default_param_set);
 
                 decryptor.decrypt(packedSIC_temp, pl);
                 cout << "** Noise after phase 1: " << decryptor.invariant_noise_budget(packedSIC_temp) << endl;

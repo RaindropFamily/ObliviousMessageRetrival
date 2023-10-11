@@ -736,7 +736,7 @@ vector<vector<uint64_t>> preparingTransactionsFormal_opt(vector<int>& pertinentM
 
 Ciphertext obtainPackedSICFromRingLWEClue(SecretKey& sk, vector<OPVWCiphertext>& SICPVW, vector<Ciphertext>& switchingKey, const RelinKeys& relin_keys,
                                           const GaloisKeys& gal_keys, const size_t& degree, const SEALContext& context, const OPVWParam& params,
-                                          const int numOfTransactions, const int partialSize = 0) {
+                                          const int numOfTransactions, bool default_param_set = true) {
     Evaluator evaluator(context);
     Decryptor decryptor(context, sk);
     
@@ -750,7 +750,7 @@ Ciphertext obtainPackedSICFromRingLWEClue(SecretKey& sk, vector<OPVWCiphertext>&
     cout << "** Noise after b-aSK: " << decryptor.invariant_noise_budget(packedSIC[0]) << endl;
 
     // int rangeToCheck = 20; // range check is from [-rangeToCheck, rangeToCheck-1]
-    return rangeCheck_OPVW(sk, packedSIC, relin_keys, degree, context, params);
+    return rangeCheck_OPVW(sk, packedSIC, relin_keys, degree, context, params, default_param_set);
 }
 
 

@@ -1082,36 +1082,87 @@ Ciphertext raisePowerToPrime(const SEALContext& context, const RelinKeys &relin_
 // get the x^2 as input
 void FastRangeCheck_Random(SecretKey& sk, Ciphertext& output, const Ciphertext& input, int degree, const RelinKeys &relin_keys,
                            const SEALContext& context, const vector<uint64_t>& rangeCheckIndices, const int firstLevel,
-                           const int secondLevel, map<int, bool>& firstLevelMod, map<int, bool>& secondLevelMod) {
+                           const int secondLevel, map<int, bool>& firstLevelMod, map<int, bool>& secondLevelMod,
+                           bool default_param_set = true) {
     MemoryPoolHandle my_pool_larger = MemoryPoolHandle::New(true);
     auto old_prof_larger = MemoryManager::SwitchProfile(std::make_unique<MMProfFixed>(std::move(my_pool_larger)));
 
     Evaluator evaluator(context);
     BatchEncoder batch_encoder(context);
+    Decryptor decryptor(context, sk);
 
-    vector<Ciphertext> terms(20);
-    for (int i = 0; i < (int) terms.size(); i++) {
-        terms[i] = input;
-    }
-
-    // get all (x-xi) terms
     Plaintext plainInd;
     plainInd.resize(degree);
     plainInd.parms_id() = parms_id_zero;
     for (int i = 0; i < (int) degree; i++) {
         plainInd.data()[i] = 0;
     }
-    for (int i = 1; i < 20; i++) {
-        plainInd.data()[0] = i*i;
-        evaluator.negate_inplace(terms[i]);
-        evaluator.add_plain_inplace(terms[i], plainInd);
-    }
 
-    EvalMultMany_inpace_modImprove(terms, relin_keys, context);
-    output = terms[0];
+    if (default_param_set) {
+        vector<Ciphertext> terms(20);
+        for (int i = 0; i < (int) terms.size(); i++) {
+            terms[i] = input;
+        }
 
-    for(int i = 0; i < (int) terms.size(); i++){
-        terms[i].release();
+        // get all (x-xi) terms
+        for (int i = 1; i < 20; i++) {
+            plainInd.data()[0] = i*i;
+            evaluator.negate_inplace(terms[i]);
+            evaluator.add_plain_inplace(terms[i], plainInd);
+        }
+
+        EvalMultMany_inpace_modImprove(terms, relin_keys, context);
+        output = terms[0];
+
+        for(int i = 0; i < (int) terms.size(); i++){
+            terms[i].release();
+        }
+    } else {
+        vector<Ciphertext> kCTs(firstLevel), kToMCTs(secondLevel);
+        calUptoDegreeK_bigPrime(kCTs, input, firstLevel, relin_keys, context, firstLevelMod);
+        cout << "   Noise after first level: " << decryptor.invariant_noise_budget(kCTs[kCTs.size()-1]) << " bits\n";
+        calUptoDegreeK_bigPrime(kToMCTs, kCTs[kCTs.size()-1], secondLevel, relin_keys, context, secondLevelMod);
+        cout << "   Noise after second level: " << decryptor.invariant_noise_budget(kToMCTs[kToMCTs.size()-1]) << " bits\n";
+
+        Ciphertext temp_relin(context);
+
+        for(int i = 0; i < secondLevel; i++) {
+            Ciphertext levelSum;
+            bool flag = false;
+            for(int j = 0; j < firstLevel; j++) {
+                if(rangeCheckIndices[i*firstLevel+j] != 0) {
+                    plainInd.data()[0] = rangeCheckIndices[i*firstLevel+j];
+                    if (!flag) {
+                        evaluator.multiply_plain(kCTs[j], plainInd, levelSum);
+                        flag = true;
+                    } else {
+                        Ciphertext tmp;
+                        evaluator.multiply_plain(kCTs[j], plainInd, tmp);
+                        evaluator.add_inplace(levelSum, tmp);
+                    }
+                }
+            }
+            evaluator.mod_switch_to_inplace(levelSum, kToMCTs[i].parms_id()); // mod down the plaintext multiplication noise
+            if(i == 0) {
+                output = levelSum;
+            } else if (i == 1) { // initialize for temp_relin, which is of ct size = 3
+                evaluator.multiply(levelSum, kToMCTs[i - 1], temp_relin);
+            } else {
+                evaluator.multiply_inplace(levelSum, kToMCTs[i - 1]);
+                evaluator.add_inplace(temp_relin, levelSum);
+            }
+        }
+
+        for(int i = 0; i < firstLevel; i++){
+            kCTs[i].release();
+        }
+        for(int i = 0; i < secondLevel; i++){
+            kToMCTs[i].release();
+        }
+
+        evaluator.relinearize_inplace(temp_relin, relin_keys);
+        evaluator.add_inplace(output, temp_relin);
+        temp_relin.release();
     }
 
     MemoryManager::SwitchProfile(std::move(old_prof_larger));
@@ -1119,7 +1170,7 @@ void FastRangeCheck_Random(SecretKey& sk, Ciphertext& output, const Ciphertext& 
 
 
 Ciphertext rangeCheck_OPVW(SecretKey& sk, vector<Ciphertext>& output, const RelinKeys &relin_keys, const size_t& degree, 
-                     const SEALContext& context, const OPVWParam& param){
+                     const SEALContext& context, const OPVWParam& param, bool default_param_set = true){
     BatchEncoder batch_encoder(context);
     Evaluator evaluator(context);
     Decryptor decryptor(context, sk);
@@ -1141,26 +1192,35 @@ Ciphertext rangeCheck_OPVW(SecretKey& sk, vector<Ciphertext>& output, const Reli
         {
             MemoryPoolHandle my_pool_larger = MemoryPoolHandle::New(true);
             auto old_prof_larger = MemoryManager::SwitchProfile(std::make_unique<MMProfFixed>(std::move(my_pool_larger)));
-            evaluator.multiply_inplace(output[j], output[j]);
-            evaluator.relinearize_inplace(output[j], relin_keys);
+            if (default_param_set) {
+                evaluator.multiply_inplace(output[j], output[j]);
+                evaluator.relinearize_inplace(output[j], relin_keys);
+            }
             // first use range check to obtain 0 and 1
-            map<int, bool> level_mod_1 = {{4, false}};
-            map<int, bool> level_mod_2 = {{4, false}};
+            map<int, bool> level_mod_1 = {{4, false}, {16, false}, {64, false}};
+            map<int, bool> level_mod_2 = {{2, false}, {8, false}, {32, false}, {128, false}};
 
             s1 = chrono::high_resolution_clock::now();
-            FastRangeCheck_Random(sk, res[j], output[j], degree, relin_keys, context, rangeCheckIndices_opt_19square,
-                                  4, 10, level_mod_1, level_mod_2);
+            FastRangeCheck_Random(sk, res[j], output[j], degree, relin_keys, context, rangeCheckIndices,
+                                  100, 240, level_mod_1, level_mod_2, default_param_set);
             e1 = chrono::high_resolution_clock::now();
             range_time += chrono::duration_cast<chrono::microseconds>(e1 - s1).count();
 
-            s1 = chrono::high_resolution_clock::now();
-            Ciphertext tmp = raisePowerToPrime(context, relin_keys, res[j], raise_mod, raise_mod, 256, 256, param.q);
-            e1 = chrono::high_resolution_clock::now();
-            raise_time += chrono::duration_cast<chrono::microseconds>(e1 - s1).count();
+            cout << "** Noise after net rangecheck: " << decryptor.invariant_noise_budget(res[j]) << endl;
 
-            evaluator.negate_inplace(tmp);
-            evaluator.add_plain_inplace(tmp, pl);
-            res[j] = tmp;
+            if (default_param_set) {
+                s1 = chrono::high_resolution_clock::now();
+                Ciphertext tmp = raisePowerToPrime(context, relin_keys, res[j], raise_mod, raise_mod, 256, 256, param.q);
+                e1 = chrono::high_resolution_clock::now();
+                raise_time += chrono::duration_cast<chrono::microseconds>(e1 - s1).count();
+
+                evaluator.negate_inplace(tmp);
+                evaluator.add_plain_inplace(tmp, pl);
+                res[j] = tmp;
+            } else {
+                evaluator.negate_inplace(res[j]);
+                evaluator.add_plain_inplace(res[j], pl);
+            }
         }
     }
     // Multiply them to reduce the false positive rate
