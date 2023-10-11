@@ -743,7 +743,7 @@ Ciphertext obtainPackedSICFromRingLWEClue(SecretKey& sk, vector<OPVWCiphertext>&
     vector<Ciphertext> packedSIC(params.ell);
     chrono::high_resolution_clock::time_point s,e;
     s = chrono::high_resolution_clock::now();
-    computeBplusAS_OPVW(packedSIC, SICPVW, switchingKey, gal_keys, context, params);
+    computeBplusAS_OPVW(packedSIC, SICPVW, switchingKey, gal_keys, context, params, default_param_set);
     e = chrono::high_resolution_clock::now();
     cout << "   computeBplusAS_OPVW time: " << chrono::duration_cast<chrono::microseconds>(e - s).count() << endl;
 

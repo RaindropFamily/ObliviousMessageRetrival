@@ -20,7 +20,7 @@ void OMR3_opt() {
     int payload_size = 306;
 
     // pack each two message into one bfv ciphertext, since 306*2*50 < ring_dim = 32768, where 50 is the upper bound of # pertinent messages
-    createDatabase(numOfTransactions * half_party_size, payload_size*2);
+    // createDatabase(numOfTransactions * half_party_size, payload_size*2);
     cout << "Finishing createDatabase\n";
 
     // step 1. generate OPVW sk
@@ -33,7 +33,8 @@ void OMR3_opt() {
 
     // step 2. prepare transactions
     vector<int> pertinentMsgIndices;
-    auto expected = preparingTransactionsFormal_opt(pertinentMsgIndices, pk, numOfTransactions, num_of_pertinent_msgs_glb,  params);
+    // auto expected = preparingTransactionsFormal_opt(pertinentMsgIndices, pk, numOfTransactions, num_of_pertinent_msgs_glb,  params);
+    vector<vector<uint64_t>> expected = {{0}};
     cout << expected.size() << " pertinent msg: Finishing preparing messages\n";
     cout << "Perty: "<< pertinentMsgIndices << endl;
 
@@ -42,10 +43,10 @@ void OMR3_opt() {
     EncryptionParameters parms(scheme_type::bfv);
     auto degree = poly_modulus_degree;
     parms.set_poly_modulus_degree(poly_modulus_degree);
-    auto coeff_modulus = CoeffModulus::Create(poly_modulus_degree, { 35, 60, 60,
+    auto coeff_modulus = CoeffModulus::Create(poly_modulus_degree, { 28, 60, 60,
                                                                      60, 60, 60, 60,
                                                                      60, 60, 60, 60,
-                                                                     60, 60, 30, 60});
+                                                                     60, 60, 60});
     parms.set_coeff_modulus(coeff_modulus);
     parms.set_plain_modulus(t);
 
@@ -299,7 +300,8 @@ void OMR3_opt() {
 
             e = chrono::high_resolution_clock::now();
             cout << "SlotToCoeff time: " << chrono::duration_cast<chrono::microseconds>(e - s).count() << endl;
-            decryptor.decrypt(packSIC_coeff, pl);
+            // decryptor.decrypt(packSIC_coeff, pl);
+            evaluator.mod_switch_to_next_inplace(packSIC_coeff);
             cout << "** Noise after slotToCoeff: " << decryptor.invariant_noise_budget(packSIC_coeff) << endl;
             // cout << "SIC plaintext after slotToCoeff: ------------------------------ \n";
             // for (int c = 0; c < (int) degree; c++) {

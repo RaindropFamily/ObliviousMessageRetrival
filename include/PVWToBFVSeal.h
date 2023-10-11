@@ -866,7 +866,7 @@ void newRangeCheckPVW(vector<Ciphertext>& output, const int& range, const RelinK
 
 // compute b - aSK with packed swk but also only requires one rot key
 void computeBplusAS_OPVW(vector<Ciphertext>& output, const vector<OPVWCiphertext>& toPack, vector<Ciphertext>& switchingKey,
-                         const GaloisKeys& gal_keys, const SEALContext& context, const OPVWParam& param) {
+                         const GaloisKeys& gal_keys, const SEALContext& context, const OPVWParam& param, bool default_param_set = true) {
     MemoryPoolHandle my_pool = MemoryPoolHandle::New(true);
     auto old_prof = MemoryManager::SwitchProfile(std::make_unique<MMProfFixed>(std::move(my_pool)));
 
@@ -900,6 +900,7 @@ void computeBplusAS_OPVW(vector<Ciphertext>& output, const vector<OPVWCiphertext
 
             Plaintext plaintext;
             batch_encoder.encode(vectorOfInts, plaintext);
+            evaluator.transform_to_ntt_inplace(plaintext, switchingKey[i].parms_id());
         
             if(i == 0){
                 evaluator.multiply_plain(switchingKey[i], plaintext, output[l]); // times s[i]
@@ -931,7 +932,9 @@ void computeBplusAS_OPVW(vector<Ciphertext>& output, const vector<OPVWCiphertext
         batch_encoder.encode(vectorOfInts, plaintext);
         evaluator.negate_inplace(output[i]);
         evaluator.add_plain_inplace(output[i], plaintext);
-        evaluator.mod_switch_to_next_inplace(output[i]); 
+        if (default_param_set) {
+            evaluator.mod_switch_to_next_inplace(output[i]);
+        }
     }
     MemoryManager::SwitchProfile(std::move(old_prof));
 }
@@ -1199,6 +1202,10 @@ Ciphertext rangeCheck_OPVW(SecretKey& sk, vector<Ciphertext>& output, const Reli
             // first use range check to obtain 0 and 1
             map<int, bool> level_mod_1 = {{4, false}, {16, false}, {64, false}};
             map<int, bool> level_mod_2 = {{2, false}, {8, false}, {32, false}, {128, false}};
+            if (!default_param_set) {
+                level_mod_1 = {{2, false}, {8, false}, {32, false}};
+                level_mod_2 = {{2, false}, {8, false}, {32, false}, {128, false}};
+            }
 
             s1 = chrono::high_resolution_clock::now();
             FastRangeCheck_Random(sk, res[j], output[j], degree, relin_keys, context, rangeCheckIndices,
