@@ -232,11 +232,6 @@ void OPVWEncPK(OPVWCiphertext& ct, const vector<int>& msg, const OPVWpk& pk, con
     lbcrypto::TernaryUniformGeneratorImpl<regevSK> tug;
     NativeVector x = tug.GenerateVector(param.n, param.q, param.h);
 
-    for (int i = 0; i < param.n; i++) {
-        cout << x[i] << " ";
-    }
-    cout << endl;
-
     NativeInteger q = param.q;
     ct.a = OPVWRingMultiply(pk.a, x, param.n, q.ConvertToInt());
     ct.b = OPVWRingMultiply(pk.b, x, param.n, q.ConvertToInt());

@@ -9,6 +9,7 @@
 #include <thread>
 
 void OMR3_opt() {
+    bool default_param_set = false;
 
     size_t poly_modulus_degree = poly_modulus_degree_glb;
     int t = 65537;
@@ -26,7 +27,10 @@ void OMR3_opt() {
     // step 1. generate OPVW sk
     // recipient side
     auto params = OPVWParam(475, 400, 0.5, 6, 32);
-    bool default_param_set = false;
+    if (default_param_set) {
+        params = OPVWParam(750, 65537, 0.5, 2, 32);
+    }
+
     auto sk = OPVWGenerateSecretKey(params);
     
     auto pk = OPVWGeneratePublicKey(params, sk);
@@ -50,9 +54,14 @@ void OMR3_opt() {
                                                                      60, 60, 60, 60,
                                                                      60, 60, 60, 60,
                                                                      60, 60, 60});
+    if (default_param_set) {
+        coeff_modulus = CoeffModulus::Create(poly_modulus_degree, { 35, 60, 60, 60,
+                                                                    60, 60, 60, 60,
+                                                                    60, 60, 60, 60,
+                                                                    60, 60, 30, 60});
+    }
     parms.set_coeff_modulus(coeff_modulus);
     parms.set_plain_modulus(t);
-
 
 	prng_seed_type seed;
     for (auto &i : seed) {
@@ -120,18 +129,10 @@ void OMR3_opt() {
         secret_key.data().data() + degree * (coeff_modulus.size() - 1), degree, 1,
         sk_next.data().data() + degree * (coeff_modulus_next.size() - 1));
     KeyGenerator keygen_next(context_next, sk_next); 
-    vector<int> steps_next = {0,32,64,128,256,512,1024,2048,4096,8192};
-    keygen_next.create_galois_keys(steps, gal_keys_next);
 
-    vector<int> slotToCoeff_steps_coeff = {1};
-    for (int i = 0; i < (int) degree/2;) {
-        if (find(slotToCoeff_steps_coeff.begin(), slotToCoeff_steps_coeff.end(), i) == slotToCoeff_steps_coeff.end()) {
-            slotToCoeff_steps_coeff.push_back(i);
-        }
-        i += sqrt(degree/2);
-    }
+    vector<int> slotToCoeff_steps_coeff = {0, 1};
+    slotToCoeff_steps_coeff.push_back(sqrt(degree/2));
     keygen_next.create_galois_keys(slotToCoeff_steps_coeff, gal_keys_slotToCoeff);
-
 
     //////////////////////////////////////////////////////
     vector<Modulus> coeff_modulus_expand = coeff_modulus;
@@ -155,24 +156,6 @@ void OMR3_opt() {
     }
     keygen_expand.create_galois_keys(galois_elts, gal_keys_expand);
 
-    ////////////////////////////////////////////////////
-    vector<Modulus> coeff_modulus_last = coeff_modulus;
-    coeff_modulus_last.erase(coeff_modulus_last.begin() + 4, coeff_modulus_last.end()-1);
-    EncryptionParameters parms_last = parms;
-    parms_last.set_coeff_modulus(coeff_modulus_last);
-    SEALContext context_last = SEALContext(parms_last, true, sec_level_type::none);
-
-    SecretKey sk_last;
-    sk_last.data().resize(coeff_modulus_last.size() * degree);
-    sk_last.parms_id() = context_last.key_parms_id();
-    util::set_poly(secret_key.data().data(), degree, coeff_modulus_last.size() - 1, sk_last.data().data());
-    util::set_poly(
-        secret_key.data().data() + degree * (coeff_modulus.size() - 1), degree, 1,
-        sk_last.data().data() + degree * (coeff_modulus_last.size() - 1));
-    vector<int> steps_last = {1,2,4,8,16};
-    KeyGenerator keygen_last(context_last, sk_last); 
-    keygen_last.create_galois_keys(steps, gal_keys_last);
-    ////////////////////////////////////////////////////
     PublicKey public_key_last;
     keygen_next.create_public_key(public_key_last);
     
@@ -224,15 +207,15 @@ void OMR3_opt() {
                 
                 packedSIC_temp = obtainPackedSICFromRingLWEClue(secret_key, SICPVW_multicore[i], rotated_switchingKey, relin_keys, gal_keys,
                                                                 poly_modulus_degree, context, params, poly_modulus_degree, default_param_set);
-
-                decryptor.decrypt(packedSIC_temp, pl);
                 cout << "** Noise after phase 1: " << decryptor.invariant_noise_budget(packedSIC_temp) << endl;
-                batch_encoder.decode(pl, tm);
-                cout << "SIC before rangeCheck: ------------------------------ \n";
-                for (int c = 0; c < poly_modulus_degree; c++) {
-                    cout << tm[c] << " ";
-                }
-                cout << endl;
+
+                // decryptor.decrypt(packedSIC_temp, pl);
+                // batch_encoder.decode(pl, tm);
+                // cout << "SIC after rangeCheck: ------------------------------ \n";
+                // for (int c = 0; c < (int) poly_modulus_degree; c++) {
+                //     cout << tm[c] << " ";
+                // }
+                // cout << endl;
 
                 if (p == 0){
                     packedSICfromPhase1[i][j] = packedSIC_temp;
@@ -298,10 +281,15 @@ void OMR3_opt() {
             Ciphertext packSIC_copy(curr_PackSIC);
             evaluator_next.rotate_columns_inplace(packSIC_copy, gal_keys_slotToCoeff);
 
+            packSIC_sqrt_list[0] = curr_PackSIC;
+            packSIC_sqrt_list[sq_ct] = packSIC_copy;
+
+            for (int c = 1; c < sq_ct; c++) {
+                evaluator_next.rotate_rows(packSIC_sqrt_list[c-1], sq_ct, gal_keys_slotToCoeff, packSIC_sqrt_list[c]);
+                evaluator_next.rotate_rows(packSIC_sqrt_list[c-1+sq_ct], sq_ct, gal_keys_slotToCoeff, packSIC_sqrt_list[c+sq_ct]);
+            }
             for (int c = 0; c < sq_ct; c++) {
-                evaluator_next.rotate_rows(curr_PackSIC, sq_ct * c, gal_keys_slotToCoeff, packSIC_sqrt_list[c]);
                 evaluator_next.transform_to_ntt_inplace(packSIC_sqrt_list[c]);
-                evaluator_next.rotate_rows(packSIC_copy, sq_ct * c, gal_keys_slotToCoeff, packSIC_sqrt_list[c+sq_ct]);
                 evaluator_next.transform_to_ntt_inplace(packSIC_sqrt_list[c+sq_ct]);
             }
             
@@ -311,7 +299,9 @@ void OMR3_opt() {
             e = chrono::high_resolution_clock::now();
             cout << "SlotToCoeff time: " << chrono::duration_cast<chrono::microseconds>(e - s).count() << endl;
             // decryptor.decrypt(packSIC_coeff, pl);
-            evaluator.mod_switch_to_next_inplace(packSIC_coeff);
+            if (!default_param_set) {
+                evaluator.mod_switch_to_next_inplace(packSIC_coeff);
+            }
             cout << "** Noise after slotToCoeff: " << decryptor.invariant_noise_budget(packSIC_coeff) << endl;
             // cout << "SIC plaintext after slotToCoeff: ------------------------------ \n";
             // for (int c = 0; c < (int) degree; c++) {
@@ -417,8 +407,8 @@ void OMR3_opt() {
     time_diff = chrono::duration_cast<chrono::microseconds>(time_end - time_start);
     cout << "\nRecipient running time: " << time_diff.count() << "us." << "\n";
 
-    cout << "EXPECTED -------------------------------------------------------- \n" << expected << endl;
-    cout << "RESULT ---------------------------------------------------------- \n" << res << endl;
+    // cout << "EXPECTED -------------------------------------------------------- \n" << expected << endl;
+    // cout << "RESULT ---------------------------------------------------------- \n" << res << endl;
 
     if(checkRes(expected, res))
         cout << "Result is correct!" << endl;
