@@ -93,6 +93,38 @@ namespace omr
     }
 }
 
+namespace omr_take3
+{
+    Ciphertext generateDetectionKeyForOPVWsk(const SEALContext& context, const size_t& degree,
+                                                     const PublicKey& BFVpk, const SecretKey& BFVsk,
+                                                     const OPVWsk& regSk, const OPVWParam& params) {
+        Ciphertext switchingKey;
+
+        BatchEncoder batch_encoder(context);
+        Encryptor encryptor(context, BFVpk);
+        encryptor.set_secret_key(BFVsk);
+
+        int tempn = 1;
+        for(tempn = 1; tempn < params.n; tempn *= 2){}
+
+        vector<uint64_t> skInt(degree);
+        for(size_t i = 0; i < degree; i++){
+            auto tempindex = i%uint64_t(tempn);
+            if(int(tempindex) >= params.n) {
+                skInt[i] = 0;
+            } else {
+                // skInt[i] = uint64_t(regSk[tempindex].ConvertToInt() % params.q);
+                skInt[i] = regSk[tempindex].ConvertToInt();
+            }
+        }
+        Plaintext plaintext;
+        batch_encoder.encode(skInt, plaintext);
+        encryptor.encrypt_symmetric(plaintext, switchingKey);
+
+        return switchingKey;
+    }
+}
+
 
 /**
  * @brief Ad-hoc Group Oblivious Message Retrival

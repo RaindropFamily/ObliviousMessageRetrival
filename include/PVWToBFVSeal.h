@@ -894,7 +894,7 @@ void computeBplusAS_OPVW(vector<Ciphertext>& output, const vector<OPVWCiphertext
                 } else {
                     int ring_ind = (the_index <= l) ? (l - the_index) : (sk_size - the_index + l);
                     uint64_t tmp = uint64_t((toPack[j].a[ring_ind].ConvertToInt()));
-                    vectorOfInts[j] = the_index <= l ? tmp : param.q - tmp;
+                    vectorOfInts[j] = the_index <= l ? tmp : bfv_Q - tmp;
                 }
             }
 
@@ -925,7 +925,7 @@ void computeBplusAS_OPVW(vector<Ciphertext>& output, const vector<OPVWCiphertext
     for(int i = 0; i < param.ell; i++){
         vector<uint64_t> vectorOfInts(toPack.size());
         for(size_t j = 0; j < toPack.size(); j++){
-            vectorOfInts[j] = uint64_t((toPack[j].b[i].ConvertToInt() - param.q / 4) % param.q);
+            vectorOfInts[j] = toPack[j].b[i].ConvertToInt();
         }
 
         Plaintext plaintext;
@@ -1207,11 +1207,11 @@ Ciphertext rangeCheck_OPVW(SecretKey& sk, vector<Ciphertext>& output, const Reli
                 level_mod_2 = {{2, false}, {8, false}, {32, false}, {128, false}};
             }
 
-            Plaintext pp;
-            vector<uint64_t> tt(degree);
-            decryptor.decrypt(output[j], pp);
-            batch_encoder.decode(pp, tt);
-            cout << "============================= check before\n" << tt << endl;
+            // Plaintext pp;
+            // vector<uint64_t> tt(degree);
+            // decryptor.decrypt(output[j], pp);
+            // batch_encoder.decode(pp, tt);
+            // cout << "============================= check before\n" << tt << endl;
 
             s1 = chrono::high_resolution_clock::now();
             FastRangeCheck_Random(sk, res[j], output[j], degree, relin_keys, context, rangeCheckIndices_opt_B,

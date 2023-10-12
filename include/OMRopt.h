@@ -25,20 +25,11 @@ void OMR3_opt() {
 
     // step 1. generate OPVW sk
     // recipient side
-    auto params = OPVWParam(475, 400, 0.5, 1, 32);
+    auto params = OPVWParam(475, 400, 0.5, 6, 32);
     bool default_param_set = false;
     auto sk = OPVWGenerateSecretKey(params);
     
     auto pk = OPVWGeneratePublicKey(params, sk);
-    for (int i = 0; i < params.n; i++) {
-        cout << pk.a[i] << " ";
-    }
-    cout << endl;
-
-    for (int i = 0; i < params.n; i++) {
-        cout << pk.b[i] << " ";
-    }
-    cout << endl;
 
     cout << endl;
     cout << "Finishing generating sk for OPVW cts\n";
@@ -87,11 +78,7 @@ void OMR3_opt() {
     for (int i = 0; i < params.n; i++) {
         sk[i] = sk[i] == params.q-1 ? 65536 : sk[i];
     }
-
-    for (int i = 0; i < params.n; i++) {
-        cout << sk[i] << " ";
-    }
-    Ciphertext switchingKey = omr::generateDetectionKeyForOPVWsk(context, poly_modulus_degree, public_key, secret_key, sk, params);
+    Ciphertext switchingKey = omr_take3::generateDetectionKeyForOPVWsk(context, poly_modulus_degree, public_key, secret_key, sk, params);
     for (int i = 0; i < params.n; i++) {
         sk[i] = sk[i] == 65536 ? params.q-1 : sk[i];
     }

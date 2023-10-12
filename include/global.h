@@ -7,9 +7,11 @@ int OMRtwoM = 100;
 int OMRthreeM = 53; // use 53 for omr_take3, and 100 o.w.
 int num_bucket_glb = 400;
 
+int bfv_Q = 65537;
+
 int step_size_glb = 32; // used for oblivious expansion
 
-int mod_switch_counter = 0; 
+int mod_switch_counter = 0;
 GaloisKeys gal_keys_next; 
 GaloisKeys gal_keys_last;
 vector<vector<int>> bipartite_map_glb;

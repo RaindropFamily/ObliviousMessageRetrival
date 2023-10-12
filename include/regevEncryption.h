@@ -246,10 +246,6 @@ void OPVWEncPK(OPVWCiphertext& ct, const vector<int>& msg, const OPVWpk& pk, con
         ct.a[i].ModAddFastEq(m_dgg_1.GenerateInteger(q), q);
         ct.b[i].ModAddFastEq(m_dgg_2.GenerateInteger(q), q);
     }
-
-    for(int j = 0; j < (int) msg.size(); j++) {
-        msg[j] ? ct.b[j].ModAddFastEq(3*q/4, q) : ct.b[j].ModAddFastEq(q/4, q);
-    }
 }
 
 void OPVWDec(vector<int>& msg, const OPVWCiphertext& ct, const OPVWsk& sk, const OPVWParam& param) {
