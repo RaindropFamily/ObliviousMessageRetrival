@@ -25,6 +25,32 @@ using namespace std;
 using namespace seal;
 using namespace seal::util;
 
+void writeUtemp(const vector<uint64_t> U_temp, const int i) {
+    ofstream datafile;
+    datafile.open ("../data/U_temp/" + to_string(i) + ".txt");
+
+    for(size_t i = 0; i < U_temp.size(); i++){
+        datafile << U_temp[i] << "\n";
+    }
+    datafile.close();
+}
+
+
+vector<uint64_t> readUtemp(const int i, const int degree) {
+    ifstream datafile;
+    datafile.open ("../data/U_temp/" + to_string(i) + ".txt");
+
+    vector<uint64_t> U_temp(degree);
+
+    for(size_t i = 0; i < U_temp.size(); i++){
+        datafile >> U_temp[i];
+    }
+    datafile.close();
+
+    return U_temp;
+}
+
+
 /*
 Helper function: Prints the name of the example in a fancy banner.
 */
@@ -390,6 +416,44 @@ vector<vector<int>> generateMatrixU_transpose(int n, const int q = 65537, const 
 }
 
 
+Ciphertext slotToCoeff(const SEALContext& context, const SEALContext& context_coeff, vector<Ciphertext>& ct_sqrt_list,
+                       vector<Plaintext>& U_plain_list, const GaloisKeys& gal_keys, const int sq_rt, const int degree) {
+    Evaluator evaluator(context), eval_coeff(context_coeff);
+    BatchEncoder batch_encoder(context);
+
+    chrono::high_resolution_clock::time_point time_start, time_end;
+    int total_mul = 0;
+
+    vector<Ciphertext> result(sq_rt);
+    for (int iter = 0; iter < sq_rt; iter++) {
+        for (int j = 0; j < (int) ct_sqrt_list.size(); j++) {
+            time_start = chrono::high_resolution_clock::now();
+            if (j == 0) {
+                evaluator.multiply_plain(ct_sqrt_list[j], U_plain_list[iter * ct_sqrt_list.size() + j], result[iter]);
+            } else {
+                Ciphertext temp;
+                evaluator.multiply_plain(ct_sqrt_list[j], U_plain_list[iter * ct_sqrt_list.size() + j], temp);
+                evaluator.add_inplace(result[iter], temp);
+            }
+            time_end = chrono::high_resolution_clock::now();
+            total_mul += chrono::duration_cast<chrono::microseconds>(time_end - time_start).count();
+        }
+    }
+
+    for (int i = 0; i < (int) result.size(); i++) {
+        evaluator.transform_from_ntt_inplace(result[i]);
+    }
+
+    for (int iter = sq_rt-1; iter > 0; iter--) {
+        eval_coeff.rotate_rows_inplace(result[iter], 1, gal_keys);
+        evaluator.add_inplace(result[iter-1], result[iter]);
+    }
+
+    return result[0];
+}
+
+
+
 Ciphertext slotToCoeff_WOPrepreocess(const SEALContext& context, const SEALContext& context_coeff, vector<Ciphertext>& ct_sqrt_list, const GaloisKeys& gal_keys,
                                      const int sq_rt = 128, const int degree=32768, const uint64_t q = 65537, const uint64_t scalar = 1) {
     Evaluator evaluator(context), evaluator_rotate(context_coeff);
@@ -421,7 +485,7 @@ Ciphertext slotToCoeff_WOPrepreocess(const SEALContext& context, const SEALConte
                 }
                 U_tmp[i] = ((uint64_t) (U[row_index][col_index] * scalar)) % q;
             }
-            // writeUtemp(U_tmp, j*sq_rt + iter);
+            writeUtemp(U_tmp, j*sq_rt + iter);
 
             Plaintext U_plain;
             batch_encoder.encode(U_tmp, U_plain);
@@ -452,4 +516,13 @@ Ciphertext slotToCoeff_WOPrepreocess(const SEALContext& context, const SEALConte
     cout << "   TOTAL process U time: " << total_U << endl;
 
     return result[0];
+}
+
+uint64_t manual_mod_down_rounding(uint64_t init, uint32_t rounding_bit, const uint64_t small_p, const uint64_t large_p) {
+    long double temp_f = ((long double) init) * ((long double) small_p) / ((long double) large_p);
+    uint32_t decimal = (temp_f - ((int) temp_f)) * 100;
+    float rounding = rounding_bit < decimal ? 1 : 0;
+
+    long temp = ((int) (temp_f + rounding)) % small_p;
+    return temp < 0 ? small_p + temp : temp;
 }

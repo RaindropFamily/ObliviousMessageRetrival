@@ -42,6 +42,7 @@ void OMR3_opt() {
     vector<int> pertinentMsgIndices;
     auto expected = preparingTransactionsFormal_opt(pertinentMsgIndices, pk, numOfTransactions, num_of_pertinent_msgs_glb,  params);
     // vector<vector<uint64_t>> expected = {{0}};
+
     cout << expected.size() << " pertinent msg: Finishing preparing messages\n";
     cout << "Perty: "<< pertinentMsgIndices << endl;
 
@@ -168,14 +169,13 @@ void OMR3_opt() {
 
     chrono::high_resolution_clock::time_point time_start, time_end, s,e;
     chrono::microseconds time_diff;
-    time_start = chrono::high_resolution_clock::now();
 
     Plaintext pl;
     vector<uint64_t> tm(poly_modulus_degree);
 
     MemoryPoolHandle my_pool = MemoryPoolHandle::New();
     auto old_prof = MemoryManager::SwitchProfile(std::make_unique<MMProfFixed>(std::move(my_pool)));
-    NTL_EXEC_RANGE(numcores, first, last);
+
 
     // prepare all rotated switching keys
     s = chrono::high_resolution_clock::now();
@@ -192,6 +192,9 @@ void OMR3_opt() {
     e = chrono::high_resolution_clock::now();
     cout << "Prepare switching key time: " << chrono::duration_cast<chrono::microseconds>(e - s).count() << endl;
 
+    time_start = chrono::high_resolution_clock::now();
+
+    NTL_EXEC_RANGE(numcores, first, last);
     for(int i = first; i < last; i++){
         counter[i] = numOfTransactions/numcores*i;
         
@@ -238,7 +241,6 @@ void OMR3_opt() {
     NTL_EXEC_RANGE_END;
     MemoryManager::SwitchProfile(std::move(old_prof));
 
-
     // step 4. detector operations
     vector<vector<Ciphertext>> lhs_multi_ctr(numcores);
     vector<vector<Ciphertext>> rhs_multi(numcores, vector<Ciphertext>(half_party_size));
@@ -256,11 +258,22 @@ void OMR3_opt() {
     cout << "Acc slots: " << encode_bit << " " << index_bit << " " << acc_slots << endl;
     int number_of_ct = ceil(repetition_glb * (acc_slots+1) * num_bucket_glb / ((poly_modulus_degree_glb / num_bucket_glb / (acc_slots+1) * (acc_slots+1) * num_bucket_glb) * 1.0));
     cout << "number of ct: " << number_of_ct << endl;
-
-    int sq_ct = sqrt(degree/2);
-    vector<Ciphertext> packSIC_sqrt_list(2*sq_ct);
+    
     uint64_t inv = modInverse(degree, t);
     cout << "Inv: " << inv << endl;
+
+    int sq_ct = sqrt(degree/2);
+    s = chrono::high_resolution_clock::now();
+    vector<Plaintext> U_plain_list(poly_modulus_degree);
+    for (int iter = 0; iter < sq_ct; iter++) {
+        for (int j = 0; j < (int) 2*sq_ct; j++) {
+            vector<uint64_t> U_tmp = readUtemp(j*sq_ct + iter, poly_modulus_degree);
+            batch_encoder.encode(U_tmp, U_plain_list[iter * 2*sq_ct + j]);
+            evaluator.transform_to_ntt_inplace(U_plain_list[iter * 2*sq_ct + j], packedSICfromPhase1[0][0].parms_id());
+        }
+    }
+    e = chrono::high_resolution_clock::now();
+    cout << "Preprocess U plaintext ntt time: " << chrono::duration_cast<chrono::microseconds>(e - s).count() << endl;
 
     NTL_EXEC_RANGE(numcores, first, last);
     for(int i = first; i < last; i++){
@@ -268,6 +281,7 @@ void OMR3_opt() {
         auto old_prof = MemoryManager::SwitchProfile(std::make_unique<MMProfFixed>(std::move(my_pool)));
         size_t j = 0;
         counter[i] = numOfTransactions/numcores*i;
+        vector<Ciphertext> packSIC_sqrt_list(2*sq_ct);
 
         while(j < numOfTransactions/numcores/poly_modulus_degree){
             if(!i)
@@ -293,8 +307,10 @@ void OMR3_opt() {
                 evaluator_next.transform_to_ntt_inplace(packSIC_sqrt_list[c+sq_ct]);
             }
             
-            Ciphertext packSIC_coeff = slotToCoeff_WOPrepreocess(context, context_next, packSIC_sqrt_list,
-                                                                 gal_keys_slotToCoeff, 128, degree, t, inv);
+            Ciphertext packSIC_coeff = slotToCoeff(context, context_next, packSIC_sqrt_list, U_plain_list,
+                                                   gal_keys_slotToCoeff, 128, degree);
+            // Ciphertext packSIC_coeff = slotToCoeff_WOPrepreocess(context, context_next, packSIC_sqrt_list,
+            //                                                      gal_keys_slotToCoeff, 128, degree, t, inv);
 
             e = chrono::high_resolution_clock::now();
             cout << "SlotToCoeff time: " << chrono::duration_cast<chrono::microseconds>(e - s).count() << endl;
@@ -308,24 +324,6 @@ void OMR3_opt() {
             //     cout << pl.data()[c] << " ";
             // }
             // cout << endl;
-
-            ////////////////////////////////////////////// for phase 2 fast debugging //////////////////////////////////////////
-            // Ciphertext packSIC_coeff;
-            // Plaintext plainInd;
-            // plainInd.resize(poly_modulus_degree);
-            // plainInd.parms_id() = parms_id_zero;
-            // plainInd.data()[0] = 65535;
-            // for (int i = 1; i < (int) poly_modulus_degree; i++) {
-            //     plainInd.data()[i] = 0;
-            // }
-            // encryptor.encrypt(plainInd, packSIC_coeff);
-            // cout << "prepared fake SIC\n";
-
-            // for (int i = 0; i < 13; i++ ) {
-            //     evaluator.mod_switch_to_next_inplace(packSIC_coeff);
-            // }
-            // cout << "noise: " << decryptor.invariant_noise_budget(packSIC_coeff) << endl;
-            ////////////////////////////////////////////// for phase 2 fast debugging //////////////////////////////////////////
 
             serverOperations3therest_obliviousExpansion(parms_expand, templhsctr, bipartite_map[i], temprhs, packSIC_coeff, payload_multicore[i],
                             relin_keys, gal_keys_expand, sk_expand, public_key_last, poly_modulus_degree, context_next, context_expand,
@@ -376,14 +374,6 @@ void OMR3_opt() {
     cout << "** FINAL LHS NOISE after mod: " << decryptor.invariant_noise_budget(lhs_multi_ctr[0][0]) << endl;
     cout << "** FINAL RHS NOISE after mod: " << decryptor.invariant_noise_budget(rhs_multi[0][0]) << endl;
 
-    // if (rhs_multi[0][0].is_ntt_form()) {
-    //     evaluator.transform_from_ntt_inplace(rhs_multi[0][0]);
-    //     decryptor.decrypt(rhs_multi[0][0], pl);
-    //     evaluator.transform_to_ntt_inplace(rhs_multi[0][0]);
-    // }
-    // batch_encoder.decode(pl, tm);
-    // cout << "before detector ends: " << tm << endl;
-
     time_end = chrono::high_resolution_clock::now();
     time_diff = chrono::duration_cast<chrono::microseconds>(time_end - time_start);
     cout << "\nDetector running time: " << time_diff.count() << "us." << "\n";
@@ -417,4 +407,117 @@ void OMR3_opt() {
     
     for(size_t i = 0; i < res.size(); i++){
     }
+}
+
+
+void test() {
+    int ring_dim = 8;
+    // int n = 1024;
+    int p = 65537;
+    // int sq_ct = 128, sq_rt = 256; // 32768 = 128*256, divide into 128 share, and each has 256 slots to calculate
+
+
+    EncryptionParameters bfv_params(scheme_type::bfv);
+    bfv_params.set_poly_modulus_degree(ring_dim);
+    auto coeff_modulus = CoeffModulus::Create(ring_dim, { 60, 60, 60});
+    bfv_params.set_coeff_modulus(coeff_modulus);
+    bfv_params.set_plain_modulus(p);
+
+
+    EncryptionParameters bfv_params_small(scheme_type::bfv);
+    bfv_params_small.set_poly_modulus_degree(ring_dim);
+    auto coeff_modulus_small = CoeffModulus::Create(ring_dim, { 28, 60});
+    bfv_params_small.set_coeff_modulus(coeff_modulus_small);
+    bfv_params_small.set_plain_modulus(p);
+
+    prng_seed_type seed;
+    for (auto &i : seed) {
+        i = random_uint64();
+    }
+    auto rng = make_shared<Blake2xbPRNGFactory>(Blake2xbPRNGFactory(seed));
+    bfv_params.set_random_generator(rng);
+    bfv_params_small.set_random_generator(rng);
+
+    SEALContext seal_context(bfv_params, true, sec_level_type::none);
+    SEALContext seal_context_small(bfv_params_small, true, sec_level_type::none);
+    cout << "primitive root: " << seal_context.first_context_data()->plain_ntt_tables()->get_root() << endl;
+
+    KeyGenerator keygen(seal_context, 4);
+    KeyGenerator keygen_small(seal_context_small, 4);
+    SecretKey bfv_secret_key = keygen.secret_key();
+    inverse_ntt_negacyclic_harvey(bfv_secret_key.data().data(), seal_context.key_context_data()->small_ntt_tables()[0]);
+    for (int i = 0; i < ring_dim; i++) {
+        cout << bfv_secret_key.data()[i] << " ";
+    }
+    cout << endl;
+    seal::util::RNSIter new_key_rns(bfv_secret_key.data().data(), ring_dim);
+    ntt_negacyclic_harvey(new_key_rns, coeff_modulus.size(), seal_context.key_context_data()->small_ntt_tables());
+
+
+    SecretKey bfv_secret_key_small = keygen_small.secret_key();
+    inverse_ntt_negacyclic_harvey(bfv_secret_key_small.data().data(), seal_context_small.key_context_data()->small_ntt_tables()[0]);
+    for (int i = 0; i < ring_dim; i++) {
+        cout << bfv_secret_key_small.data()[i] << " ";
+    }
+    cout << endl;
+    seal::util::RNSIter new_key_rns_small(bfv_secret_key_small.data().data(), ring_dim);
+    ntt_negacyclic_harvey(new_key_rns_small, coeff_modulus_small.size(), seal_context_small.key_context_data()->small_ntt_tables());
+
+    MemoryPoolHandle my_pool = MemoryPoolHandle::New();
+
+    // generate a key switching key based on key_before and secret_key
+
+    PublicKey bfv_public_key;
+    keygen.create_public_key(bfv_public_key);
+
+    RelinKeys relin_keys;
+    keygen.create_relin_keys(relin_keys);
+
+    Encryptor encryptor(seal_context, bfv_public_key);
+    Evaluator evaluator(seal_context);
+    BatchEncoder batch_encoder(seal_context);
+    Decryptor decryptor(seal_context, bfv_secret_key);
+
+
+    vector<uint64_t> msg = {8,1,5,17,10000,4,2743,65536};
+    Plaintext pl;
+    Ciphertext c1;
+    batch_encoder.encode(msg, pl);
+    encryptor.encrypt(pl, c1);
+
+    evaluator.mod_switch_to_next_inplace(c1);
+
+    RandomToStandardAdapter engine(rng->create());
+    uniform_int_distribution<uint32_t> dist(0, 100);
+
+    uint64_t small_p = 268435360;
+    uint64_t large_p = 1152921504606845776;
+    for (int i = 0; i < ring_dim; i++) {
+        c1.data(0)[i] = manual_mod_down_rounding(c1.data(0)[i], dist(engine), small_p+1, large_p+1);
+        c1.data(1)[i] = manual_mod_down_rounding(c1.data(1)[i], dist(engine), small_p+1, large_p+1);
+    }
+
+    inverse_ntt_negacyclic_harvey(bfv_secret_key.data().data(), seal_context.key_context_data()->small_ntt_tables()[0]);
+    inverse_ntt_negacyclic_harvey(bfv_secret_key_small.data().data(), seal_context_small.key_context_data()->small_ntt_tables()[0]);
+    for (int i = 0; i < ring_dim; i++) {
+        cout << bfv_secret_key.data()[i] << " --> ";
+        bfv_secret_key_small.data()[i] = (bfv_secret_key.data()[i] == large_p) ? small_p : bfv_secret_key.data()[i];
+        cout << bfv_secret_key_small.data()[i] << endl;
+    }
+    cout << endl;
+    seal::util::RNSIter new_key_rns1(bfv_secret_key.data().data(), ring_dim);
+    ntt_negacyclic_harvey(new_key_rns1, coeff_modulus.size(), seal_context.key_context_data()->small_ntt_tables());
+    seal::util::RNSIter new_key_rns_small1(bfv_secret_key_small.data().data(), ring_dim);
+    ntt_negacyclic_harvey(new_key_rns_small1, coeff_modulus_small.size(), seal_context_small.key_context_data()->small_ntt_tables());
+
+
+    c1.parms_id_ = seal_context_small.first_parms_id();
+
+    Decryptor decryptor_small(seal_context_small, bfv_secret_key_small);
+    Plaintext pp;
+    vector<uint64_t> ttt(ring_dim);
+    decryptor_small.decrypt(c1, pp);
+    batch_encoder.decode(pp, ttt);
+
+    cout << "Result: " << ttt << endl;
 }

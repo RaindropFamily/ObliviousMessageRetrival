@@ -911,12 +911,7 @@ void computeBplusAS_OPVW(vector<Ciphertext>& output, const vector<OPVWCiphertext
                 evaluator.add_inplace(output[l], temp);
             }
         }
-        // time_start = chrono::high_resolution_clock::now();
-        // evaluator.rotate_rows_inplace(switchingKey, 1, gal_keys);
-        // time_end = chrono::high_resolution_clock::now();
-        // tt += chrono::duration_cast<chrono::microseconds>(time_end - time_start).count();
     }
-    // cout << "SK total rotation time: " << tt << endl;
 
     for (int i = 0; i < (int) output.size(); i++) {
         evaluator.transform_from_ntt_inplace(output[i]);

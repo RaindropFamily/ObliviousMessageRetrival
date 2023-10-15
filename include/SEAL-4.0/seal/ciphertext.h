@@ -680,6 +680,8 @@ namespace seal
         Enables access to private members of seal::Ciphertext for SEAL_C.
         */
         struct CiphertextPrivateHelper;
+        parms_id_type parms_id_ = parms_id_zero;
+
 
     private:
         void reserve_internal(
@@ -697,8 +699,6 @@ namespace seal
         {
             return (data_.size() && (size_ == 2)) ? (data(1)[0] == 0xFFFFFFFFFFFFFFFFULL) : false;
         }
-
-        parms_id_type parms_id_ = parms_id_zero;
 
         bool is_ntt_form_ = false;
 
