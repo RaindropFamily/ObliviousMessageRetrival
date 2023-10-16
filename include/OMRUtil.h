@@ -45,6 +45,9 @@ vector<vector<uint64_t>> preparingTransactionsFormal(vector<int>& pertinentMsgIn
     }
     choosePertinentMsg(numOfTransactions, pertinentMsgNum, pertinentMsgIndices, seed);
 
+    chrono::high_resolution_clock::time_point time_start, time_end;
+    int tt = 0;
+
     for(int i = 0; i < numOfTransactions; i++){
         PVWCiphertext tempclue;
 
@@ -58,7 +61,10 @@ vector<vector<uint64_t>> preparingTransactionsFormal(vector<int>& pertinentMsgIn
 
         // w.l.o.g assume the index of recipient within party is |partySize - 1|, i.e., the last in the group
         if(find(pertinentMsgIndices.begin(), pertinentMsgIndices.end(), i) != pertinentMsgIndices.end()) {
+            time_start = chrono::high_resolution_clock::now();
             PVWEncPK(tempclue, zeros, pk, params);
+            time_end = chrono::high_resolution_clock::now();
+            tt += chrono::duration_cast<chrono::microseconds>(time_end - time_start).count();
             ret.push_back(loadDataSingle(i));
             expectedIndices.push_back(uint64_t(i));
         }
@@ -69,6 +75,8 @@ vector<vector<uint64_t>> preparingTransactionsFormal(vector<int>& pertinentMsgIn
         }
         saveClues(tempclue, i*partySize + partySize - 1);
     }
+
+    cout << tt << ", " << tt / pertinentMsgIndices.size() << endl;
     return ret;
 }
 
@@ -703,10 +711,9 @@ vector<vector<uint64_t>> preparingTransactionsFormal_opt(vector<int>& pertinentM
     }
 
     choosePertinentMsg(numOfTransactions * party_size, pertinentMsgNum, pertinentMsgIndices, seed);
-
+    chrono::high_resolution_clock::time_point time_start, time_end;
+    int tt = 0;
     vector<int> p_reduced;
-
-    int half_party_size = ceil(((double) party_size_glb) / 2.0);
 
     for(int i = 0; i < numOfTransactions * party_size; i++){
         OPVWCiphertext tempclue;
@@ -717,10 +724,12 @@ vector<vector<uint64_t>> preparingTransactionsFormal_opt(vector<int>& pertinentM
             if(find(p_reduced.begin(), p_reduced.end(), ind) == p_reduced.end()) { // the whole chunk never get stored before
                 p_reduced.push_back(ind);
                 expectedIndices.push_back(ind);
-                ret.push_back(loadDataSingle_chunk(ind, half_party_size, 306*2));
+                ret.push_back(loadDataSingle_chunk(ind, party_size, 306));
             }
-
+            time_start = chrono::high_resolution_clock::now();
             OPVWEncPK(tempclue, zeros, pk, params);
+            time_end = chrono::high_resolution_clock::now();
+            tt += chrono::duration_cast<chrono::microseconds>(time_end - time_start).count();
         } else {
             auto sk2 = OPVWGenerateSecretKey(params);
             OPVWEncSK(tempclue, zeros, sk2, params);
@@ -729,6 +738,9 @@ vector<vector<uint64_t>> preparingTransactionsFormal_opt(vector<int>& pertinentM
     }
 
     pertinentMsgIndices = p_reduced;
+
+
+    cout << tt << ", " << tt/ p_reduced.size() << endl;
 
     return ret;
 }
@@ -778,8 +790,6 @@ void serverOperations3therest_obliviousExpansion(EncryptionParameters& enc_param
 
     cout << "** Noise after first expand: " << decryptor.invariant_noise_budget(expanded_subtree_leaves[0]) << endl;
 
-    int half_party_size = ceil(((double) partySize) / 2.0);
-
     for (int i = counter; i < counter+numOfTransactions; i += step) {
         // step 1. expand PV
         s1 = chrono::high_resolution_clock::now();
@@ -805,7 +815,7 @@ void serverOperations3therest_obliviousExpansion(EncryptionParameters& enc_param
         // The following two steps are for streaming updates
         vector<vector<Ciphertext>> payloadUnpacked;
         payloadRetrievalOptimizedwithWeights_omrtake3(payloadUnpacked, payload, bipartite_map_glb, weights_glb, partial_expandedSIC,
-                                                      context_next, degree, i, i-counter, k, step_size_glb, payloadSize * 2, half_party_size);
+                                                      context_next, degree, i, i-counter, k, step_size_glb, payloadSize, partySize);
         // Note that if number of repetitions is already set, this is the only step needed for streaming updates
         payloadPackingOptimized_omrtake3(rhs, payloadUnpacked, bipartite_map_glb, degree, context_next, i);
         e2 = chrono::high_resolution_clock::now();

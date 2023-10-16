@@ -110,11 +110,11 @@ DEFAULT:
 
         case 4:
             numcores = 1;
-            test();
+            OMR3();
             break;
 
         case 5:
-            numcores = 1;
+            numcores = 2;
             OMR3_opt();
             break;
         

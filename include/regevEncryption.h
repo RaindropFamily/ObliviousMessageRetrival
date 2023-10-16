@@ -180,8 +180,11 @@ vector<vector<int>> expandRingVector(NativeVector a, int n, int q) {
     return res;
 }
 
-NativeVector OPVWRingMultiply(NativeVector a, NativeVector b, int n, int q) {
+NativeVector OPVWRingMultiply(NativeVector a, NativeVector b, int n, int q, bool print = false) {
     NativeVector res = NativeVector(n);
+    // NativeVector res1 = NativeVector(n);
+    // NativeInteger qq(q);
+    // NativeInteger mu = qq.ComputeMu();
 
     vector<vector<int>> expanded_A = expandRingVector(a, n, q);
     for (int i = 0; i < n; i++) {
@@ -189,9 +192,18 @@ NativeVector OPVWRingMultiply(NativeVector a, NativeVector b, int n, int q) {
         for (int j = 0; j < n; j++) {
             temp = (temp + expanded_A[i][j] * b[j].ConvertToInt()) % q;
             temp = temp < 0 ? temp + q : temp;
+
+            // res1[i] += b[j].ModMulFast(expanded_A[i][j], qq, mu);
         }
         res[i] = temp;
     }
+
+    // if (print) {
+    // for (int i = 0; i < n; i++) {
+    //     cout << res[i] << ", " << res1[i] << "  ";
+    // }
+    // cout << endl;
+    // }
 
     return res;
 }
@@ -233,7 +245,7 @@ void OPVWEncPK(OPVWCiphertext& ct, const vector<int>& msg, const OPVWpk& pk, con
     NativeVector x = tug.GenerateVector(param.n, param.q, param.h);
 
     NativeInteger q = param.q;
-    ct.a = OPVWRingMultiply(pk.a, x, param.n, q.ConvertToInt());
+    ct.a = OPVWRingMultiply(pk.a, x, param.n, q.ConvertToInt(), true);
     ct.b = OPVWRingMultiply(pk.b, x, param.n, q.ConvertToInt());
 
     DiscreteGaussianGeneratorImpl<NativeVector> m_dgg_1(param.std_dev), m_dgg_2(param.std_dev);

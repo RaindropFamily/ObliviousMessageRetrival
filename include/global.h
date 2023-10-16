@@ -28,7 +28,7 @@ size_t num_of_pertinent_msgs_glb = 50;
 // (8, 65536), (5, 131072) with prime = 786433
 int primitive_root = 3;
 
-int party_size_glb = 1;
+int party_size_glb = 8;
 int secure_extra_length_glb = 4; // T + secure_extra_length_glb = T', for a rand matrix to be full rank
 
 int id_size_glb = 19;

@@ -9,26 +9,27 @@
 #include <thread>
 
 void OMR3_opt() {
-    bool default_param_set = false;
+    bool default_param_set = true;
 
     size_t poly_modulus_degree = poly_modulus_degree_glb;
     int t = 65537;
 
     int numOfTransactions = numOfTransactions_glb;
-    int half_party_size = ceil(((double) party_size_glb) / 2.0);
+    // int half_party_size = ceil(((double) party_size_glb) / 2.0);
 
-    cout << "half_party_size: " << half_party_size << endl;
+    // cout << "half_party_size: " << half_party_size << endl;
     int payload_size = 306;
 
     // pack each two message into one bfv ciphertext, since 306*2*50 < ring_dim = 32768, where 50 is the upper bound of # pertinent messages
     // createDatabase(numOfTransactions * half_party_size, payload_size*2);
+    createDatabase(numOfTransactions * party_size_glb, payload_size);
     cout << "Finishing createDatabase\n";
 
     // step 1. generate OPVW sk
     // recipient side
-    auto params = OPVWParam(475, 400, 0.5, 6, 32);
+    auto params = OPVWParam(512, 400, 0.5, 6, 32);
     if (default_param_set) {
-        params = OPVWParam(750, 65537, 0.5, 2, 32);
+        params = OPVWParam(1024, 65537, 0.5, 2, 32);
     }
 
     auto sk = OPVWGenerateSecretKey(params);
@@ -172,16 +173,17 @@ void OMR3_opt() {
 
     Plaintext pl;
     vector<uint64_t> tm(poly_modulus_degree);
-
-    MemoryPoolHandle my_pool = MemoryPoolHandle::New();
-    auto old_prof = MemoryManager::SwitchProfile(std::make_unique<MMProfFixed>(std::move(my_pool)));
-
-
-    // prepare all rotated switching keys
-    s = chrono::high_resolution_clock::now();
+    
     int tempn;
     for(tempn = 1; tempn < params.n; tempn*=2) {}
     vector<Ciphertext> rotated_switchingKey(tempn);
+
+    {
+    MemoryPoolHandle my_pool = MemoryPoolHandle::New();
+    auto old_prof = MemoryManager::SwitchProfile(std::make_unique<MMProfFixed>(std::move(my_pool)));
+
+    // prepare all rotated switching keys
+    s = chrono::high_resolution_clock::now();
     rotated_switchingKey[0] = switchingKey;
     for(int i = 1; i < tempn; i++){
         evaluator.rotate_rows(rotated_switchingKey[i-1], 1, gal_keys, rotated_switchingKey[i]);
@@ -195,6 +197,7 @@ void OMR3_opt() {
     time_start = chrono::high_resolution_clock::now();
 
     NTL_EXEC_RANGE(numcores, first, last);
+    chrono::high_resolution_clock::time_point s1, e1;
     for(int i = first; i < last; i++){
         counter[i] = numOfTransactions/numcores*i;
         
@@ -204,7 +207,7 @@ void OMR3_opt() {
                 cout << "Phase 1, Core " << i << ", Batch " << j << endl;
 
             Ciphertext packedSIC_temp;
-            s = chrono::high_resolution_clock::now();
+            s1 = chrono::high_resolution_clock::now();
             for (int p = 0; p < party_size_glb; p++) {
                 loadClues_OPVW(SICPVW_multicore[i], counter[i], counter[i]+poly_modulus_degree, params, p, party_size_glb);
                 
@@ -229,8 +232,8 @@ void OMR3_opt() {
             j++;
             counter[i] += poly_modulus_degree;
             SICPVW_multicore[i].clear();
-            e = chrono::high_resolution_clock::now();
-            cout << "BB to PV time: " << chrono::duration_cast<chrono::microseconds>(e - s).count() << endl;
+            e1 = chrono::high_resolution_clock::now();
+            cout << "BB to PV time: " << chrono::duration_cast<chrono::microseconds>(e1 - s1).count() << endl;
         }
     }
 
@@ -239,11 +242,16 @@ void OMR3_opt() {
     }
 
     NTL_EXEC_RANGE_END;
+    for (int i = 0; i < tempn; i++) {
+        rotated_switchingKey[i].release();
+    }
     MemoryManager::SwitchProfile(std::move(old_prof));
+    }
+    rotated_switchingKey.clear();
 
     // step 4. detector operations
     vector<vector<Ciphertext>> lhs_multi_ctr(numcores);
-    vector<vector<Ciphertext>> rhs_multi(numcores, vector<Ciphertext>(half_party_size));
+    vector<vector<Ciphertext>> rhs_multi(numcores, vector<Ciphertext>(party_size_glb));
     vector<vector<vector<int>>> bipartite_map(numcores);
 
     for (auto &i : seed_glb) {
@@ -263,19 +271,20 @@ void OMR3_opt() {
     cout << "Inv: " << inv << endl;
 
     int sq_ct = sqrt(degree/2);
-    s = chrono::high_resolution_clock::now();
-    vector<Plaintext> U_plain_list(poly_modulus_degree);
-    for (int iter = 0; iter < sq_ct; iter++) {
-        for (int j = 0; j < (int) 2*sq_ct; j++) {
-            vector<uint64_t> U_tmp = readUtemp(j*sq_ct + iter, poly_modulus_degree);
-            batch_encoder.encode(U_tmp, U_plain_list[iter * 2*sq_ct + j]);
-            evaluator.transform_to_ntt_inplace(U_plain_list[iter * 2*sq_ct + j], packedSICfromPhase1[0][0].parms_id());
-        }
-    }
-    e = chrono::high_resolution_clock::now();
-    cout << "Preprocess U plaintext ntt time: " << chrono::duration_cast<chrono::microseconds>(e - s).count() << endl;
+    // s = chrono::high_resolution_clock::now();
+    // vector<Plaintext> U_plain_list(poly_modulus_degree);
+    // for (int iter = 0; iter < sq_ct; iter++) {
+    //     for (int j = 0; j < (int) 2*sq_ct; j++) {
+    //         vector<uint64_t> U_tmp = readUtemp(j*sq_ct + iter, poly_modulus_degree);
+    //         batch_encoder.encode(U_tmp, U_plain_list[iter * 2*sq_ct + j]);
+    //         evaluator.transform_to_ntt_inplace(U_plain_list[iter * 2*sq_ct + j], packedSICfromPhase1[0][0].parms_id());
+    //     }
+    // }
+    // e = chrono::high_resolution_clock::now();
+    // cout << "Preprocess U plaintext ntt time: " << chrono::duration_cast<chrono::microseconds>(e - s).count() << endl;
 
     NTL_EXEC_RANGE(numcores, first, last);
+    chrono::high_resolution_clock::time_point s1, e1;
     for(int i = first; i < last; i++){
         MemoryPoolHandle my_pool = MemoryPoolHandle::New();
         auto old_prof = MemoryManager::SwitchProfile(std::make_unique<MMProfFixed>(std::move(my_pool)));
@@ -286,12 +295,12 @@ void OMR3_opt() {
         while(j < numOfTransactions/numcores/poly_modulus_degree){
             if(!i)
                 cout << "Phase 2-3, Core " << i << ", Batch " << j << endl;
-            loadPackedData(payload_multicore[i], counter[i], counter[i]+poly_modulus_degree, payload_size * 2, half_party_size);
+            loadPackedData(payload_multicore[i], counter[i], counter[i]+poly_modulus_degree, payload_size, party_size_glb);
             vector<Ciphertext> templhsctr;
-            vector<Ciphertext> temprhs(half_party_size);
+            vector<Ciphertext> temprhs(party_size_glb);
 
             Ciphertext curr_PackSIC(packedSICfromPhase1[i][j]);
-            s = chrono::high_resolution_clock::now();
+            s1 = chrono::high_resolution_clock::now();
             Ciphertext packSIC_copy(curr_PackSIC);
             evaluator_next.rotate_columns_inplace(packSIC_copy, gal_keys_slotToCoeff);
 
@@ -307,13 +316,13 @@ void OMR3_opt() {
                 evaluator_next.transform_to_ntt_inplace(packSIC_sqrt_list[c+sq_ct]);
             }
             
-            Ciphertext packSIC_coeff = slotToCoeff(context, context_next, packSIC_sqrt_list, U_plain_list,
-                                                   gal_keys_slotToCoeff, 128, degree);
-            // Ciphertext packSIC_coeff = slotToCoeff_WOPrepreocess(context, context_next, packSIC_sqrt_list,
-            //                                                      gal_keys_slotToCoeff, 128, degree, t, inv);
+            // Ciphertext packSIC_coeff = slotToCoeff(context, context_next, packSIC_sqrt_list, U_plain_list,
+            //                                        gal_keys_slotToCoeff, 128, degree);
+            Ciphertext packSIC_coeff = slotToCoeff_WOPrepreocess(context, context_next, packSIC_sqrt_list,
+                                                                 gal_keys_slotToCoeff, 128, degree, t, inv);
 
-            e = chrono::high_resolution_clock::now();
-            cout << "SlotToCoeff time: " << chrono::duration_cast<chrono::microseconds>(e - s).count() << endl;
+            e1 = chrono::high_resolution_clock::now();
+            cout << "SlotToCoeff time: " << chrono::duration_cast<chrono::microseconds>(e1 - s1).count() << endl;
             // decryptor.decrypt(packSIC_coeff, pl);
             if (!default_param_set) {
                 evaluator.mod_switch_to_next_inplace(packSIC_coeff);
@@ -354,7 +363,7 @@ void OMR3_opt() {
         for (size_t q = 0; q < lhs_multi_ctr[i].size(); q++) {
             evaluator.add_inplace(lhs_multi_ctr[0][q], lhs_multi_ctr[i][q]);
         }
-        for (int m = 0; m < half_party_size; m++) {
+        for (int m = 0; m < party_size_glb; m++) {
             evaluator.add_inplace(rhs_multi[0][m], rhs_multi[i][m]);
         }
     }
@@ -367,7 +376,7 @@ void OMR3_opt() {
         }
     }
     while(context.last_parms_id() != rhs_multi[0][0].parms_id()) {
-        for (int m = 0; m < half_party_size; m++) {
+        for (int m = 0; m < party_size_glb; m++) {
             evaluator_next.mod_switch_to_next_inplace(rhs_multi[0][m]);
         }
     }
@@ -380,7 +389,7 @@ void OMR3_opt() {
 
     stringstream data_streamdg, data_streamdg2;
     auto digsize = 0;
-    for (int m = 0; m < half_party_size; m++) {
+    for (int m = 0; m < party_size_glb; m++) {
         digsize += rhs_multi[0][m].save(data_streamdg);
     }
     for(size_t q = 0; q < lhs_multi_ctr[0].size(); q++){
@@ -392,7 +401,7 @@ void OMR3_opt() {
     bipartiteGraphWeightsGeneration(bipartite_map_glb, weights_glb, numOfTransactions, OMRthreeM, repeatition_glb, seed_glb);
     time_start = chrono::high_resolution_clock::now();
     auto res = receiverDecodingOMR3_omrtake3(lhs_multi_ctr[0], bipartite_map[0], rhs_multi[0], poly_modulus_degree, secret_key, context,
-                                             numOfTransactions, party_size_glb, half_party_size, acc_slots+1, payload_size * 2);
+                                             numOfTransactions, party_size_glb, party_size_glb, acc_slots+1, payload_size);
     time_end = chrono::high_resolution_clock::now();
     time_diff = chrono::duration_cast<chrono::microseconds>(time_end - time_start);
     cout << "\nRecipient running time: " << time_diff.count() << "us." << "\n";
