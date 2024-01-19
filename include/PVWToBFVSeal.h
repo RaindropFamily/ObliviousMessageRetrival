@@ -1180,6 +1180,7 @@ Ciphertext rangeCheck_OPVW(SecretKey& sk, vector<Ciphertext>& output, const Reli
     batch_encoder.encode(intInd, pl);
 
     map<int, bool> raise_mod = {{4, false}, {16, false}, {64, false}, {256, false}};
+    cout << "\nWARNING, NO MOD FOR RAISE POWER.\n";
 
     chrono::high_resolution_clock::time_point s,e, s1, e1;
     s = chrono::high_resolution_clock::now();

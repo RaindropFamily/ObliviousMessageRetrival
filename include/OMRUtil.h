@@ -26,7 +26,7 @@ void choosePertinentMsg(int numOfTransactions, int pertinentMsgNum, vector<int>&
         pertinentMsgIndices.push_back(temp);
     }
     sort(pertinentMsgIndices.begin(), pertinentMsgIndices.end());
-    // pertinentMsgIndices.push_back(0);
+    /* pertinentMsgIndices.push_back(10); */
 
     cout << "Expected Message Indices: " << pertinentMsgIndices << endl;
 }

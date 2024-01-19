@@ -114,7 +114,7 @@ DEFAULT:
             break;
 
         case 5:
-            numcores = 2;
+            numcores = 1;
             OMR3_opt();
             break;
         
