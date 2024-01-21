@@ -1320,9 +1320,6 @@ void computeBplusAS_dos(vector<Ciphertext>& output, const vector<srPKECiphertext
                 if(the_index >= sk_size) {
                     vectorOfInts[j] = 0;
                 } else {
-                    /* int ring_ind = (the_index <= l) ? (l - the_index) : (sk_size - the_index + l); */
-                    /* uint64_t tmp = uint64_t((toPack[j].a[ring_ind].ConvertToInt())); */
-                    /* vectorOfInts[j] = the_index <= l ? tmp : bfv_Q - tmp; */
 		    vectorOfInts[j] = uint64_t((toPack[j].a[the_index].ConvertToInt()));
                 }
             }
