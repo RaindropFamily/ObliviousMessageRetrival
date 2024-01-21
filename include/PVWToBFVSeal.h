@@ -1,5 +1,4 @@
 #pragma once
-
 #include "regevEncryption.h"
 #include "seal/seal.h"
 #include <NTL/BasicThreadPool.h>
@@ -37,11 +36,13 @@ void EvalMultMany_inpace(vector<Ciphertext>& ciphertexts, const RelinKeys &relin
 }
 
 inline
-void EvalMultMany_inpace_modImprove(vector<Ciphertext>& ciphertexts, const RelinKeys &relin_keys, const SEALContext& context){ // TODOmulti: can be multithreaded easily
+void EvalMultMany_inpace_modImprove(vector<Ciphertext>& ciphertexts, const RelinKeys &relin_keys, const SEALContext& context, SecretKey& sk){ // TODOmulti: can be multithreaded easily
     Evaluator evaluator(context);
+    Decryptor decryptor(context, sk);
     int counter = 0;
 
     while(ciphertexts.size() != 1){
+      cout << "size: " << ciphertexts.size() << endl;
         for(size_t i = 0; i < ciphertexts.size()/2; i++){
             evaluator.multiply_inplace(ciphertexts[i], ciphertexts[ciphertexts.size()/2+i]);
             evaluator.relinearize_inplace(ciphertexts[i], relin_keys);
@@ -59,7 +60,9 @@ void EvalMultMany_inpace_modImprove(vector<Ciphertext>& ciphertexts, const Relin
             ciphertexts.resize(ciphertexts.size()/2+1);
         }
         counter += 1;
+	cout << "********* multiply: " << decryptor.invariant_noise_budget(ciphertexts[0]) << endl;
     }
+
 }
 
 // innersum up to toCover amount, O(log(toCover)) time
@@ -1097,19 +1100,19 @@ void FastRangeCheck_Random(SecretKey& sk, Ciphertext& output, const Ciphertext& 
     }
 
     if (default_param_set) {
-        vector<Ciphertext> terms(20);
+        vector<Ciphertext> terms(range_check_r);
         for (int i = 0; i < (int) terms.size(); i++) {
             terms[i] = input;
         }
 
         // get all (x-xi) terms
-        for (int i = 1; i < 20; i++) {
+        for (int i = 1; i < range_check_r; i++) {
             plainInd.data()[0] = i*i;
             evaluator.negate_inplace(terms[i]);
             evaluator.add_plain_inplace(terms[i], plainInd);
         }
 
-        EvalMultMany_inpace_modImprove(terms, relin_keys, context);
+        EvalMultMany_inpace_modImprove(terms, relin_keys, context, sk);
         output = terms[0];
 
         for(int i = 0; i < (int) terms.size(); i++){
@@ -1161,6 +1164,46 @@ void FastRangeCheck_Random(SecretKey& sk, Ciphertext& output, const Ciphertext& 
         evaluator.relinearize_inplace(temp_relin, relin_keys);
         evaluator.add_inplace(output, temp_relin);
         temp_relin.release();
+    }
+
+    MemoryManager::SwitchProfile(std::move(old_prof_larger));
+}
+
+// get x as input, not x^2, in general, can be seen as a simplified version of FastRangeCheck_Random
+void FastRangeCheck_Random_dos(SecretKey& sk, Ciphertext& output, const Ciphertext& input, int degree, const RelinKeys &relin_keys, const SEALContext& context) {
+    MemoryPoolHandle my_pool_larger = MemoryPoolHandle::New(true);
+    auto old_prof_larger = MemoryManager::SwitchProfile(std::make_unique<MMProfFixed>(std::move(my_pool_larger)));
+
+    Evaluator evaluator(context);
+    BatchEncoder batch_encoder(context);
+    Decryptor decryptor(context, sk);
+
+    Plaintext plainInd;
+    plainInd.resize(degree);
+    plainInd.parms_id() = parms_id_zero;
+    for (int i = 0; i < (int) degree; i++) {
+        plainInd.data()[i] = 0;
+    }
+
+    vector<Ciphertext> terms(range_check_r+1);
+    evaluator.multiply(input, input, terms[0]); // x^2
+    evaluator.relinearize_inplace(terms[0], relin_keys);
+
+    // get all (x - xi) terms
+    for (int i = 1; i < (int) terms.size(); i++) {
+        terms[i] = terms[0];
+    }
+    for (int i = 1; i < (int) terms.size(); i++) {
+        plainInd.data()[0] = i*i;
+        evaluator.negate_inplace(terms[i]);
+        evaluator.add_plain_inplace(terms[i], plainInd);
+    }
+
+    EvalMultMany_inpace_modImprove(terms, relin_keys, context, sk);
+    output = terms[0];
+
+    for(int i = 0; i < (int) terms.size(); i++){
+        terms[i].release();
     }
 
     MemoryManager::SwitchProfile(std::move(old_prof_larger));
@@ -1230,6 +1273,138 @@ Ciphertext rangeCheck_OPVW(SecretKey& sk, vector<Ciphertext>& output, const Reli
                 evaluator.negate_inplace(res[j]);
                 evaluator.add_plain_inplace(res[j], pl);
             }
+        }
+    }
+    // Multiply them to reduce the false positive rate
+    EvalMultMany_inpace(res, relin_keys, context);
+    e = chrono::high_resolution_clock::now();
+    cout << "   rangeCheck_OPVW time: " << chrono::duration_cast<chrono::microseconds>(e - s).count() << endl;
+    cout << "       range time: " << range_time << endl;
+    cout << "       raise time: " << raise_time << endl;
+
+    cout << "** Noise after rangecheck before mod: " << decryptor.invariant_noise_budget(res[0]) << endl;
+    evaluator.mod_switch_to_next_inplace(res[0]);
+    cout << "** Noise after rangecheck after mod: " << decryptor.invariant_noise_budget(res[0]) << endl;    
+    return res[0];
+}
+
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////// FOR DOS Optimization with snake-eye resistant PKE /////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+void computeBplusAS_dos(vector<Ciphertext>& output, const vector<srPKECiphertext>& toPack, vector<Ciphertext>& switchingKey, const GaloisKeys& gal_keys,
+                        const SEALContext& context, const srPKEParam& param) {
+    MemoryPoolHandle my_pool = MemoryPoolHandle::New(true);
+    auto old_prof = MemoryManager::SwitchProfile(std::make_unique<MMProfFixed>(std::move(my_pool)));
+
+    int tempn, sk_size = param.n1;
+    for(tempn = 1; tempn < sk_size; tempn*=2){}
+
+    Evaluator evaluator(context);
+    BatchEncoder batch_encoder(context);
+    size_t slot_count = batch_encoder.slot_count();
+    if(toPack.size() > slot_count){
+        cerr << "Please pack at most " << slot_count << " PVW ciphertexts at one time." << endl;
+        return;
+    }
+
+    for(int i = 0; i < tempn; i++){
+        for(int l = 0; l < param.ell; l++){
+            vector<uint64_t> vectorOfInts(toPack.size());
+            for(int j = 0; j < (int) toPack.size(); j++){
+                int the_index = (i + j) % tempn;
+                if(the_index >= sk_size) {
+                    vectorOfInts[j] = 0;
+                } else {
+                    /* int ring_ind = (the_index <= l) ? (l - the_index) : (sk_size - the_index + l); */
+                    /* uint64_t tmp = uint64_t((toPack[j].a[ring_ind].ConvertToInt())); */
+                    /* vectorOfInts[j] = the_index <= l ? tmp : bfv_Q - tmp; */
+		    vectorOfInts[j] = uint64_t((toPack[j].a[the_index].ConvertToInt()));
+                }
+            }
+
+            Plaintext plaintext;
+            batch_encoder.encode(vectorOfInts, plaintext);
+        
+            if (i == 0){
+                evaluator.multiply_plain(switchingKey[l], plaintext, output[l]); // times s[i]
+            }
+            else{
+                Ciphertext temp;
+                evaluator.multiply_plain(switchingKey[l], plaintext, temp);
+                evaluator.add_inplace(output[l], temp);
+            }
+            evaluator.rotate_rows_inplace(switchingKey[l], 1, gal_keys);
+        }
+    }
+
+
+    for(int i = 0; i < param.ell; i++){
+        vector<uint64_t> vectorOfInts(toPack.size());
+        for(size_t j = 0; j < toPack.size(); j++){
+            vectorOfInts[j] = uint64_t((toPack[j].b[i].ConvertToInt() - param.q / 4) % param.q);
+        }
+        Plaintext plaintext;
+
+        batch_encoder.encode(vectorOfInts, plaintext);
+        evaluator.negate_inplace(output[i]);
+        evaluator.add_plain_inplace(output[i], plaintext);
+    }
+    MemoryManager::SwitchProfile(std::move(old_prof));
+}
+
+Ciphertext rangeCheck_dos(SecretKey& sk, vector<Ciphertext>& output, const RelinKeys &relin_keys, const size_t& degree, 
+                          const SEALContext& context, const srPKEParam& param){
+    BatchEncoder batch_encoder(context);
+    Evaluator evaluator(context);
+    Decryptor decryptor(context, sk);
+
+    vector<Ciphertext> res(param.ell);
+
+    vector<uint64_t> intInd(degree, 1);
+    Plaintext pl;
+    batch_encoder.encode(intInd, pl);
+
+    map<int, bool> raise_mod = {{4, false}, {16, false}, {64, false}, {256, false}};
+
+    chrono::high_resolution_clock::time_point s,e, s1, e1;
+    s = chrono::high_resolution_clock::now();
+
+    int range_time = 0, raise_time = 0;
+
+    for(int j = 0; j < param.ell; j++){
+        {
+            MemoryPoolHandle my_pool_larger = MemoryPoolHandle::New(true);
+            auto old_prof_larger = MemoryManager::SwitchProfile(std::make_unique<MMProfFixed>(std::move(my_pool_larger)));
+            evaluator.multiply_inplace(output[j], output[j]);
+            evaluator.relinearize_inplace(output[j], relin_keys);
+
+	    /* cout << "********* first multiply: " << decryptor.invariant_noise_budget(output[j]) << endl; */
+
+	    // first use range check to obtain 0 and 1
+            map<int, bool> level_mod_1 = {{4, false}, {16, false}, {64, false}};
+            map<int, bool> level_mod_2 = {{2, false}, {8, false}, {32, false}, {128, false}};
+
+            s1 = chrono::high_resolution_clock::now();
+            FastRangeCheck_Random(sk, res[j], output[j], degree, relin_keys, context, rangeCheckIndices_opt_B,
+				  100, 240, level_mod_1, level_mod_2, true);
+            e1 = chrono::high_resolution_clock::now();
+            range_time += chrono::duration_cast<chrono::microseconds>(e1 - s1).count();
+
+            cout << "** Noise after net rangecheck: " << decryptor.invariant_noise_budget(res[j]) << endl;
+
+            s1 = chrono::high_resolution_clock::now();
+            Ciphertext tmp = raisePowerToPrime(context, relin_keys, res[j], raise_mod, raise_mod, 256, 256, param.q);
+            e1 = chrono::high_resolution_clock::now();
+            raise_time += chrono::duration_cast<chrono::microseconds>(e1 - s1).count();
+
+            evaluator.negate_inplace(tmp);
+            evaluator.add_plain_inplace(tmp, pl);
+            res[j] = tmp;
         }
     }
     // Multiply them to reduce the false positive rate

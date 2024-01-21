@@ -378,6 +378,43 @@ void saveClues_OPVE(const OPVWCiphertext& clue, int transaction_num){
     datafile.close();
 }
 
+void saveClues_dos(const srPKECiphertext& clue, int transaction_num){
+    ofstream datafile;
+    datafile.open ("../data/clues/"+to_string(transaction_num)+".txt");
+
+    for (size_t i = 0; i < clue.a.GetLength(); i++) {
+        datafile << clue.a[i].ConvertToInt() << "\n";
+    }
+    for (size_t i = 0; i < clue.b.GetLength(); i++) {
+        datafile << clue.b[i].ConvertToInt() << "\n";
+    }
+
+    datafile.close();
+}
+
+
+void loadClues_dos(vector<srPKECiphertext>& clues, const int& start, const int& end, const srPKEParam& param, int party_ind = 0, int partySize = 1) {
+    clues.resize(end-start);
+    for(int i = start; i < end; i++){
+        clues[i-start].a = NativeVector(param.n1);
+        clues[i-start].b = NativeVector(param.ell);
+
+        ifstream datafile;
+        datafile.open ("../data/clues/"+to_string(i * partySize + party_ind)+".txt");
+
+        for(int j = 0; j < param.n1; j++){
+            uint64_t temp;
+            datafile >> temp;
+            clues[i-start].a[j] = temp;
+        }
+
+        for(int j = 0; j < param.ell; j++){
+            uint64_t temp;
+            datafile >> temp;
+            clues[i-start].b[j] = temp;
+        }
+    }
+}
 
 void loadClues_OPVW(vector<OPVWCiphertext>& clues, const int& start, const int& end, const OPVWParam& param, int party_ind = 0, int partySize = 1) {
     clues.resize(end-start);

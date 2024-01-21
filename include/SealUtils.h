@@ -288,11 +288,13 @@ inline vector<Ciphertext> subExpand(const SEALContext& context, EncryptionParame
 
     vector<int> galois_elts;
 
+    cout << "1\n";
     for (int i = 0; i < ceil(log2(m)); i++) {
         galois_elts.push_back((m + exponentiate_uint(2, i)) / exponentiate_uint(2, i));
     }
 
     vector<Ciphertext> temp;
+    cout << "2 " << galois_elts.size() << endl;
     temp.push_back(encrypted);
     Ciphertext tempctxt;
     Ciphertext tempctxt_rotated;
@@ -300,6 +302,7 @@ inline vector<Ciphertext> subExpand(const SEALContext& context, EncryptionParame
     Ciphertext tempctxt_rotatedshifted;
 
     for (int i = 0; i < logFirst; i++) {
+      cout << i << endl;
         vector<Ciphertext> newtemp(temp.size() << 1);
         int index_raw = (m << 1) - (1 << i);
         int index = (index_raw * galois_elts[i]) % (m << 1);

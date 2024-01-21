@@ -63,34 +63,6 @@ namespace omr
 
         return switchingKey;
     }
-
-    Ciphertext generateDetectionKeyForOPVWsk(const SEALContext& context, const size_t& degree,
-                                                     const PublicKey& BFVpk, const SecretKey& BFVsk,
-                                                     const OPVWsk& regSk, const OPVWParam& params) { 
-        Ciphertext switchingKey;
-
-        BatchEncoder batch_encoder(context);
-        Encryptor encryptor(context, BFVpk);
-        encryptor.set_secret_key(BFVsk);
-
-        int tempn = 1;
-        for(tempn = 1; tempn < params.n; tempn *= 2){}
-
-        vector<uint64_t> skInt(degree);
-        for(size_t i = 0; i < degree; i++){
-            auto tempindex = i%uint64_t(tempn);
-            if(int(tempindex) >= params.n) {
-                skInt[i] = 0;
-            } else {
-                skInt[i] = uint64_t(regSk[tempindex].ConvertToInt() % params.q);
-            }
-        }
-        Plaintext plaintext;
-        batch_encoder.encode(skInt, plaintext);
-        encryptor.encrypt_symmetric(plaintext, switchingKey);
-
-        return switchingKey;
-    }
 }
 
 namespace omr_take3
@@ -120,6 +92,39 @@ namespace omr_take3
         Plaintext plaintext;
         batch_encoder.encode(skInt, plaintext);
         encryptor.encrypt_symmetric(plaintext, switchingKey);
+
+        return switchingKey;
+    }
+}
+
+
+namespace omr_dos
+{
+    vector<Ciphertext> generateDetectionKey(const SEALContext& context, const size_t& degree,
+                                            const PublicKey& BFVpk, const SecretKey& BFVsk,
+                                            const srPKEsk& regSk, const srPKEParam& params) { 
+        vector<Ciphertext> switchingKey(params.ell);
+
+        BatchEncoder batch_encoder(context);
+        Encryptor encryptor(context, BFVpk);
+        encryptor.set_secret_key(BFVsk);
+
+        int tempn = 1;
+        for(tempn = 1; tempn < params.n1; tempn *= 2){}
+        for(int j = 0; j < params.ell; j++){
+            vector<uint64_t> skInt(degree);
+            for(size_t i = 0; i < degree; i++){
+                auto tempindex = i%uint64_t(tempn);
+                if(int(tempindex) >= params.n1) {
+                    skInt[i] = 0;
+                } else {
+                    skInt[i] = uint64_t(regSk[j][tempindex].ConvertToInt() % params.q);
+                }
+            }
+            Plaintext plaintext;
+            batch_encoder.encode(skInt, plaintext);
+            encryptor.encrypt_symmetric(plaintext, switchingKey[j]);
+        }
 
         return switchingKey;
     }

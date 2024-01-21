@@ -18,15 +18,15 @@ void choosePertinentMsg(int numOfTransactions, int pertinentMsgNum, vector<int>&
     auto rng = make_shared<Blake2xbPRNGFactory>(Blake2xbPRNGFactory(seed));
     RandomToStandardAdapter engine(rng->create());
     uniform_int_distribution<uint64_t> dist(0, numOfTransactions - 1);
-    for (int i = 0; i < pertinentMsgNum; i++) {
-        auto temp = dist(engine);
-        while(find(pertinentMsgIndices.begin(), pertinentMsgIndices.end(), temp) != pertinentMsgIndices.end()){
-            temp = dist(engine);
-        }
-        pertinentMsgIndices.push_back(temp);
-    }
-    sort(pertinentMsgIndices.begin(), pertinentMsgIndices.end());
-    /* pertinentMsgIndices.push_back(10); */
+    /* for (int i = 0; i < pertinentMsgNum; i++) { */
+    /*     auto temp = dist(engine); */
+    /*     while(find(pertinentMsgIndices.begin(), pertinentMsgIndices.end(), temp) != pertinentMsgIndices.end()){ */
+    /*         temp = dist(engine); */
+    /*     } */
+    /*     pertinentMsgIndices.push_back(temp); */
+    /* } */
+    /* sort(pertinentMsgIndices.begin(), pertinentMsgIndices.end()); */
+    pertinentMsgIndices.push_back(10);
 
     cout << "Expected Message Indices: " << pertinentMsgIndices << endl;
 }
@@ -778,11 +778,12 @@ void serverOperations3therest_obliviousExpansion(EncryptionParameters& enc_param
     Decryptor decryptor(context_expand, secretKey);
     // BatchEncoder batch_encoder(context_expand);
 
-    chrono::high_resolution_clock::time_point s1, e1, s2,e2;
+    chrono::high_resolution_clock::time_point s1, e1, s2, e2;
     int t1 = 0, t2 = 0;
 
     int step = step_size_glb, k = 0;
     s1 = chrono::high_resolution_clock::now();
+    cout << "what?\n";
     vector<Ciphertext> expanded_subtree_leaves = subExpand(context_expand, enc_param, packedSIC, poly_modulus_degree_glb, gal_keys, poly_modulus_degree_glb/step);
     e1 = chrono::high_resolution_clock::now();
     t1 += chrono::duration_cast<chrono::microseconds>(e1 - s1).count();
@@ -892,4 +893,81 @@ vector<vector<long>> receiverDecodingOMR3_omrtake3(vector<Ciphertext>& lhsCounte
     }
 
     return concated_res;
+}
+
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////// FOR DOS Optimization with snake-eye resistant PKE /////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+Ciphertext obtainPackedSIC_dos(SecretKey& sk, vector<srPKECiphertext>& SICPVW, vector<Ciphertext>& switchingKey, const RelinKeys& relin_keys,
+                               const GaloisKeys& gal_keys, const size_t& degree, const SEALContext& context, const srPKEParam& params,
+			       const int numOfTransactions) {
+
+    Evaluator evaluator(context);
+    Decryptor decryptor(context, sk);
+    
+    vector<Ciphertext> packedSIC(params.ell);
+    chrono::high_resolution_clock::time_point s,e;
+    s = chrono::high_resolution_clock::now();
+    computeBplusAS_dos(packedSIC, SICPVW, switchingKey, gal_keys, context, params);
+    e = chrono::high_resolution_clock::now();
+    cout << "   computeBplusAS_dos time: " << chrono::duration_cast<chrono::microseconds>(e - s).count() << endl;
+
+    cout << "** Noise after b-aSK: " << decryptor.invariant_noise_budget(packedSIC[0]) << endl;
+
+    // int rangeToCheck = 20; // range check is from [-rangeToCheck, rangeToCheck-1]
+    return rangeCheck_dos(sk, packedSIC, relin_keys, degree, context, params);
+}
+
+
+vector<vector<uint64_t>> preparingTransactionsFormal_dos(vector<int>& pertinentMsgIndices, srPKEpk& pk, int numOfTransactions,
+                                                         int pertinentMsgNum, const srPKEParam& params,
+                                                         const int party_size = party_size_glb) {
+
+
+    vector<vector<uint64_t>> ret;
+    vector<int> zeros(params.ell, 0);
+
+    prng_seed_type seed;
+    for (auto &i : seed) {
+        i = random_uint64();
+    }
+
+    choosePertinentMsg(numOfTransactions * party_size, pertinentMsgNum, pertinentMsgIndices, seed);
+    chrono::high_resolution_clock::time_point time_start, time_end;
+    int tt = 0;
+    vector<int> p_reduced;
+
+    for(int i = 0; i < numOfTransactions * party_size; i++){
+        srPKECiphertext tempclue;
+
+        if(find(pertinentMsgIndices.begin(), pertinentMsgIndices.end(), i) != pertinentMsgIndices.end()) {
+            int ind = i / party_size;
+
+            if(find(p_reduced.begin(), p_reduced.end(), ind) == p_reduced.end()) { // the whole chunk never get stored before
+                p_reduced.push_back(ind);
+                expectedIndices.push_back(ind);
+                ret.push_back(loadDataSingle_chunk(ind, party_size, 306));
+            }
+            time_start = chrono::high_resolution_clock::now();
+            srPKEEncPK(tempclue, zeros, pk, params);
+            time_end = chrono::high_resolution_clock::now();
+            tt += chrono::duration_cast<chrono::microseconds>(time_end - time_start).count();
+        } else {
+            auto sk2 = srPKEGenerateSecretKey(params);
+            srPKEEncSK(tempclue, zeros, sk2, params);
+        }
+        saveClues_dos(tempclue, i);
+    }
+
+    pertinentMsgIndices = p_reduced;
+
+
+    cout << tt << ", " << tt/ p_reduced.size() << endl;
+
+    return ret;
 }
