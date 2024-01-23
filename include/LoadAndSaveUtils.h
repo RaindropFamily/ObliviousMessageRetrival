@@ -455,3 +455,22 @@ vector<uint64_t> loadDataSingle_chunk(int i, int party_size, int payloadSize = 3
 
     return ret;
 }
+
+
+void saveSwitchingKey(Ciphertext sks, const uint64_t index) {
+    stringstream ss;
+    sks.save(ss);
+    ofstream datafile;
+    datafile.open ("../data/sks/"+to_string(index)+".txt");
+    datafile << ss.rdbuf();
+    datafile.close();
+}
+
+void loadSwitchingKey(const SEALContext &context, Ciphertext sks, const uint64_t index) {
+    ifstream datafile;
+    datafile.open ("../data/sks/"+to_string(index)+".txt");
+
+    sks.load(context, datafile);
+
+}
+

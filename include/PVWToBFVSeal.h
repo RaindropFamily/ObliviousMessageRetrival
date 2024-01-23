@@ -1312,6 +1312,9 @@ void computeBplusAS_dos(vector<Ciphertext>& output, const vector<srPKECiphertext
 
     for(int i = 0; i < tempn; i++){
         for(int l = 0; l < param.ell; l++){
+	    Ciphertext sks;
+	    loadSwitchingKey(context, sks, l*tempn + i);
+	    sks.parms_id_ = context.first_parms_id();
             vector<uint64_t> vectorOfInts(toPack.size());
             for(int j = 0; j < (int) toPack.size(); j++){
                 int the_index = (i + j) % tempn;
@@ -1324,16 +1327,17 @@ void computeBplusAS_dos(vector<Ciphertext>& output, const vector<srPKECiphertext
 
             Plaintext plaintext;
             batch_encoder.encode(vectorOfInts, plaintext);
+	    evaluator.transform_to_ntt_inplace(plaintext, sks.parms_id());
         
             if (i == 0){
-                evaluator.multiply_plain(switchingKey[l], plaintext, output[l]); // times s[i]
+                evaluator.multiply_plain(sks, plaintext, output[l]); // times s[i]
             }
             else{
                 Ciphertext temp;
-                evaluator.multiply_plain(switchingKey[l], plaintext, temp);
+                evaluator.multiply_plain(sks, plaintext, temp);
                 evaluator.add_inplace(output[l], temp);
             }
-            evaluator.rotate_rows_inplace(switchingKey[l], 1, gal_keys);
+            /* evaluator.rotate_rows_inplace(switchingKey[l], 1, gal_keys); */
         }
     }
 
