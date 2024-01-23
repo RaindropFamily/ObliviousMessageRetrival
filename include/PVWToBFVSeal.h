@@ -42,7 +42,6 @@ void EvalMultMany_inpace_modImprove(vector<Ciphertext>& ciphertexts, const Relin
     int counter = 0;
 
     while(ciphertexts.size() != 1){
-      cout << "size: " << ciphertexts.size() << endl;
         for(size_t i = 0; i < ciphertexts.size()/2; i++){
             evaluator.multiply_inplace(ciphertexts[i], ciphertexts[ciphertexts.size()/2+i]);
             evaluator.relinearize_inplace(ciphertexts[i], relin_keys);
@@ -60,7 +59,6 @@ void EvalMultMany_inpace_modImprove(vector<Ciphertext>& ciphertexts, const Relin
             ciphertexts.resize(ciphertexts.size()/2+1);
         }
         counter += 1;
-	cout << "********* multiply: " << decryptor.invariant_noise_budget(ciphertexts[0]) << endl;
     }
 
 }
@@ -1394,18 +1392,25 @@ Ciphertext rangeCheck_dos(SecretKey& sk, vector<Ciphertext>& output, const Relin
 
             cout << "** Noise after net rangecheck: " << decryptor.invariant_noise_budget(res[j]) << endl;
 
-            s1 = chrono::high_resolution_clock::now();
-            Ciphertext tmp = raisePowerToPrime(context, relin_keys, res[j], raise_mod, raise_mod, 256, 256, param.q);
-            e1 = chrono::high_resolution_clock::now();
-            raise_time += chrono::duration_cast<chrono::microseconds>(e1 - s1).count();
-
-            evaluator.negate_inplace(tmp);
-            evaluator.add_plain_inplace(tmp, pl);
-            res[j] = tmp;
         }
     }
+
+    evaluator.add_inplace(res[0], res[1]);
+
+    s1 = chrono::high_resolution_clock::now();
+    Ciphertext tmp1 = raisePowerToPrime(context, relin_keys, res[0], raise_mod, raise_mod, 256, 256, param.q);
+    Ciphertext tmp2 = raisePowerToPrime(context, relin_keys, res[2], raise_mod, raise_mod, 256, 256, param.q);
+    e1 = chrono::high_resolution_clock::now();
+    raise_time += chrono::duration_cast<chrono::microseconds>(e1 - s1).count();
+
+    evaluator.negate_inplace(tmp1);
+    evaluator.add_plain_inplace(tmp1, pl);
+    evaluator.negate_inplace(tmp2);
+    evaluator.add_plain_inplace(tmp2, pl);
     // Multiply them to reduce the false positive rate
-    EvalMultMany_inpace(res, relin_keys, context);
+    evaluator.multiply(tmp1, tmp2, res[0]);
+    evaluator.relinearize_inplace(res[0], relin_keys);
+
     e = chrono::high_resolution_clock::now();
     cout << "   rangeCheck_OPVW time: " << chrono::duration_cast<chrono::microseconds>(e - s).count() << endl;
     cout << "       range time: " << range_time << endl;

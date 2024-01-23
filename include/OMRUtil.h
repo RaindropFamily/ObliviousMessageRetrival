@@ -783,7 +783,6 @@ void serverOperations3therest_obliviousExpansion(EncryptionParameters& enc_param
 
     int step = step_size_glb, k = 0;
     s1 = chrono::high_resolution_clock::now();
-    cout << "what?\n";
     vector<Ciphertext> expanded_subtree_leaves = subExpand(context_expand, enc_param, packedSIC, poly_modulus_degree_glb, gal_keys, poly_modulus_degree_glb/step);
     e1 = chrono::high_resolution_clock::now();
     t1 += chrono::duration_cast<chrono::microseconds>(e1 - s1).count();

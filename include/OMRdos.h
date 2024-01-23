@@ -137,7 +137,7 @@ void OMR3_dos() {
 
   /////////////////////////////////////// Level specific keys
   vector<Modulus> coeff_modulus_next = coeff_modulus;
-  coeff_modulus_next.erase(coeff_modulus_next.begin() + 5, coeff_modulus_next.end()-1);
+  coeff_modulus_next.erase(coeff_modulus_next.begin() + 6, coeff_modulus_next.end()-1);
   EncryptionParameters parms_next = parms;
   parms_next.set_coeff_modulus(coeff_modulus_next);
   SEALContext context_next = SEALContext(parms_next, true, sec_level_type::none);
@@ -158,7 +158,7 @@ void OMR3_dos() {
 
   //////////////////////////////////////////////////////
   vector<Modulus> coeff_modulus_expand = coeff_modulus;
-  coeff_modulus_expand.erase(coeff_modulus_expand.begin() + 3, coeff_modulus_expand.end()-1);
+  coeff_modulus_expand.erase(coeff_modulus_expand.begin() + 4, coeff_modulus_expand.end()-1);
   EncryptionParameters parms_expand = parms;
   parms_expand.set_coeff_modulus(coeff_modulus_expand);
   SEALContext context_expand = SEALContext(parms_expand, true, sec_level_type::none);
