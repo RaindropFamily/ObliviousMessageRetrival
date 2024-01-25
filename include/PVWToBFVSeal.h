@@ -1294,7 +1294,7 @@ Ciphertext rangeCheck_OPVW(SecretKey& sk, vector<Ciphertext>& output, const Reli
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 
-void computeBplusAS_dos(vector<Ciphertext>& output, const vector<srPKECiphertext>& toPack, vector<Ciphertext>& switchingKey, const GaloisKeys& gal_keys,
+void computeBplusAS_dos(SecretKey& sk, vector<Ciphertext>& output, const vector<srPKECiphertext>& toPack, vector<Ciphertext>& switchingKey, const GaloisKeys& gal_keys,
                         const SEALContext& context, const srPKEParam& param) {
     MemoryPoolHandle my_pool = MemoryPoolHandle::New(true);
     auto old_prof = MemoryManager::SwitchProfile(std::make_unique<MMProfFixed>(std::move(my_pool)));
@@ -1304,17 +1304,44 @@ void computeBplusAS_dos(vector<Ciphertext>& output, const vector<srPKECiphertext
 
     Evaluator evaluator(context);
     BatchEncoder batch_encoder(context);
+    Decryptor decryptor(context, sk);
+    
     size_t slot_count = batch_encoder.slot_count();
     if(toPack.size() > slot_count){
         cerr << "Please pack at most " << slot_count << " PVW ciphertexts at one time." << endl;
         return;
     }
+    chrono::high_resolution_clock::time_point time_start, time_end;
+    uint64_t load_time = 0;
+
+    Plaintext ppt;
+    vector<uint64_t> test(poly_modulus_degree_glb);
 
     for(int i = 0; i < tempn; i++){
         for(int l = 0; l < param.ell; l++){
+	    time_start = chrono::high_resolution_clock::now();
 	    Ciphertext sks;
 	    loadSwitchingKey(context, sks, l*tempn + i);
-	    sks.parms_id_ = context.first_parms_id();
+	    /* sks.parms_id_ = context.first_parms_id(); */
+
+	    /* evaluator.transform_from_ntt_inplace(sks); */
+	    /* decryptor.decrypt(sks, ppt); */
+	    /* batch_encoder.decode(ppt, test); */
+	    /* for (int i = 0; i < 10; i++) { */
+	    /*   cout << test[i] << " "; */
+	    /* } */
+	    /* cout << endl; */
+	    /* decryptor.decrypt(switchingKey[l], ppt); */
+            /* batch_encoder.decode(ppt, test); */
+            /* for (int i = 0; i < 10; i++) { */
+            /*   cout << test[i] << " "; */
+            /* } */
+            /* cout << endl << "*******************************************************\n"; */
+	    /* evaluator.transform_to_ntt_inplace(sks); */
+
+	    time_end = chrono::high_resolution_clock::now();
+	    load_time += chrono::duration_cast<chrono::microseconds>(time_end - time_start).count();
+	    
             vector<uint64_t> vectorOfInts(toPack.size());
             for(int j = 0; j < (int) toPack.size(); j++){
                 int the_index = (i + j) % tempn;
@@ -1341,6 +1368,11 @@ void computeBplusAS_dos(vector<Ciphertext>& output, const vector<srPKECiphertext
         }
     }
 
+    cout << "LOAD TIME: " << load_time << endl;
+
+    for (int i = 0; i < (int) output.size(); i++) {
+      evaluator.transform_from_ntt_inplace(output[i]);
+    }
 
     for(int i = 0; i < param.ell; i++){
         vector<uint64_t> vectorOfInts(toPack.size());

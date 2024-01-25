@@ -18,15 +18,15 @@ void choosePertinentMsg(int numOfTransactions, int pertinentMsgNum, vector<int>&
     auto rng = make_shared<Blake2xbPRNGFactory>(Blake2xbPRNGFactory(seed));
     RandomToStandardAdapter engine(rng->create());
     uniform_int_distribution<uint64_t> dist(0, numOfTransactions - 1);
-    for (int i = 0; i < pertinentMsgNum; i++) {
-        auto temp = dist(engine);
-        while(find(pertinentMsgIndices.begin(), pertinentMsgIndices.end(), temp) != pertinentMsgIndices.end()){
-            temp = dist(engine);
-        }
-        pertinentMsgIndices.push_back(temp);
-    }
-    sort(pertinentMsgIndices.begin(), pertinentMsgIndices.end());
-    /* pertinentMsgIndices.push_back(10); */
+    /* for (int i = 0; i < pertinentMsgNum; i++) { */
+    /*     auto temp = dist(engine); */
+    /*     while(find(pertinentMsgIndices.begin(), pertinentMsgIndices.end(), temp) != pertinentMsgIndices.end()){ */
+    /*         temp = dist(engine); */
+    /*     } */
+    /*     pertinentMsgIndices.push_back(temp); */
+    /* } */
+    /* sort(pertinentMsgIndices.begin(), pertinentMsgIndices.end()); */
+    pertinentMsgIndices.push_back(10);
 
     cout << "Expected Message Indices: " << pertinentMsgIndices << endl;
 }
@@ -912,7 +912,7 @@ Ciphertext obtainPackedSIC_dos(SecretKey& sk, vector<srPKECiphertext>& SICPVW, v
     vector<Ciphertext> packedSIC(params.ell);
     chrono::high_resolution_clock::time_point s,e;
     s = chrono::high_resolution_clock::now();
-    computeBplusAS_dos(packedSIC, SICPVW, switchingKey, gal_keys, context, params);
+    computeBplusAS_dos(sk, packedSIC, SICPVW, switchingKey, gal_keys, context, params);
     e = chrono::high_resolution_clock::now();
     cout << "   computeBplusAS_dos time: " << chrono::duration_cast<chrono::microseconds>(e - s).count() << endl;
 

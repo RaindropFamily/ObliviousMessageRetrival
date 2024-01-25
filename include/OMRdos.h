@@ -197,43 +197,22 @@ void OMR3_dos() {
   int tempn;
   for(tempn = 1; tempn < params.n1; tempn*=2) {}
 
-  /* Plaintext pp; */
-  /* vector<uint64_t> skt; */
-  /* decryptor.decrypt(switchingKey[0], pp); */
-  /* batch_encoder.decode(pp, skt); */
-  /* for (int j = 0; j < (int) skt.size(); j++) { */
-  /*   cout << skt[j] << " "; */
-  /* } */
-  /* cout << endl; */
-
+  // prepare pre-processed switching key and store to disk
   s = chrono::high_resolution_clock::now();
   Ciphertext curr, next;
   for (int l = 0; l < params.ell; l++) {
       curr = switchingKey[l];
-      evaluator.rotate_rows(curr, 1, gal_keys, next); 
+      evaluator.rotate_rows(curr, 1, gal_keys, next);
       evaluator.transform_to_ntt_inplace(curr);
       saveSwitchingKey(curr, l*tempn);
   
       for(int i = 1; i < tempn; i++){
-	  curr = next;
+      	  curr = next;
           evaluator.rotate_rows(curr, 1, gal_keys, next);
-	  evaluator.transform_to_ntt_inplace(curr);
-	  saveSwitchingKey(curr, l*tempn+i);	  
+      	  evaluator.transform_to_ntt_inplace(curr);
+      	  saveSwitchingKey(curr, l*tempn+i);
       }
   }
-
-  /* loadSwitchingKey(context, curr, 0); */
-  /* evaluator.transform_from_ntt_inplace(curr); */
-
-  /* for (int i = 0; i < (int) switchingKey.size(); i++) { */
-    /* decryptor.decrypt(curr, pp); */
-    /* batch_encoder.decode(pp, skt); */
-    /* for (int j = 0; j < (int) skt.size(); j++) { */
-    /*   cout << skt[j] << " "; */
-    /* } */
-    /* cout << endl; */
-  /* } */
-
   e = chrono::high_resolution_clock::now();
   cout << "Prepare switching key time: " << chrono::duration_cast<chrono::microseconds>(e - s).count() << endl;
 

@@ -457,7 +457,7 @@ vector<uint64_t> loadDataSingle_chunk(int i, int party_size, int payloadSize = 3
 }
 
 
-void saveSwitchingKey(Ciphertext sks, const uint64_t index) {
+void saveSwitchingKey(Ciphertext& sks, const uint64_t index) {
     stringstream ss;
     sks.save(ss);
     ofstream datafile;
@@ -466,11 +466,14 @@ void saveSwitchingKey(Ciphertext sks, const uint64_t index) {
     datafile.close();
 }
 
-void loadSwitchingKey(const SEALContext &context, Ciphertext sks, const uint64_t index) {
+void loadSwitchingKey(const SEALContext& context, Ciphertext& sks, const uint64_t index) {
     ifstream datafile;
     datafile.open ("../data/sks/"+to_string(index)+".txt");
 
-    sks.load(context, datafile);
+    stringstream buf;
+    buf << datafile.rdbuf();
+
+    sks.load(context, buf);
 
 }
 
