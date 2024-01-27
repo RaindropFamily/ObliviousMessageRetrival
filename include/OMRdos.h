@@ -158,7 +158,7 @@ void OMR3_dos() {
 
   //////////////////////////////////////////////////////
   vector<Modulus> coeff_modulus_expand = coeff_modulus;
-  coeff_modulus_expand.erase(coeff_modulus_expand.begin() + 4, coeff_modulus_expand.end()-1);
+  coeff_modulus_expand.erase(coeff_modulus_expand.begin() + 2, coeff_modulus_expand.end()-1);
   EncryptionParameters parms_expand = parms;
   parms_expand.set_coeff_modulus(coeff_modulus_expand);
   SEALContext context_expand = SEALContext(parms_expand, true, sec_level_type::none);
@@ -330,6 +330,12 @@ void OMR3_dos() {
   /* for (int i = 0; i < 13; i++) { */
   /*   evaluator.mod_switch_to_next_inplace(packedSICfromPhase1[0][0]); */
   /* } */
+
+  cout << packedSICfromPhase1.size() << ", " << packedSICfromPhase1[0].size() << endl;
+  cout << "***************** " << packedSICfromPhase1[0][0].coeff_modulus_size() << endl;
+  /* evaluator.mod_switch_to_next_inplace(packedSICfromPhase1[0][0]); */
+  /* evaluator.mod_switch_to_next_inplace(packedSICfromPhase1[0][0]); */
+  /* cout << "***************** " << packedSICfromPhase1[0][0].coeff_modulus_size() << endl; */
   NTL_EXEC_RANGE(numcores, first, last);
   chrono::high_resolution_clock::time_point s1, e1;
   for(int i = first; i < last; i++){
@@ -347,6 +353,8 @@ void OMR3_dos() {
       vector<Ciphertext> temprhs(party_size_glb);
 
       Ciphertext curr_PackSIC(packedSICfromPhase1[i][j]);
+      evaluator.mod_switch_to_next_inplace(curr_PackSIC);
+      evaluator.mod_switch_to_next_inplace(curr_PackSIC);
       s1 = chrono::high_resolution_clock::now();
       Ciphertext packSIC_copy(curr_PackSIC);
       evaluator_next.rotate_columns_inplace(packSIC_copy, gal_keys_slotToCoeff);

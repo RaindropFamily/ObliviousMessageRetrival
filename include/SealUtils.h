@@ -278,11 +278,12 @@ inline void multiply_power_of_X(EncryptionParameters& enc_param, const Ciphertex
 // (i.e., this subtree is the top of the whole tree)
 // and then for each leaf node in this subtree, expand it into a small subtree with stepSize leaf node
 // this function is the assistant function that return the top-part subtree
-inline vector<Ciphertext> subExpand(const SEALContext& context, EncryptionParameters& enc_param, const Ciphertext &encrypted, uint32_t m,
+inline vector<Ciphertext> subExpand(const SecretKey& sk, const SEALContext& context, EncryptionParameters& enc_param, const Ciphertext &encrypted, uint32_t m,
                                     const GaloisKeys& galkey, int first_expansion_size, int t = 65537) {
 
     Evaluator evaluator(context);
     Plaintext two("2");
+    Decryptor decryptor(context, sk);
 
     int logFirst = ceil(log2(first_expansion_size));
 
@@ -306,13 +307,21 @@ inline vector<Ciphertext> subExpand(const SEALContext& context, EncryptionParame
 
         for (uint32_t a = 0; a < temp.size(); a++) {
 
+  	    cout << "initial temp for " << a << ": " << decryptor.invariant_noise_budget(temp[a]) << ", ";
             evaluator.apply_galois(temp[a], galois_elts[i], galkey, tempctxt_rotated);
+	    cout << "rotate " << decryptor.invariant_noise_budget(tempctxt_rotated) << ", "; 
 
             evaluator.add(temp[a], tempctxt_rotated, newtemp[a]);
+	    cout << "add for " << a << ": " << decryptor.invariant_noise_budget(newtemp[a]) << ", ";
             multiply_power_of_X(enc_param, temp[a], tempctxt_shifted, index_raw);
+	    cout << "mul by x^pow: " << decryptor.invariant_noise_budget(tempctxt_shifted) << ", ";
+	    
             multiply_power_of_X(enc_param, tempctxt_rotated, tempctxt_rotatedshifted, index);
+	    cout << "mul by x^pow: " << decryptor.invariant_noise_budget(tempctxt_rotatedshifted) << ", "; 
 
+	    cout << "??????? " << decryptor.invariant_noise_budget(tempctxt_shifted) << " || " << decryptor.invariant_noise_budget(tempctxt_rotatedshifted) << ", ";
             evaluator.add(tempctxt_shifted, tempctxt_rotatedshifted, newtemp[a + temp.size()]);
+	    cout << "add for " << a + temp.size() << ": " << decryptor.invariant_noise_budget(newtemp[a + temp.size()]) << ", ";
         }
 
         temp = newtemp;

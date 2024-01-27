@@ -778,12 +778,14 @@ void serverOperations3therest_obliviousExpansion(EncryptionParameters& enc_param
     Decryptor decryptor(context_expand, secretKey);
     // BatchEncoder batch_encoder(context_expand);
 
+    cout << "NOISE RIGHT BEFORE EXPANSION: " << decryptor.invariant_noise_budget(packedSIC) << endl;
+
     chrono::high_resolution_clock::time_point s1, e1, s2, e2;
     int t1 = 0, t2 = 0;
 
     int step = step_size_glb, k = 0;
     s1 = chrono::high_resolution_clock::now();
-    vector<Ciphertext> expanded_subtree_leaves = subExpand(context_expand, enc_param, packedSIC, poly_modulus_degree_glb, gal_keys, poly_modulus_degree_glb/step);
+    vector<Ciphertext> expanded_subtree_leaves = subExpand(secretKey, context_expand, enc_param, packedSIC, poly_modulus_degree_glb, gal_keys, poly_modulus_degree_glb/step);
     e1 = chrono::high_resolution_clock::now();
     t1 += chrono::duration_cast<chrono::microseconds>(e1 - s1).count();
     vector<Ciphertext> partial_expandedSIC(step);
