@@ -322,12 +322,16 @@ void payloadRetrievalOptimizedwithWeights_omrtake3(vector<vector<Ciphertext>>& r
     int new_start = (start - local_start) + (index_in_expansion_bucket * gap) + expand_bucket_index;
     int new_local_start = (index_in_expansion_bucket * gap) + expand_bucket_index;
 
+    chrono::high_resolution_clock::time_point s1, e1;
+    uint64_t total_party_time = 0;
+
     for (size_t i = 0; i < SIC.size(); i++) {
         results[i].resize(party_size);
 
         int bipart_map_index = i*gap + new_start;
         int tmp_payload_index = i*gap + new_local_start;
 
+	s1 = chrono::high_resolution_clock::now();
         for (int h = 0; h < party_size; h++) {
             int payload_index = tmp_payload_index * party_size + h;
             vector<uint64_t> padded(degree, 0);
@@ -346,6 +350,8 @@ void payloadRetrievalOptimizedwithWeights_omrtake3(vector<vector<Ciphertext>>& r
 
             evaluator.multiply_plain(SIC[i], plain_matrix, results[i][h]);  
         }
+	e1 = chrono::high_resolution_clock::now();
+	total_party_time += chrono::duration_cast<chrono::microseconds>(e1 - s1).count();
     }
 }
 

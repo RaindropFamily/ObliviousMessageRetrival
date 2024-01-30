@@ -1413,6 +1413,7 @@ Ciphertext rangeCheck_dos(SecretKey& sk, vector<Ciphertext>& output, const Relin
             auto old_prof_larger = MemoryManager::SwitchProfile(std::make_unique<MMProfFixed>(std::move(my_pool_larger)));
             evaluator.multiply_inplace(output[j], output[j]);
             evaluator.relinearize_inplace(output[j], relin_keys);
+	    evaluator.mod_switch_to_next_inplace(output[j]);
 
 	    /* cout << "********* first multiply: " << decryptor.invariant_noise_budget(output[j]) << endl; */
 
@@ -1423,6 +1424,7 @@ Ciphertext rangeCheck_dos(SecretKey& sk, vector<Ciphertext>& output, const Relin
             s1 = chrono::high_resolution_clock::now();
             FastRangeCheck_Random(sk, res[j], output[j], degree, relin_keys, context, rangeCheckIndices_opt_B,
 				  100, 240, level_mod_1, level_mod_2, true);
+	    evaluator.mod_switch_to_next_inplace(res[j]);
             e1 = chrono::high_resolution_clock::now();
             range_time += chrono::duration_cast<chrono::microseconds>(e1 - s1).count();
 

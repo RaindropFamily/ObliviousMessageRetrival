@@ -307,21 +307,11 @@ inline vector<Ciphertext> subExpand(const SecretKey& sk, const SEALContext& cont
 
         for (uint32_t a = 0; a < temp.size(); a++) {
 
-  	    cout << "initial temp for " << a << ": " << decryptor.invariant_noise_budget(temp[a]) << ", ";
             evaluator.apply_galois(temp[a], galois_elts[i], galkey, tempctxt_rotated);
-	    cout << "rotate " << decryptor.invariant_noise_budget(tempctxt_rotated) << ", "; 
-
             evaluator.add(temp[a], tempctxt_rotated, newtemp[a]);
-	    cout << "add for " << a << ": " << decryptor.invariant_noise_budget(newtemp[a]) << ", ";
             multiply_power_of_X(enc_param, temp[a], tempctxt_shifted, index_raw);
-	    cout << "mul by x^pow: " << decryptor.invariant_noise_budget(tempctxt_shifted) << ", ";
-	    
             multiply_power_of_X(enc_param, tempctxt_rotated, tempctxt_rotatedshifted, index);
-	    cout << "mul by x^pow: " << decryptor.invariant_noise_budget(tempctxt_rotatedshifted) << ", "; 
-
-	    cout << "??????? " << decryptor.invariant_noise_budget(tempctxt_shifted) << " || " << decryptor.invariant_noise_budget(tempctxt_rotatedshifted) << ", ";
             evaluator.add(tempctxt_shifted, tempctxt_rotatedshifted, newtemp[a + temp.size()]);
-	    cout << "add for " << a + temp.size() << ": " << decryptor.invariant_noise_budget(newtemp[a + temp.size()]) << ", ";
         }
 
         temp = newtemp;

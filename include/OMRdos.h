@@ -37,7 +37,7 @@ void OMR3_dos() {
 
   // pack each two message into one bfv ciphertext, since 306*2*50 < ring_dim = 32768, where 50 is the upper bound of # pertinent messages
   // createDatabase(numOfTransactions * half_party_size, payload_size*2);
-  /* createDatabase(numOfTransactions * party_size_glb, payload_size); */
+  createDatabase(numOfTransactions * party_size_glb, payload_size);
   cout << "Finishing createDatabase\n";
 
   // step 1. generate srPKE sk
@@ -266,18 +266,6 @@ void OMR3_dos() {
       cout << "BB to PV time: " << chrono::duration_cast<chrono::microseconds>(e1 - s1).count() << endl;
     }
   }
-
-  cout << t11 << ", " << t22 << endl;
-
-  /* decryptor.decrypt(packedSICfromPhase1[0][0], pl); */
-  /* batch_encoder.decode(pl, tm); */
-  /* for (int c = 0; c < (int) degree; c++) { */
-  /*   cout << tm[c] << " "; */
-  /*   /\* tm[c] = 0; *\/ */
-  /* } */
-  /* tm[10] = 1; */
-  /* cout << endl; */
-
   NTL_EXEC_RANGE_END;
 
   // step 4. detector operations
@@ -331,11 +319,6 @@ void OMR3_dos() {
   /*   evaluator.mod_switch_to_next_inplace(packedSICfromPhase1[0][0]); */
   /* } */
 
-  cout << packedSICfromPhase1.size() << ", " << packedSICfromPhase1[0].size() << endl;
-  cout << "***************** " << packedSICfromPhase1[0][0].coeff_modulus_size() << endl;
-  /* evaluator.mod_switch_to_next_inplace(packedSICfromPhase1[0][0]); */
-  /* evaluator.mod_switch_to_next_inplace(packedSICfromPhase1[0][0]); */
-  /* cout << "***************** " << packedSICfromPhase1[0][0].coeff_modulus_size() << endl; */
   NTL_EXEC_RANGE(numcores, first, last);
   chrono::high_resolution_clock::time_point s1, e1;
   for(int i = first; i < last; i++){
@@ -353,8 +336,6 @@ void OMR3_dos() {
       vector<Ciphertext> temprhs(party_size_glb);
 
       Ciphertext curr_PackSIC(packedSICfromPhase1[i][j]);
-      evaluator.mod_switch_to_next_inplace(curr_PackSIC);
-      evaluator.mod_switch_to_next_inplace(curr_PackSIC);
       s1 = chrono::high_resolution_clock::now();
       Ciphertext packSIC_copy(curr_PackSIC);
       evaluator_next.rotate_columns_inplace(packSIC_copy, gal_keys_slotToCoeff);
@@ -394,10 +375,6 @@ void OMR3_dos() {
       }
       cout << endl;
 
-      /* while (context.last_parms_id() != packSIC_coeff.parms_id()) { */
-      /* 	cout << "---> mod\n"; */
-	  /* evaluator.mod_switch_to_next_inplace(packSIC_coeff); */
-      /* } */
       cout << "** Noise after slotToCoeff after mod: " << decryptor.invariant_noise_budget(packSIC_coeff) << endl;
       serverOperations3therest_obliviousExpansion(parms_expand, templhsctr, bipartite_map[i], temprhs, packSIC_coeff, payload_multicore[i],
 						  relin_keys, gal_keys_expand, sk_expand, public_key_last, poly_modulus_degree, context_next, context_expand,

@@ -4,7 +4,7 @@ using namespace seal;
 
 int numcores = 4;
 int OMRtwoM = 100;
-int OMRthreeM = 53; // use 53 for omr_take3, and 100 o.w.
+int OMRthreeM =100; // use 53 for omr_take3, and 100 o.w.
 int num_bucket_glb = 400;
 
 int bfv_Q = 65537;
