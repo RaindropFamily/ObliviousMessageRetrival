@@ -71,7 +71,7 @@ void OMR3_dos() {
   auto degree = poly_modulus_degree;
   parms.set_poly_modulus_degree(poly_modulus_degree);
 
-  auto coeff_modulus = CoeffModulus::Create(poly_modulus_degree, { 60, 60, 60, 60, 60,
+  auto coeff_modulus = CoeffModulus::Create(poly_modulus_degree, { 40, 60, 60, 60, 60,
 				    			           60, 60, 60, 60,
 							           60, 60, 60, 60,
 							           60, 60, 30, 60});
@@ -198,20 +198,38 @@ void OMR3_dos() {
   for(tempn = 1; tempn < params.n1; tempn*=2) {}
 
   // prepare pre-processed switching key and store to disk
-  s = chrono::high_resolution_clock::now();
-  Ciphertext curr, next;
-  for (int l = 0; l < params.ell; l++) {
-      curr = switchingKey[l];
-      evaluator.rotate_rows(curr, 1, gal_keys, next);
-      evaluator.transform_to_ntt_inplace(curr);
-      saveSwitchingKey(curr, l*tempn);
+  vector<vector<Ciphertext>> rotated_switchingKey;
+
+  {
+  MemoryPoolHandle my_pool = MemoryPoolHandle::New();
+  auto old_prof = MemoryManager::SwitchProfile(std::make_unique<MMProfFixed>(std::move(my_pool)));
+
+  rotated_switchingKey.resize(params.ell);
   
-      for(int i = 1; i < tempn; i++){
-      	  curr = next;
-          evaluator.rotate_rows(curr, 1, gal_keys, next);
-      	  evaluator.transform_to_ntt_inplace(curr);
-      	  saveSwitchingKey(curr, l*tempn+i);
+  s = chrono::high_resolution_clock::now();
+  /* Ciphertext curr, next; */
+  for (int l = 0; l < params.ell; l++) {
+      rotated_switchingKey[l].resize(tempn);
+      rotated_switchingKey[l][0] = switchingKey[l];
+
+      for (int i = 1; i < tempn; i++) {
+	evaluator.rotate_rows(rotated_switchingKey[l][i-1], 1, gal_keys, rotated_switchingKey[l][i]);
       }
+      for (int i = 0; i < tempn; i++) {
+	evaluator.transform_to_ntt_inplace(rotated_switchingKey[l][i]);
+      }
+      
+      /* curr = switchingKey[l]; */
+      /* evaluator.rotate_rows(curr, 1, gal_keys, next); */
+      /* evaluator.transform_to_ntt_inplace(curr); */
+      /* saveSwitchingKey(curr, l*tempn); */
+  
+      /* for(int i = 1; i < tempn; i++){ */
+      /* 	  curr = next; */
+      /*     evaluator.rotate_rows(curr, 1, gal_keys, next); */
+      /* 	  evaluator.transform_to_ntt_inplace(curr); */
+      /* 	  saveSwitchingKey(curr, l*tempn+i); */
+      /* } */
   }
   e = chrono::high_resolution_clock::now();
   cout << "Prepare switching key time: " << chrono::duration_cast<chrono::microseconds>(e - s).count() << endl;
@@ -239,7 +257,7 @@ void OMR3_dos() {
 	t11 += chrono::duration_cast<chrono::microseconds>(e - s).count();
 
 	s = chrono::high_resolution_clock::now();
-	packedSIC_temp = obtainPackedSIC_dos(secret_key, SICPVW_multicore[i], switchingKey, relin_keys, gal_keys,
+	packedSIC_temp = obtainPackedSIC_dos(secret_key, SICPVW_multicore[i], rotated_switchingKey, relin_keys, gal_keys,
 					     poly_modulus_degree, context, params, poly_modulus_degree);
 	cout << "** Noise after phase 1: " << decryptor.invariant_noise_budget(packedSIC_temp) << endl;
 
@@ -267,6 +285,19 @@ void OMR3_dos() {
     }
   }
   NTL_EXEC_RANGE_END;
+
+  for (int l = 0; l < params.ell; l++) {
+    for (int i = 0; i < tempn; i++) {
+      rotated_switchingKey[l][i].release();
+    }
+  }
+
+  MemoryManager::SwitchProfile(std::move(old_prof));
+  }
+  for (int l = 0; l < params.ell; l++) {
+    rotated_switchingKey[l].clear();
+  }
+  rotated_switchingKey.clear();
 
   // step 4. detector operations
   vector<vector<Ciphertext>> lhs_multi_ctr(numcores);
@@ -438,7 +469,7 @@ void OMR3_dos() {
 
   //////// after switching to the last level, mod down to smaller q before sending the digest ////////
   uint64_t small_p = 268369920;
-  uint64_t large_p = 1152921504578666496;
+  uint64_t large_p = 1099510054912;//1152921504578666496;
 
   //////////// for compact digest, mod the ciphertext to smaller q (60 --> 28 bit) and then return ////////////
   //////////// so recipient decrypts using a smaller key, and the BFV evaluation use the large key ////////////

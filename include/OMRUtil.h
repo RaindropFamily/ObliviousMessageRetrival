@@ -904,7 +904,7 @@ vector<vector<long>> receiverDecodingOMR3_omrtake3(vector<Ciphertext>& lhsCounte
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 
-Ciphertext obtainPackedSIC_dos(SecretKey& sk, vector<srPKECiphertext>& SICPVW, vector<Ciphertext>& switchingKey, const RelinKeys& relin_keys,
+Ciphertext obtainPackedSIC_dos(SecretKey& sk, vector<srPKECiphertext>& SICPVW, vector<vector<Ciphertext>>& switchingKey, const RelinKeys& relin_keys,
                                const GaloisKeys& gal_keys, const size_t& degree, const SEALContext& context, const srPKEParam& params,
 			       const int numOfTransactions) {
 

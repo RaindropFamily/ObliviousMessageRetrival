@@ -1294,7 +1294,7 @@ Ciphertext rangeCheck_OPVW(SecretKey& sk, vector<Ciphertext>& output, const Reli
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 
-void computeBplusAS_dos(SecretKey& sk, vector<Ciphertext>& output, const vector<srPKECiphertext>& toPack, vector<Ciphertext>& switchingKey, const GaloisKeys& gal_keys,
+void computeBplusAS_dos(SecretKey& sk, vector<Ciphertext>& output, const vector<srPKECiphertext>& toPack, vector<vector<Ciphertext>>& switchingKey, const GaloisKeys& gal_keys,
                         const SEALContext& context, const srPKEParam& param) {
     MemoryPoolHandle my_pool = MemoryPoolHandle::New(true);
     auto old_prof = MemoryManager::SwitchProfile(std::make_unique<MMProfFixed>(std::move(my_pool)));
@@ -1312,35 +1312,35 @@ void computeBplusAS_dos(SecretKey& sk, vector<Ciphertext>& output, const vector<
         return;
     }
     chrono::high_resolution_clock::time_point time_start, time_end;
-    uint64_t load_time = 0;
+    /* uint64_t load_time = 0; */
 
     Plaintext ppt;
     vector<uint64_t> test(poly_modulus_degree_glb);
 
     for(int i = 0; i < tempn; i++){
         for(int l = 0; l < param.ell; l++){
-	    time_start = chrono::high_resolution_clock::now();
-	    Ciphertext sks;
-	    loadSwitchingKey(context, sks, l*tempn + i);
-	    /* sks.parms_id_ = context.first_parms_id(); */
+	    /* time_start = chrono::high_resolution_clock::now(); */
+	    /* Ciphertext sks; */
+	    /* loadSwitchingKey(context, sks, l*tempn + i); */
+	    /* /\* sks.parms_id_ = context.first_parms_id(); *\/ */
 
-	    /* evaluator.transform_from_ntt_inplace(sks); */
-	    /* decryptor.decrypt(sks, ppt); */
-	    /* batch_encoder.decode(ppt, test); */
-	    /* for (int i = 0; i < 10; i++) { */
-	    /*   cout << test[i] << " "; */
-	    /* } */
-	    /* cout << endl; */
-	    /* decryptor.decrypt(switchingKey[l], ppt); */
-            /* batch_encoder.decode(ppt, test); */
-            /* for (int i = 0; i < 10; i++) { */
-            /*   cout << test[i] << " "; */
-            /* } */
-            /* cout << endl << "*******************************************************\n"; */
-	    /* evaluator.transform_to_ntt_inplace(sks); */
+	    /* /\* evaluator.transform_from_ntt_inplace(sks); *\/ */
+	    /* /\* decryptor.decrypt(sks, ppt); *\/ */
+	    /* /\* batch_encoder.decode(ppt, test); *\/ */
+	    /* /\* for (int i = 0; i < 10; i++) { *\/ */
+	    /* /\*   cout << test[i] << " "; *\/ */
+	    /* /\* } *\/ */
+	    /* /\* cout << endl; *\/ */
+	    /* /\* decryptor.decrypt(switchingKey[l], ppt); *\/ */
+            /* /\* batch_encoder.decode(ppt, test); *\/ */
+            /* /\* for (int i = 0; i < 10; i++) { *\/ */
+            /* /\*   cout << test[i] << " "; *\/ */
+            /* /\* } *\/ */
+            /* /\* cout << endl << "*******************************************************\n"; *\/ */
+	    /* /\* evaluator.transform_to_ntt_inplace(sks); *\/ */
 
-	    time_end = chrono::high_resolution_clock::now();
-	    load_time += chrono::duration_cast<chrono::microseconds>(time_end - time_start).count();
+	    /* time_end = chrono::high_resolution_clock::now(); */
+	    /* load_time += chrono::duration_cast<chrono::microseconds>(time_end - time_start).count(); */
 	    
             vector<uint64_t> vectorOfInts(toPack.size());
             for(int j = 0; j < (int) toPack.size(); j++){
@@ -1354,21 +1354,21 @@ void computeBplusAS_dos(SecretKey& sk, vector<Ciphertext>& output, const vector<
 
             Plaintext plaintext;
             batch_encoder.encode(vectorOfInts, plaintext);
-	    evaluator.transform_to_ntt_inplace(plaintext, sks.parms_id());
+	    evaluator.transform_to_ntt_inplace(plaintext, switchingKey[l][i].parms_id());
         
             if (i == 0){
-                evaluator.multiply_plain(sks, plaintext, output[l]); // times s[i]
+                evaluator.multiply_plain(switchingKey[l][i], plaintext, output[l]); // times s[i]
             }
             else{
                 Ciphertext temp;
-                evaluator.multiply_plain(sks, plaintext, temp);
+                evaluator.multiply_plain(switchingKey[l][i], plaintext, temp);
                 evaluator.add_inplace(output[l], temp);
             }
             /* evaluator.rotate_rows_inplace(switchingKey[l], 1, gal_keys); */
         }
     }
 
-    cout << "LOAD TIME: " << load_time << endl;
+    /* cout << "LOAD TIME: " << load_time << endl; */
 
     for (int i = 0; i < (int) output.size(); i++) {
       evaluator.transform_from_ntt_inplace(output[i]);
