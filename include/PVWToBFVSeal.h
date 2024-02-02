@@ -1097,13 +1097,13 @@ void FastRangeCheck_Random(SecretKey& sk, Ciphertext& output, const Ciphertext& 
     }
 
     if (default_param_set) {
-        vector<Ciphertext> terms(20);
+        vector<Ciphertext> terms(range_check_r);
         for (int i = 0; i < (int) terms.size(); i++) {
             terms[i] = input;
         }
 
         // get all (x-xi) terms
-        for (int i = 1; i < 20; i++) {
+        for (int i = 1; i < range_check_r; i++) {
             plainInd.data()[0] = i*i;
             evaluator.negate_inplace(terms[i]);
             evaluator.add_plain_inplace(terms[i], plainInd);

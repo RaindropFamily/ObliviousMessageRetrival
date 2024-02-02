@@ -9,6 +9,8 @@ int num_bucket_glb = 400;
 
 int bfv_Q = 65537;
 
+int range_check_r = 19; // 19 for perfomr default param set, 81 for dos omr
+
 int step_size_glb = 32; // used for oblivious expansion
 
 int mod_switch_counter = 0;
@@ -16,7 +18,7 @@ GaloisKeys gal_keys_next;
 GaloisKeys gal_keys_last;
 vector<vector<int>> bipartite_map_glb;
 vector<vector<int>> weights_glb;
-int repeatition_glb = 5;
+int repeatition_glb = 53;
 prng_seed_type seed_glb;
 size_t C_glb = 5;
 int numOfTransactions_glb = 32768;
@@ -28,7 +30,7 @@ size_t num_of_pertinent_msgs_glb = 50;
 // (8, 65536), (5, 131072) with prime = 786433
 int primitive_root = 3;
 
-int party_size_glb = 8;
+int party_size_glb = 1;
 int secure_extra_length_glb = 4; // T + secure_extra_length_glb = T', for a rand matrix to be full rank
 
 int id_size_glb = 19;
