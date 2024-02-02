@@ -4,12 +4,12 @@ using namespace seal;
 
 int numcores = 4;
 int OMRtwoM = 100;
-int OMRthreeM =100; // use 53 for omr_take3, and 100 o.w.
+int OMRthreeM = 53; // use 53 for omr_take3, and 100 o.w.
 int num_bucket_glb = 400;
 
 int bfv_Q = 65537;
 
-int range_check_r = 81; // 19 for perfomr default param set, 81 for dos omr
+int range_check_r = 19; // 19 for perfomr default param set, 81 for dos omr
 
 int step_size_glb = 32; // used for oblivious expansion
 
@@ -18,7 +18,7 @@ GaloisKeys gal_keys_next;
 GaloisKeys gal_keys_last;
 vector<vector<int>> bipartite_map_glb;
 vector<vector<int>> weights_glb;
-int repeatition_glb = 5;
+int repeatition_glb = 53;
 prng_seed_type seed_glb;
 size_t C_glb = 5;
 int numOfTransactions_glb = 32768;

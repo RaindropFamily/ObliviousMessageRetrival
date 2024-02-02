@@ -393,6 +393,21 @@ void saveClues_dos(const srPKECiphertext& clue, int transaction_num){
 }
 
 
+void saveClues_opt_attack(const OPVWParam& param, int transaction_num){
+  ofstream datafile;
+  datafile.open ("../data/clues/"+to_string(transaction_num)+".txt");
+
+  for (int i = 0; i < (int) param.n; i++) {
+    datafile << 1 << "\n";
+  }
+  for (int i = 0; i < (int) param.n; i++) {
+    datafile << 0 << "\n";
+  }
+
+  datafile.close();
+}
+
+
 void loadClues_dos(vector<srPKECiphertext>& clues, const int& start, const int& end, const srPKEParam& param, int party_ind = 0, int partySize = 1) {
     clues.resize(end-start);
     for(int i = start; i < end; i++){

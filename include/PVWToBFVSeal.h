@@ -1413,7 +1413,7 @@ Ciphertext rangeCheck_dos(SecretKey& sk, vector<Ciphertext>& output, const Relin
             auto old_prof_larger = MemoryManager::SwitchProfile(std::make_unique<MMProfFixed>(std::move(my_pool_larger)));
             evaluator.multiply_inplace(output[j], output[j]);
             evaluator.relinearize_inplace(output[j], relin_keys);
-	    evaluator.mod_switch_to_next_inplace(output[j]);
+	    /* evaluator.mod_switch_to_next_inplace(output[j]); */
 
 	    /* cout << "********* first multiply: " << decryptor.invariant_noise_budget(output[j]) << endl; */
 
