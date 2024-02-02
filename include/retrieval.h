@@ -212,7 +212,7 @@ void randomizedIndexRetrieval_opt(vector<Ciphertext>& buckets, vector<Ciphertext
 void bipartiteGraphWeightsGeneration(vector<vector<int>>& bipartite_map, vector<vector<int>>& weights, const int& num_of_transactions, const int& num_of_buckets, const int& repetition, prng_seed_type& seed){
     auto rng = make_shared<Blake2xbPRNGFactory>(Blake2xbPRNGFactory(seed));
     RandomToStandardAdapter engine(rng->create());
-    uniform_int_distribution<uint64_t> dist_bucket(0, num_of_buckets-1), dist_weight(0, 65536);
+    uniform_int_distribution<uint64_t> dist_bucket(0, num_of_buckets-1), dist_weight(0, 65535);
 
     bipartite_map.clear();
     weights.clear();

@@ -15,13 +15,13 @@ void OMR3_opt() {
     int t = 65537;
 
     int numOfTransactions = numOfTransactions_glb;
-    // int half_party_size = ceil(((double) party_size_glb) / 2.0);
+    int half_party_size = ceil(((double) party_size_glb) / 2.0);
 
     // cout << "half_party_size: " << half_party_size << endl;
     int payload_size = 306;
 
     // pack each two message into one bfv ciphertext, since 306*2*50 < ring_dim = 32768, where 50 is the upper bound of # pertinent messages
-    // createDatabase(numOfTransactions * half_party_size, payload_size*2);
+    createDatabase(numOfTransactions * half_party_size, payload_size*2);
     /* createDatabase(numOfTransactions * party_size_glb, payload_size); */
     cout << "Finishing createDatabase\n";
 
@@ -268,7 +268,7 @@ void OMR3_opt() {
 
     // step 4. detector operations
     vector<vector<Ciphertext>> lhs_multi_ctr(numcores);
-    vector<vector<Ciphertext>> rhs_multi(numcores, vector<Ciphertext>(party_size_glb));
+    vector<vector<Ciphertext>> rhs_multi(numcores, vector<Ciphertext>(half_party_size));
     vector<vector<vector<int>>> bipartite_map(numcores);
 
     for (auto &i : seed_glb) {
@@ -328,9 +328,9 @@ void OMR3_opt() {
         while(j < numOfTransactions/numcores/poly_modulus_degree){
             if(!i)
                 cout << "Phase 2-3, Core " << i << ", Batch " << j << endl;
-            loadPackedData(payload_multicore[i], counter[i], counter[i]+poly_modulus_degree, payload_size, party_size_glb);
+            loadPackedData(payload_multicore[i], counter[i], counter[i]+poly_modulus_degree, payload_size*2, half_party_size);
             vector<Ciphertext> templhsctr;
-            vector<Ciphertext> temprhs(party_size_glb);
+            vector<Ciphertext> temprhs(half_party_size);
 	    
             Ciphertext curr_PackSIC(packedSICfromPhase1[i][j]);
             s1 = chrono::high_resolution_clock::now();
@@ -405,7 +405,7 @@ void OMR3_opt() {
         for (size_t q = 0; q < lhs_multi_ctr[i].size(); q++) {
             evaluator.add_inplace(lhs_multi_ctr[0][q], lhs_multi_ctr[i][q]);
         }
-        for (int m = 0; m < party_size_glb; m++) {
+        for (int m = 0; m < half_party_size; m++) {
             evaluator.add_inplace(rhs_multi[0][m], rhs_multi[i][m]);
         }
     }
@@ -418,7 +418,7 @@ void OMR3_opt() {
         }
     }
     while(context.last_parms_id() != rhs_multi[0][0].parms_id()) {
-        for (int m = 0; m < party_size_glb; m++) {
+        for (int m = 0; m < half_party_size; m++) {
             evaluator_next.mod_switch_to_next_inplace(rhs_multi[0][m]);
         }
     }
@@ -428,7 +428,7 @@ void OMR3_opt() {
 
     stringstream data_streamdg, data_streamdg2;
     auto digsize = 0;
-    for (int m = 0; m < party_size_glb; m++) {
+    for (int m = 0; m < half_party_size; m++) {
         digsize += rhs_multi[0][m].save(data_streamdg);
     }
     for(size_t q = 0; q < lhs_multi_ctr[0].size(); q++){
@@ -458,7 +458,7 @@ void OMR3_opt() {
     RandomToStandardAdapter engine(rng->create());
     uniform_int_distribution<uint32_t> dist(0, 100);
 
-    for (int m = 0; m < party_size_glb; m++) {
+    for (int m = 0; m < half_party_size; m++) {
         for (int i = 0; i < (int) degree; i++) {
             rhs_multi[0][m].data(0)[i] = manual_mod_down_rounding(rhs_multi[0][m].data(0)[i], dist(engine), small_p+1, large_p+1);
             rhs_multi[0][m].data(1)[i] = manual_mod_down_rounding(rhs_multi[0][m].data(1)[i], dist(engine), small_p+1, large_p+1);
@@ -529,7 +529,7 @@ void OMR3_opt() {
     bipartiteGraphWeightsGeneration(bipartite_map_glb, weights_glb, numOfTransactions, OMRthreeM, repeatition_glb, seed_glb);
     time_start = chrono::high_resolution_clock::now();
     auto res = receiverDecodingOMR3_omrtake3(lhs_multi_ctr[0], bipartite_map[0], rhs_multi[0], poly_modulus_degree, secret_key_small, seal_context_small,
-                                             numOfTransactions, party_size_glb, party_size_glb, acc_slots+1, payload_size);
+                                             numOfTransactions, party_size_glb, half_party_size, acc_slots+1, payload_size*2);
     time_end = chrono::high_resolution_clock::now();
     time_diff = chrono::duration_cast<chrono::microseconds>(time_end - time_start);
     cout << "\nRecipient running time: " << time_diff.count() << "us." << "\n";

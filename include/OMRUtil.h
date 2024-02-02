@@ -709,6 +709,7 @@ vector<vector<uint64_t>> preparingTransactionsFormal_opt(vector<int>& pertinentM
     for (auto &i : seed) {
         i = random_uint64();
     }
+    int half_party_size = ceil(((double) party_size_glb) / 2.0);
 
     choosePertinentMsg(numOfTransactions * party_size, pertinentMsgNum, pertinentMsgIndices, seed);
     chrono::high_resolution_clock::time_point time_start, time_end;
@@ -724,7 +725,7 @@ vector<vector<uint64_t>> preparingTransactionsFormal_opt(vector<int>& pertinentM
             if(find(p_reduced.begin(), p_reduced.end(), ind) == p_reduced.end()) { // the whole chunk never get stored before
                 p_reduced.push_back(ind);
                 expectedIndices.push_back(ind);
-                ret.push_back(loadDataSingle_chunk(ind, party_size, 306));
+                ret.push_back(loadDataSingle_chunk(ind, half_party_size, 306*2));
             }
             time_start = chrono::high_resolution_clock::now();
             OPVWEncPK(tempclue, zeros, pk, params);
@@ -772,7 +773,8 @@ void serverOperations3therest_obliviousExpansion(EncryptionParameters& enc_param
                                                  const RelinKeys& relin_keys, const GaloisKeys& gal_keys, const SecretKey& secretKey,
                                                  const PublicKey& public_key, const size_t& degree, const SEALContext& context_next,
                                                  const SEALContext& context_expand, const int numOfTransactions, int& counter, int numberOfCt = 1,
-                                                 int partySize = 1, int slotPerBucket = 3, const int payloadSize = 306, const int t = 65537) {
+                                                 int partySize = 1, int slotPerBucket = 3, bool concate = false, const int payloadSize = 306,
+						 const int t = 65537) {
 
     Evaluator evaluator(context_expand);
     Decryptor decryptor(context_expand, secretKey);
@@ -781,7 +783,7 @@ void serverOperations3therest_obliviousExpansion(EncryptionParameters& enc_param
     chrono::high_resolution_clock::time_point s1, e1, s2,e2;
     int t1 = 0, t2 = 0;
 
-    int step = step_size_glb, k = 0;
+    int step = step_size_glb, k = 0, half_party_size = ceil(((double) partySize) / 2.0);;
     s1 = chrono::high_resolution_clock::now();
     vector<Ciphertext> expanded_subtree_leaves = subExpand(context_expand, enc_param, packedSIC, poly_modulus_degree_glb, gal_keys, poly_modulus_degree_glb/step);
     e1 = chrono::high_resolution_clock::now();
@@ -814,8 +816,13 @@ void serverOperations3therest_obliviousExpansion(EncryptionParameters& enc_param
         // step 3-4. multiply weights and pack them
         // The following two steps are for streaming updates
         vector<vector<Ciphertext>> payloadUnpacked;
-        payloadRetrievalOptimizedwithWeights_omrtake3(payloadUnpacked, payload, bipartite_map_glb, weights_glb, partial_expandedSIC,
-                                                      context_next, degree, i, i-counter, k, step_size_glb, payloadSize, partySize);
+	if (concate) {
+	  payloadRetrievalOptimizedwithWeights_omrtake3(payloadUnpacked, payload, bipartite_map_glb, weights_glb, partial_expandedSIC,
+							context_next, degree, i, i-counter, k, step_size_glb, payloadSize*2, half_party_size);
+	} else {
+	  payloadRetrievalOptimizedwithWeights_omrtake3(payloadUnpacked, payload, bipartite_map_glb, weights_glb, partial_expandedSIC,
+							context_next, degree, i, i-counter, k, step_size_glb, payloadSize, partySize);
+	}
         // Note that if number of repetitions is already set, this is the only step needed for streaming updates
         payloadPackingOptimized_omrtake3(rhs, payloadUnpacked, bipartite_map_glb, degree, context_next, i);
         e2 = chrono::high_resolution_clock::now();
