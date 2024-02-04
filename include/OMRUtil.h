@@ -26,7 +26,11 @@ void choosePertinentMsg(int numOfTransactions, int pertinentMsgNum, vector<int>&
         pertinentMsgIndices.push_back(temp);
     }
     sort(pertinentMsgIndices.begin(), pertinentMsgIndices.end());
-    /* pertinentMsgIndices.push_back(10); */
+    /* pertinentMsgIndices.push_back(0); */
+    /* pertinentMsgIndices.push_back(1); */
+    /* pertinentMsgIndices.push_back(11); */
+    /* pertinentMsgIndices.push_back(100); */
+    /* pertinentMsgIndices.push_back(7897); */
 
     cout << "Expected Message Indices: " << pertinentMsgIndices << endl;
 }
@@ -769,7 +773,7 @@ Ciphertext obtainPackedSICFromRingLWEClue(SecretKey& sk, vector<OPVWCiphertext>&
 
 // Phase 2, retrieving for OMR take 3
 void serverOperations3therest_obliviousExpansion(EncryptionParameters& enc_param, vector<Ciphertext>& lhsCounter, vector<vector<int>>& bipartite_map,
-                                                 vector<Ciphertext>& rhs, Ciphertext& packedSIC, const vector<vector<uint64_t>>& payload,
+                                                 vector<vector<Ciphertext>>& rhs, Ciphertext& packedSIC, const vector<vector<uint64_t>>& payload,
                                                  const RelinKeys& relin_keys, const GaloisKeys& gal_keys, const SecretKey& secretKey,
                                                  const PublicKey& public_key, const size_t& degree, const SEALContext& context_next,
                                                  const SEALContext& context_expand, const int numOfTransactions, int& counter, int numberOfCt = 1,
@@ -778,7 +782,7 @@ void serverOperations3therest_obliviousExpansion(EncryptionParameters& enc_param
 
     Evaluator evaluator(context_expand);
     Decryptor decryptor(context_expand, secretKey);
-    // BatchEncoder batch_encoder(context_expand);
+    BatchEncoder batch_encoder(context_expand);
 
     chrono::high_resolution_clock::time_point s1, e1, s2,e2;
     int t1 = 0, t2 = 0;
@@ -815,10 +819,24 @@ void serverOperations3therest_obliviousExpansion(EncryptionParameters& enc_param
                                      step_size_glb, k);
         // step 3-4. multiply weights and pack them
         // The following two steps are for streaming updates
-        vector<vector<Ciphertext>> payloadUnpacked;
+        vector<vector<vector<Ciphertext>>> payloadUnpacked;
 	if (concate) {
 	  payloadRetrievalOptimizedwithWeights_omrtake3(payloadUnpacked, payload, bipartite_map_glb, weights_glb, partial_expandedSIC,
 							context_next, degree, i, i-counter, k, step_size_glb, payloadSize*2, half_party_size);
+	  if (i == 0) {
+	    Plaintext pp;
+	    vector<uint64_t> test(degree);
+	    evaluator.transform_from_ntt_inplace(payloadUnpacked[0][0][0]);
+	    evaluator.transform_from_ntt_inplace(payloadUnpacked[1][0][0]);
+	    decryptor.decrypt(payloadUnpacked[0][0][0], pp);
+	    batch_encoder.decode(pp, test);
+	    cout << "==========================\n" << test << "\n==========================\n";
+	    decryptor.decrypt(payloadUnpacked[1][0][0], pp);
+	    batch_encoder.decode(pp, test);
+	    cout << "==========================\n" << test << "\n==========================\n";
+	    evaluator.transform_to_ntt_inplace(payloadUnpacked[0][0][0]);
+	    evaluator.transform_to_ntt_inplace(payloadUnpacked[1][0][0]);
+	  }
 	} else {
 	  payloadRetrievalOptimizedwithWeights_omrtake3(payloadUnpacked, payload, bipartite_map_glb, weights_glb, partial_expandedSIC,
 							context_next, degree, i, i-counter, k, step_size_glb, payloadSize, partySize);
@@ -834,10 +852,12 @@ void serverOperations3therest_obliviousExpansion(EncryptionParameters& enc_param
     for(size_t i = 0; i < lhsCounter.size(); i++){
             evaluator.transform_from_ntt_inplace(lhsCounter[i]);
     }
-    for (int i = 0; i < (int) rhs.size(); i++) {
-        if (rhs[i].is_ntt_form()) {
-            evaluator.transform_from_ntt_inplace(rhs[i]);
+    for (int c = 0; c < (int) rhs.size(); c++) {
+      for (int i = 0; i < (int) rhs[0].size(); i++) {
+        if (rhs[c][i].is_ntt_form()) {
+	  evaluator.transform_from_ntt_inplace(rhs[c][i]);
         }
+      }
     }
     
     counter += numOfTransactions;
@@ -849,7 +869,7 @@ void serverOperations3therest_obliviousExpansion(EncryptionParameters& enc_param
     cout << "digest encoding time: " << t2 << endl;
 }
 
-vector<vector<long>> receiverDecodingOMR3_omrtake3(vector<Ciphertext>& lhsCounter, vector<vector<int>>& bipartite_map, vector<Ciphertext>& rhsEnc,
+vector<vector<long>> receiverDecodingOMR3_omrtake3(vector<Ciphertext>& lhsCounter, vector<vector<int>>& bipartite_map, vector<vector<vector<Ciphertext>>>& rhsEnc,
                                                    const size_t& degree, const SecretKey& secret_key, const SEALContext& context,
                                                    const int numOfTransactions, int partySize = 1, int halfPartySize = 1, int slot_per_bucket = 3,
                                                    const int payloadSize = 306) {
@@ -870,7 +890,10 @@ vector<vector<long>> receiverDecodingOMR3_omrtake3(vector<Ciphertext>& lhsCounte
 
     for (int i = 0; i < halfPartySize; i++) {
         // 3. forming rhs
-        vector<Ciphertext> rhsEncVec{rhsEnc[i]};
+        vector<Ciphertext> rhsEncVec;
+	for (int c = 0; c < (int) rhsEnc.size(); c++) {
+	  rhsEncVec.push_back(rhsEnc[c][0][i]);
+	}
         vector<vector<int>> rhs;
         formRhs(rhs, rhsEncVec, secret_key, degree, context, OMRthreeM, payloadSize);
 

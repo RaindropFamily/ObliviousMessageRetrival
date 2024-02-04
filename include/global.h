@@ -4,7 +4,14 @@ using namespace seal;
 
 int numcores = 4;
 int OMRtwoM = 100;
-int OMRthreeM = 53; // use 53 for omr_take3, and 100 o.w.
+
+// under default ring_dim = 53, payload_size = 306, each 2 byte, by concating two payloads together
+// we can tolerate ~53 bucket in one BFV ciphertext, and this can fit kbar = 50 pert msgs
+// for x*53 buckets, we need x BFV ciphertexts
+int default_bucket_num_glb = 53;
+int OMRthreeM = 106; // use 53 for omr_take3, and 100 o.w.
+int repeatition_glb = 106;
+
 int num_bucket_glb = 400;
 
 int bfv_Q = 65537;
@@ -18,19 +25,19 @@ GaloisKeys gal_keys_next;
 GaloisKeys gal_keys_last;
 vector<vector<int>> bipartite_map_glb;
 vector<vector<int>> weights_glb;
-int repeatition_glb = 53;
+
 prng_seed_type seed_glb;
 size_t C_glb = 5;
 int numOfTransactions_glb = 32768;
 size_t poly_modulus_degree_glb = 32768;
-size_t num_of_pertinent_msgs_glb = 50;
+size_t num_of_pertinent_msgs_glb = 100;
 
 // (root, ring_dim) --> root^(2*ring_dim) % 65537 = 1
 // (4, 8), (2, 16), (255, 32), (141, 128), (431, 512), (21, 2048), (15, 8192), (9, 16384), (3, 32768) with prime = 65537
 // (8, 65536), (5, 131072) with prime = 786433
 int primitive_root = 3;
 
-int party_size_glb = 1;
+int party_size_glb = 2;
 int secure_extra_length_glb = 4; // T + secure_extra_length_glb = T', for a rand matrix to be full rank
 
 int id_size_glb = 19;
