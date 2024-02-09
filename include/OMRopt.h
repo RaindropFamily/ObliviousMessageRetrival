@@ -9,7 +9,7 @@
 #include <thread>
 
 void OMR3_opt() {
-    bool default_param_set = true;
+    bool default_param_set = false;
 
     size_t poly_modulus_degree = poly_modulus_degree_glb;
     int t = 65537;
@@ -54,7 +54,7 @@ void OMR3_opt() {
     EncryptionParameters parms(scheme_type::bfv);
     auto degree = poly_modulus_degree;
     parms.set_poly_modulus_degree(poly_modulus_degree);
-    auto coeff_modulus = CoeffModulus::Create(poly_modulus_degree, { 60, 28, 60,
+    auto coeff_modulus = CoeffModulus::Create(poly_modulus_degree, { 40, 28, 60,
                                                                      60, 60, 60, 60,
                                                                      60, 60, 60, 60,
                                                                      60, 60, 60});
@@ -373,9 +373,9 @@ void OMR3_opt() {
 	    e1 = chrono::high_resolution_clock::now();
             cout << "SlotToCoeff time: " << chrono::duration_cast<chrono::microseconds>(e1 - s1).count() << endl;
             /* decryptor.decrypt(packSIC_coeff, pl); */
-            /* if (!default_param_set) { */
-            /*     evaluator.mod_switch_to_next_inplace(packSIC_coeff); */
-            /* } */
+            if (!default_param_set) {
+                evaluator.mod_switch_to_next_inplace(packSIC_coeff);
+            }
             cout << "** Noise after slotToCoeff: " << decryptor.invariant_noise_budget(packSIC_coeff) << endl;
             cout << "SIC plaintext after slotToCoeff: ------------------------------ \n";
 	    decryptor.decrypt(packSIC_coeff, pl);
@@ -557,8 +557,8 @@ void OMR3_opt() {
     time_diff = chrono::duration_cast<chrono::microseconds>(time_end - time_start);
     cout << "\nRecipient running time: " << time_diff.count() << "us." << "\n";
 
-    cout << "EXPECTED -------------------------------------------------------- \n" << expected << endl;
-    cout << "RESULT ---------------------------------------------------------- \n" << res << endl;
+    /* cout << "EXPECTED -------------------------------------------------------- \n" << expected << endl; */
+    /* cout << "RESULT ---------------------------------------------------------- \n" << res << endl; */
 
     if(checkRes(expected, res))
         cout << "Result is correct!" << endl;

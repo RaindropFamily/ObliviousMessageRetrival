@@ -823,20 +823,6 @@ void serverOperations3therest_obliviousExpansion(EncryptionParameters& enc_param
 	if (concate) {
 	  payloadRetrievalOptimizedwithWeights_omrtake3(payloadUnpacked, payload, bipartite_map_glb, weights_glb, partial_expandedSIC,
 							context_next, degree, i, i-counter, k, step_size_glb, payloadSize*2, half_party_size);
-	  if (i == 0) {
-	    Plaintext pp;
-	    vector<uint64_t> test(degree);
-	    evaluator.transform_from_ntt_inplace(payloadUnpacked[0][0][0]);
-	    evaluator.transform_from_ntt_inplace(payloadUnpacked[1][0][0]);
-	    decryptor.decrypt(payloadUnpacked[0][0][0], pp);
-	    batch_encoder.decode(pp, test);
-	    cout << "==========================\n" << test << "\n==========================\n";
-	    decryptor.decrypt(payloadUnpacked[1][0][0], pp);
-	    batch_encoder.decode(pp, test);
-	    cout << "==========================\n" << test << "\n==========================\n";
-	    evaluator.transform_to_ntt_inplace(payloadUnpacked[0][0][0]);
-	    evaluator.transform_to_ntt_inplace(payloadUnpacked[1][0][0]);
-	  }
 	} else {
 	  payloadRetrievalOptimizedwithWeights_omrtake3(payloadUnpacked, payload, bipartite_map_glb, weights_glb, partial_expandedSIC,
 							context_next, degree, i, i-counter, k, step_size_glb, payloadSize, partySize);

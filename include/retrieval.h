@@ -354,10 +354,6 @@ void payloadRetrievalOptimizedwithWeights_omrtake3(vector<vector<vector<Cipherte
                     padded[ct_ind][k + paddedStart] += toAdd;
                 }
             }
-	    if (payload_index == 0) {
-	      cout << "payload: \n" << payloads[payload_index] << endl;
-	      cout << "***********************************\n" << padded[0] << "\n***********************************\n" << padded[1] << "\n***********************************\n";
-	    }
 
 	    for (int c = 0; c < (int) padded.size(); c++) {
 	        Plaintext plain_matrix;

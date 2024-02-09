@@ -187,26 +187,26 @@ void decodeIndicesRandom_opt(map<int, pair<int, int>>& pertinentIndices, const v
 }
 
 // Construct the RHS of the equations
-void formRhs(vector<vector<int>>& rhs, const vector<Ciphertext>& packedPayloads, const SecretKey& secret_key, const size_t& degree, const SEALContext& context,
-                         const int num_of_buckets = 64, const int payloadSlots = 306){ // or 306
+void formRhs(vector<vector<int>>& rhs, const vector<Ciphertext>& packedPayloads, const SecretKey& secret_key,
+	     const size_t& degree, const SEALContext& context, const int num_of_buckets = 64, const int payloadSlots = 306) {
     Decryptor decryptor(context, secret_key);
     BatchEncoder batch_encoder(context);
     vector<uint64_t> rhsint;
     
-    for(size_t i = 0; i < packedPayloads.size(); i++){
+    for (size_t i = 0; i < packedPayloads.size(); i++) {
         vector<uint64_t> temp(degree);
         Plaintext plain_result;
         decryptor.decrypt(packedPayloads[i], plain_result);
         batch_encoder.decode(plain_result, temp);
-        rhsint.insert(rhsint.end(), temp.begin(), temp.end());
+        rhsint.insert(rhsint.end(), temp.begin(), temp.begin() + default_bucket_num_glb * payloadSlots);
     }
-    
+
     rhs.resize(num_of_buckets);
-    for(int i = 0; i < num_of_buckets; i++){
+    for (int i = 0; i < num_of_buckets; i++) {
         rhs[i].resize(payloadSlots, 0);
     }
-    for(int i = 0; i < num_of_buckets; i++){
-        for(int j = 0; j < payloadSlots; j++){
+    for (int i = 0; i < num_of_buckets; i++) {
+        for (int j = 0; j < payloadSlots; j++) {
             rhs[i][j] = int(rhsint[i*payloadSlots + j]);
         }
     }
