@@ -1,4 +1,4 @@
-# PerfOMR (Oblivious Message Retrieval): proof of concept C++ implementation for OMR with Reduced Communication and Computation
+# PerfOMR: proof of concept C++ implementation for OMR (Oblivious Message Retrieval) with Reduced Communication and Computation
 
 
 ### Abstract:
