@@ -1118,9 +1118,9 @@ void FastRangeCheck_Random(SecretKey& sk, Ciphertext& output, const Ciphertext& 
     } else {
         vector<Ciphertext> kCTs(firstLevel), kToMCTs(secondLevel);
         calUptoDegreeK_bigPrime(kCTs, input, firstLevel, relin_keys, context, firstLevelMod, true);
-        cout << "   Noise after first level: " << decryptor.invariant_noise_budget(kCTs[kCTs.size()-1]) << " bits\n";
+        /* cout << "   Noise after first level: " << decryptor.invariant_noise_budget(kCTs[kCTs.size()-1]) << " bits\n"; */
         calUptoDegreeK_bigPrime(kToMCTs, kCTs[kCTs.size()-1], secondLevel, relin_keys, context, secondLevelMod, false);
-        cout << "   Noise after second level: " << decryptor.invariant_noise_budget(kToMCTs[kToMCTs.size()-1]) << " bits\n";
+        /* cout << "   Noise after second level: " << decryptor.invariant_noise_budget(kToMCTs[kToMCTs.size()-1]) << " bits\n"; */
 
         Ciphertext temp_relin(context);
 
@@ -1180,7 +1180,6 @@ Ciphertext rangeCheck_OPVW(SecretKey& sk, vector<Ciphertext>& output, const Reli
     batch_encoder.encode(intInd, pl);
 
     map<int, bool> raise_mod = {{4, false}, {16, false}, {64, false}, {256, false}};
-    cout << "\nWARNING, NO MOD FOR RAISE POWER.\n";
 
     chrono::high_resolution_clock::time_point s,e, s1, e1;
     s = chrono::high_resolution_clock::now();
@@ -1215,7 +1214,7 @@ Ciphertext rangeCheck_OPVW(SecretKey& sk, vector<Ciphertext>& output, const Reli
             e1 = chrono::high_resolution_clock::now();
             range_time += chrono::duration_cast<chrono::microseconds>(e1 - s1).count();
 
-            cout << "** Noise after net rangecheck: " << decryptor.invariant_noise_budget(res[j]) << endl;
+            /* cout << "** Noise after net rangecheck: " << decryptor.invariant_noise_budget(res[j]) << endl; */
 
             if (default_param_set) {
                 s1 = chrono::high_resolution_clock::now();
@@ -1239,8 +1238,8 @@ Ciphertext rangeCheck_OPVW(SecretKey& sk, vector<Ciphertext>& output, const Reli
     cout << "       range time: " << range_time << endl;
     cout << "       raise time: " << raise_time << endl;
 
-    cout << "** Noise after rangecheck before mod: " << decryptor.invariant_noise_budget(res[0]) << endl;
+    /* cout << "** Noise after rangecheck before mod: " << decryptor.invariant_noise_budget(res[0]) << endl; */
     evaluator.mod_switch_to_next_inplace(res[0]);
-    cout << "** Noise after rangecheck after mod: " << decryptor.invariant_noise_budget(res[0]) << endl;    
+    /* cout << "** Noise after rangecheck after mod: " << decryptor.invariant_noise_budget(res[0]) << endl;     */
     return res[0];
 }

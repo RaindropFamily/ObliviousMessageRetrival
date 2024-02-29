@@ -17,6 +17,9 @@ void OMR3_opt() {
     int numOfTransactions = numOfTransactions_glb;
     int half_party_size = ceil(((double) party_size_glb) / 2.0);
 
+    OMRthreeM = default_bucket_num_glb * (num_of_pertinent_msgs_glb / 50);
+    repeatition_glb = OMRthreeM;
+    cout << OMRthreeM << ", " << repeatition_glb;
     // cout << "half_party_size: " << half_party_size << endl;
     int payload_size = 306;
 
@@ -223,7 +226,7 @@ void OMR3_opt() {
 		s = chrono::high_resolution_clock::now();
                 packedSIC_temp = obtainPackedSICFromRingLWEClue(secret_key, SICPVW_multicore[i], rotated_switchingKey, relin_keys, gal_keys,
                                                                 poly_modulus_degree, context, params, poly_modulus_degree, default_param_set);
-                cout << "** Noise after phase 1: " << decryptor.invariant_noise_budget(packedSIC_temp) << endl;
+                /* cout << "** Noise after phase 1: " << decryptor.invariant_noise_budget(packedSIC_temp) << endl; */
 
                 /* decryptor.decrypt(packedSIC_temp, pl); */
                 /* batch_encoder.decode(pl, tm); */
@@ -249,8 +252,6 @@ void OMR3_opt() {
         }
     }
 
-    cout << t11 << ", " << t22 << endl;
-    
     /* decryptor.decrypt(packedSICfromPhase1[0][0], pl); */
     /* batch_encoder.decode(pl, tm); */
     /* for (int c = 0; c < (int) degree; c++) { */
@@ -376,13 +377,13 @@ void OMR3_opt() {
             if (!default_param_set) {
                 evaluator.mod_switch_to_next_inplace(packSIC_coeff);
             }
-            cout << "** Noise after slotToCoeff: " << decryptor.invariant_noise_budget(packSIC_coeff) << endl;
-            cout << "SIC plaintext after slotToCoeff: ------------------------------ \n";
-	    decryptor.decrypt(packSIC_coeff, pl);
-            for (int c = 0; c < 100; c++) {
-                cout << pl.data()[c] << " ";
-            }
-            cout << endl;
+            /* cout << "** Noise after slotToCoeff: " << decryptor.invariant_noise_budget(packSIC_coeff) << endl; */
+            /* cout << "SIC plaintext after slotToCoeff: ------------------------------ \n"; */
+	    /* decryptor.decrypt(packSIC_coeff, pl); */
+            /* for (int c = 0; c < 100; c++) { */
+            /*     cout << pl.data()[c] << " "; */
+            /* } */
+            /* cout << endl; */
 
             serverOperations3therest_obliviousExpansion(parms_expand, templhsctr, bipartite_map[i], temprhs, packSIC_coeff, payload_multicore[i],
 							relin_keys, gal_keys_expand, sk_expand, public_key_last, poly_modulus_degree, context_next,
@@ -425,8 +426,8 @@ void OMR3_opt() {
 	}
     }
 
-    cout << "** FINAL LHS NOISE before mod: " << decryptor.invariant_noise_budget(lhs_multi_ctr[0][0]) << endl;
-    cout << "** FINAL RHS NOISE before mod: " << decryptor.invariant_noise_budget(rhs_multi[0][0][0]) << endl;
+    /* cout << "** FINAL LHS NOISE before mod: " << decryptor.invariant_noise_budget(lhs_multi_ctr[0][0]) << endl; */
+    /* cout << "** FINAL RHS NOISE before mod: " << decryptor.invariant_noise_budget(rhs_multi[0][0][0]) << endl; */
     while(context.last_parms_id() != lhs_multi_ctr[0][0].parms_id()) {
         for(size_t q = 0; q < lhs_multi_ctr[0].size(); q++){
             evaluator.mod_switch_to_next_inplace(lhs_multi_ctr[0][q]);
@@ -439,8 +440,8 @@ void OMR3_opt() {
         }
       }
     }
-    cout << "** FINAL LHS NOISE after mod: " << decryptor.invariant_noise_budget(lhs_multi_ctr[0][0]) << endl;
-    cout << "** FINAL RHS NOISE after mod: " << decryptor.invariant_noise_budget(rhs_multi[0][0][0]) << endl;
+    /* cout << "** FINAL LHS NOISE after mod: " << decryptor.invariant_noise_budget(lhs_multi_ctr[0][0]) << endl; */
+    /* cout << "** FINAL RHS NOISE after mod: " << decryptor.invariant_noise_budget(rhs_multi[0][0][0]) << endl; */
 
 
     stringstream data_streamdg, data_streamdg2;
@@ -500,18 +501,18 @@ void OMR3_opt() {
 
     // above is for confirming the above two primes
     inverse_ntt_negacyclic_harvey(secret_key.data().data(), context.key_context_data()->small_ntt_tables()[0]);
-    for (int i = 0; i < 10; i++) {
-      cout << secret_key.data()[i] << " ";
-    }
-    cout << endl;
+    /* for (int i = 0; i < 10; i++) { */
+    /*   cout << secret_key.data()[i] << " "; */
+    /* } */
+    /* cout << endl; */
     seal::util::RNSIter new_key_rns(secret_key.data().data(), degree);
     ntt_negacyclic_harvey(new_key_rns, coeff_modulus.size(), context.key_context_data()->small_ntt_tables());
 
     inverse_ntt_negacyclic_harvey(secret_key_small.data().data(), seal_context_small.key_context_data()->small_ntt_tables()[0]);
-    for (int i = 0; i < 10; i++) {
-      cout << secret_key_small.data()[i] << " ";
-    }
-    cout << endl;
+    /* for (int i = 0; i < 10; i++) { */
+    /*   cout << secret_key_small.data()[i] << " "; */
+    /* } */
+    /* cout << endl; */
     seal::util::RNSIter new_key_rns_small(secret_key_small.data().data(), degree);
     ntt_negacyclic_harvey(new_key_rns_small, coeff_modulus_small.size(), seal_context_small.key_context_data()->small_ntt_tables());
 

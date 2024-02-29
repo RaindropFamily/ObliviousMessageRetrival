@@ -764,7 +764,7 @@ Ciphertext obtainPackedSICFromRingLWEClue(SecretKey& sk, vector<OPVWCiphertext>&
     e = chrono::high_resolution_clock::now();
     cout << "   computeBplusAS_OPVW time: " << chrono::duration_cast<chrono::microseconds>(e - s).count() << endl;
 
-    cout << "** Noise after b-aSK: " << decryptor.invariant_noise_budget(packedSIC[0]) << endl;
+    /* cout << "** Noise after b-aSK: " << decryptor.invariant_noise_budget(packedSIC[0]) << endl; */
 
     // int rangeToCheck = 20; // range check is from [-rangeToCheck, rangeToCheck-1]
     return rangeCheck_OPVW(sk, packedSIC, relin_keys, degree, context, params, default_param_set);
@@ -794,14 +794,14 @@ void serverOperations3therest_obliviousExpansion(EncryptionParameters& enc_param
     t1 += chrono::duration_cast<chrono::microseconds>(e1 - s1).count();
     vector<Ciphertext> partial_expandedSIC(step);
 
-    cout << "** Noise after first expand: " << decryptor.invariant_noise_budget(expanded_subtree_leaves[0]) << endl;
+    /* cout << "** Noise after first expand: " << decryptor.invariant_noise_budget(expanded_subtree_leaves[0]) << endl; */
 
     for (int i = counter; i < counter+numOfTransactions; i += step) {
         // step 1. expand PV
         s1 = chrono::high_resolution_clock::now();
         partial_expandedSIC = expand(context_expand, enc_param, expanded_subtree_leaves[k], poly_modulus_degree_glb, gal_keys, step);
 
-        if (i == 0) cout << "** Noise after second expansion: " << decryptor.invariant_noise_budget(partial_expandedSIC[0]) << endl;
+        /* if (i == 0) cout << "** Noise after second expansion: " << decryptor.invariant_noise_budget(partial_expandedSIC[0]) << endl; */
 
         for(size_t j = 0; j < partial_expandedSIC.size(); j++) {
             if(!partial_expandedSIC[j].is_ntt_form()) {
