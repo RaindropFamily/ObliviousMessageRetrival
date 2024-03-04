@@ -170,30 +170,32 @@ sudo make
 
 ```
 cd $LIBDIR
-# to run our main PerfOMR construction: for example, ./OMRdemos perfomr 2 32768 50
+# to run our main PerfOMR construction: for example: ./OMRdemos perfomr 2 32768 50
 sudo ./OMRdemos perfomr <number_of_bundled_msgs> <number_of_transactions> <number_of_pert_msgs>
 
 ```
 
 ### Sample Output
 ```
-Pertinent message indices: [ 764 947 1259 1405 2076 3180 3407 3680 3716 4248 6804 6816 7000 7595 8151 8798 10582 11205 11520 13473 14866 16211 16736 18241 19537 19635 19945 20004 21010 21083 21108 21125 21730 21820 21921 22157 23817 24212 24270 25437 26301 26453 28410 28817 29004 30590 31061 31092 32302 32542 ]
+Preparing database and paramaters...
+Pertient message indices: [ 3558 3683 3881 4099 4857 5142 5241 7165 7774 7806 8085 8375 8381 8597 8608 8769 9119 9960 10478 10689 10928 12291 12937 13238 15021 16730 16929 19011 19745 20384 21812 22398 22565 23523 23913 24844 24929 25352 25687 26401 27076 27309 27372 28726 30793 31006 31344 31838 32077 32215 ]
 /
 | Encryption parameters :
 |   scheme: BFV
 |   poly_modulus_degree: 32768
-|   coeff_modulus size: 905 (40 + 60 + 60 + 60 + 60 + 60 + 60 + 60 + 60 + 60 + 60 + 60 + 60 + 60 + 30 + 60) bits
+|   coeff_modulus size: 905 (35 + 60 + 60 + 60 + 60 + 60 + 60 + 60 + 60 + 60 + 60 + 60 + 60 + 60 + 30 + 60) bits
 |   plain_modulus: 65537
 \
-Pre-process switching key time: 264648861
-ClueToPackedPV time: 1681976481
-PVUnpack time: 1031540530
-ExpandedPVToDigest time: 1098344793
+Database and parameters prepared.
 
-Digest size: 789902 bytes
+Preprocess switching key time: 264900272 us.
+ClueToPackedPV time: 160386979 us.
+PVUnpack time: 675661388 us.
+ExpandedPVToDigest time: 218222953 us.
 
-Detector running time: 3831655159 us.
-Recipient running time: 70805 us.
+Detector running time: 965717410 us.
+Digest size: 568138 bytes
 
+Recipient running time: 25684 us.
 Result is correct!
 ```
