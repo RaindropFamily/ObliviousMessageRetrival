@@ -174,3 +174,26 @@ cd $LIBDIR
 sudo ./OMRdemos perfomr <number_of_bundled_msgs> <number_of_transactions> <number_of_pert_msgs>
 
 ```
+
+### Sample Output
+```
+Pertinent message indices: [ 764 947 1259 1405 2076 3180 3407 3680 3716 4248 6804 6816 7000 7595 8151 8798 10582 11205 11520 13473 14866 16211 16736 18241 19537 19635 19945 20004 21010 21083 21108 21125 21730 21820 21921 22157 23817 24212 24270 25437 26301 26453 28410 28817 29004 30590 31061 31092 32302 32542 ]
+/
+| Encryption parameters :
+|   scheme: BFV
+|   poly_modulus_degree: 32768
+|   coeff_modulus size: 905 (40 + 60 + 60 + 60 + 60 + 60 + 60 + 60 + 60 + 60 + 60 + 60 + 60 + 60 + 30 + 60) bits
+|   plain_modulus: 65537
+\
+Pre-process switching key time: 264648861
+ClueToPackedPV time: 1681976481
+PVUnpack time: 1031540530
+ExpandedPVToDigest time: 1098344793
+
+Digest size: 789902 bytes
+
+Detector running time: 3831655159 us.
+Recipient running time: 70805 us.
+
+Result is correct!
+```
