@@ -100,7 +100,7 @@ The OMR library relies on the following:
 
 - C++ build environment
 - CMake build infrastructure
-- [SEAL](https://github.com/microsoft/SEAL) library 3.6 or 3.7 and all its dependencies
+- [SEAL](https://github.com/microsoft/SEAL) library 3.6 or 3.7 and all its dependencies (Notice that we made some manual change on SEAL interfaces to facilitate our implementation and thus a built-in dependency of SEAL is directly included under 'build' directory)
 - [PALISADE](https://gitlab.com/palisade/palisade-release) library release v1.11.2 and all its dependencies (as v1.11.2 is not publicly available anymore when this repository is made public, we use v1.11.3 in the instructions instead)
 - [NTL](https://libntl.org/) library 11.4.3 and all its dependencies
 - [OpenSSL](https://github.com/openssl/openssl) library on branch OpenSSL_1_1_1-stable
@@ -146,13 +146,6 @@ sudo make install
 cd $OMRDIR && git clone --branch 1.2.3 https://github.com/intel/hexl
 cd hexl
 cmake -S . -B build -DCMAKE_INSTALL_PREFIX=$LIBDIR
-cmake --build build
-sudo cmake --install build
-
-cd $OMRDIR && git clone https://github.com/microsoft/SEAL
-cd SEAL
-cmake -S . -B build -DCMAKE_INSTALL_PREFIX=$LIBDIR \
--DSEAL_USE_INTEL_HEXL=ON 
 cmake --build build
 sudo cmake --install build
 
