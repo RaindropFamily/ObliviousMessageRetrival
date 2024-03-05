@@ -17,6 +17,10 @@ void OMR3_opt() {
     int numOfTransactions = numOfTransactions_glb;
     int half_party_size = ceil(((double) party_size_glb) / 2.0);
 
+    OMRthreeM = default_bucket_num_glb * (num_of_pertinent_msgs_glb / 50);
+    repeatition_glb = OMRthreeM;
+    cout << OMRthreeM << ", " << repeatition_glb;
+
     // cout << "half_party_size: " << half_party_size << endl;
     int payload_size = 306;
 
