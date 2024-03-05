@@ -124,7 +124,7 @@ mkdir -p $OMRDIR
 # Now put PERFOMR_code.zip file is in ~/OMR
 # For example, if using GCP instance
 # Upload PERFOMR_code.zip and then do: mv PERFOMR_code.zip ~/OMR
-cd $OMRDIR && unzip PERFOMR_code.zip -d ObliviousMessageRetrieval
+cd $OMRDIR && unzip PERFOMR_code.zip
 LIBDIR=$OMRDIR/ObliviousMessageRetrieval/build
 
 cd $OMRDIR && git clone -b v1.11.3 https://gitlab.com/palisade/palisade-release
