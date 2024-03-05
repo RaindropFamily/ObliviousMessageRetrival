@@ -306,13 +306,19 @@ void payloadPackingOptimized(Ciphertext& result, const vector<vector<Ciphertext>
 }
 
 
-void payloadRetrievalOptimizedwithWeights_omrtake3(vector<vector<Ciphertext>>& results, const vector<vector<uint64_t>>& payloads, const vector<vector<int>>& bipartite_map,
+void payloadRetrievalOptimizedwithWeights_omrtake3(vector<vector<vector<Ciphertext>>>& results, const vector<vector<uint64_t>>& payloads, const vector<vector<int>>& bipartite_map,
                                           vector<vector<int>>& weights, const vector<Ciphertext>& SIC, const SEALContext& context, const size_t& degree = 32768,
                                           const size_t& start = 0, const size_t& local_start = 0, int expand_bucket_index = 0, int step_size = 32768,
                                           const int payloadSize = 306, int party_size = party_size_glb){ // TODOmulti: can be multithreaded extremely easily
     Evaluator evaluator(context);
     BatchEncoder batch_encoder(context);
-    results.resize(SIC.size());
+
+    // number of ciphertexts needed to encode all buckets, for x*53 buckets, x ciphertexts needed
+    int num_ct_for_buckets = ((int) bipartite_map[0].size()) / default_bucket_num_glb;
+    results.resize(num_ct_for_buckets);
+    for (int i = 0; i < num_ct_for_buckets; i++) {
+        results[i].resize(SIC.size());
+    }
 
     int gap = degree / step_size;
 
@@ -326,7 +332,9 @@ void payloadRetrievalOptimizedwithWeights_omrtake3(vector<vector<Ciphertext>>& r
     uint64_t total_party_time = 0;
 
     for (size_t i = 0; i < SIC.size(); i++) {
-        results[i].resize(party_size);
+        for (int c = 0; c < num_ct_for_buckets; c++) {
+	    results[c][i].resize(party_size);
+	}
 
         int bipart_map_index = i*gap + new_start;
         int tmp_payload_index = i*gap + new_local_start;
@@ -334,21 +342,29 @@ void payloadRetrievalOptimizedwithWeights_omrtake3(vector<vector<Ciphertext>>& r
 	s1 = chrono::high_resolution_clock::now();
         for (int h = 0; h < party_size; h++) {
             int payload_index = tmp_payload_index * party_size + h;
-            vector<uint64_t> padded(degree, 0);
+	    vector<vector<uint64_t>> padded(num_ct_for_buckets);
+	    for (int c = 0; c < (int) padded.size(); c++) {
+	        padded[c].resize(degree, 0);
+	    }
 
             for (size_t j = 0; j < bipartite_map[bipart_map_index].size(); j++) {
-                auto paddedStart = bipartite_map[bipart_map_index][j] * payloadSize;
+	        int bucket_ind = bipartite_map[bipart_map_index][j];
+		int ct_ind = bucket_ind / default_bucket_num_glb;
+
+                auto paddedStart = (bucket_ind % default_bucket_num_glb) * payloadSize;
                 for (size_t k = 0; k < payloads[payload_index].size(); k++) {
                     auto toAdd = payloads[payload_index][k] * weights[bipart_map_index][j];
                     toAdd %= 65537;
-                    padded[k + paddedStart] += toAdd;
+                    padded[ct_ind][k + paddedStart] += toAdd;
                 }
             }
-            Plaintext plain_matrix;
-            batch_encoder.encode(padded, plain_matrix);
-            evaluator.transform_to_ntt_inplace(plain_matrix, SIC[i].parms_id());
+	    for (int c = 0; c < (int) padded.size(); c++) {
+	        Plaintext plain_matrix;
+	        batch_encoder.encode(padded[c], plain_matrix);
+	        evaluator.transform_to_ntt_inplace(plain_matrix, SIC[i].parms_id());
 
-            evaluator.multiply_plain(SIC[i], plain_matrix, results[i][h]);  
+	        evaluator.multiply_plain(SIC[i], plain_matrix, results[c][i][h]);
+	    }
         }
 	e1 = chrono::high_resolution_clock::now();
 	total_party_time += chrono::duration_cast<chrono::microseconds>(e1 - s1).count();
@@ -356,17 +372,19 @@ void payloadRetrievalOptimizedwithWeights_omrtake3(vector<vector<Ciphertext>>& r
 }
 
 // use only addition to pack
-void payloadPackingOptimized_omrtake3(vector<Ciphertext>& result, const vector<vector<Ciphertext>>& payloads, const vector<vector<int>>& bipartite_map,
+void payloadPackingOptimized_omrtake3(vector<vector<Ciphertext>>& result, const vector<vector<vector<Ciphertext>>>& payloads, const vector<vector<int>>& bipartite_map,
                                       const size_t& degree, const SEALContext& context, const size_t& start = 0) {
     Evaluator evaluator(context);
 
-    for (size_t i = 0; i < payloads[0].size(); i++) {
-        for (size_t j = 0; j < payloads.size(); j++) {
-            if (j == 0 && (start%degree) == 0) {
-                result[i] = payloads[j][i];
-            } else {
-                evaluator.add_inplace(result[i], payloads[j][i]); 
-            }
-        }
+    for (int c = 0; c < (int) payloads.size(); c++) {
+      for (size_t i = 0; i < payloads[0][0].size(); i++) {
+        for (size_t j = 0; j < payloads[0].size(); j++) {
+	  if (j == 0 && (start%degree) == 0) {
+	    result[c][i] = payloads[c][j][i];
+	  } else {
+	    evaluator.add_inplace(result[c][i], payloads[c][j][i]); 
+	  }
+	}
+      }
     }
 }

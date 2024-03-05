@@ -198,7 +198,8 @@ void formRhs(vector<vector<int>>& rhs, const vector<Ciphertext>& packedPayloads,
         Plaintext plain_result;
         decryptor.decrypt(packedPayloads[i], plain_result);
         batch_encoder.decode(plain_result, temp);
-        rhsint.insert(rhsint.end(), temp.begin(), temp.end());
+        // rhsint.insert(rhsint.end(), temp.begin(), temp.end());
+	rhsint.insert(rhsint.end(), temp.begin(), temp.begin() + default_bucket_num_glb * payloadSlots);
     }
     
     rhs.resize(num_of_buckets);

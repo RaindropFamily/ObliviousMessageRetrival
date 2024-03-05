@@ -28,7 +28,7 @@ void choosePertinentMsg(int numOfTransactions, int pertinentMsgNum, vector<int>&
     sort(pertinentMsgIndices.begin(), pertinentMsgIndices.end());
     /* pertinentMsgIndices.push_back(10); */
 
-    cout << "Expected Message Indices: " << pertinentMsgIndices << endl;
+    /* cout << "Expected Message Indices: " << pertinentMsgIndices << endl; */
 }
 
 
@@ -741,8 +741,6 @@ vector<vector<uint64_t>> preparingTransactionsFormal_opt(vector<int>& pertinentM
     pertinentMsgIndices = p_reduced;
 
 
-    cout << tt << ", " << tt/ p_reduced.size() << endl;
-
     return ret;
 }
 
@@ -758,9 +756,9 @@ Ciphertext obtainPackedSICFromRingLWEClue(SecretKey& sk, vector<OPVWCiphertext>&
     s = chrono::high_resolution_clock::now();
     computeBplusAS_OPVW(packedSIC, SICPVW, switchingKey, gal_keys, context, params, default_param_set);
     e = chrono::high_resolution_clock::now();
-    cout << "   computeBplusAS_OPVW time: " << chrono::duration_cast<chrono::microseconds>(e - s).count() << endl;
+    /* cout << "   computeBplusAS_OPVW time: " << chrono::duration_cast<chrono::microseconds>(e - s).count() << endl; */
 
-    cout << "** Noise after b-aSK: " << decryptor.invariant_noise_budget(packedSIC[0]) << endl;
+    /* cout << "** Noise after b-aSK: " << decryptor.invariant_noise_budget(packedSIC[0]) << endl; */
 
     // int rangeToCheck = 20; // range check is from [-rangeToCheck, rangeToCheck-1]
     return rangeCheck_OPVW(sk, packedSIC, relin_keys, degree, context, params, default_param_set);
@@ -769,7 +767,7 @@ Ciphertext obtainPackedSICFromRingLWEClue(SecretKey& sk, vector<OPVWCiphertext>&
 
 // Phase 2, retrieving for OMR take 3
 void serverOperations3therest_obliviousExpansion(EncryptionParameters& enc_param, vector<Ciphertext>& lhsCounter, vector<vector<int>>& bipartite_map,
-                                                 vector<Ciphertext>& rhs, Ciphertext& packedSIC, const vector<vector<uint64_t>>& payload,
+                                                 vector<vector<Ciphertext>>& rhs, Ciphertext& packedSIC, const vector<vector<uint64_t>>& payload,
                                                  const RelinKeys& relin_keys, const GaloisKeys& gal_keys, const SecretKey& secretKey,
                                                  const PublicKey& public_key, const size_t& degree, const SEALContext& context_next,
                                                  const SEALContext& context_expand, const int numOfTransactions, int& counter, int numberOfCt = 1,
@@ -780,7 +778,7 @@ void serverOperations3therest_obliviousExpansion(EncryptionParameters& enc_param
     Decryptor decryptor(context_expand, secretKey);
     // BatchEncoder batch_encoder(context_expand);
 
-    cout << "NOISE RIGHT BEFORE EXPANSION: " << decryptor.invariant_noise_budget(packedSIC) << endl;
+    /* cout << "NOISE RIGHT BEFORE EXPANSION: " << decryptor.invariant_noise_budget(packedSIC) << endl; */
 
     chrono::high_resolution_clock::time_point s1, e1, s2, e2;
     int t1 = 0, t2 = 0;
@@ -795,14 +793,14 @@ void serverOperations3therest_obliviousExpansion(EncryptionParameters& enc_param
     t1 += chrono::duration_cast<chrono::microseconds>(e1 - s1).count();
     vector<Ciphertext> partial_expandedSIC(step);
 
-    cout << "** Noise after first expand: " << decryptor.invariant_noise_budget(expanded_subtree_leaves[0]) << endl;
+    /* cout << "** Noise after first expand: " << decryptor.invariant_noise_budget(expanded_subtree_leaves[0]) << endl; */
 
     for (int i = counter; i < counter+numOfTransactions; i += step) {
         // step 1. expand PV
         s1 = chrono::high_resolution_clock::now();
         partial_expandedSIC = expand(context_expand, enc_param, expanded_subtree_leaves[k], poly_modulus_degree_glb, gal_keys, step);
 
-        if (i == 0) cout << "** Noise after second expansion: " << decryptor.invariant_noise_budget(partial_expandedSIC[0]) << endl;
+        /* if (i == 0) cout << "** Noise after second expansion: " << decryptor.invariant_noise_budget(partial_expandedSIC[0]) << endl; */
 
         for(size_t j = 0; j < partial_expandedSIC.size(); j++) {
             if(!partial_expandedSIC[j].is_ntt_form()) {
@@ -820,7 +818,7 @@ void serverOperations3therest_obliviousExpansion(EncryptionParameters& enc_param
                                      step_size_glb, k);
         // step 3-4. multiply weights and pack them
         // The following two steps are for streaming updates
-        vector<vector<Ciphertext>> payloadUnpacked;
+        vector<vector<vector<Ciphertext>>> payloadUnpacked;
 	if (concate) {
 	  payloadRetrievalOptimizedwithWeights_omrtake3(payloadUnpacked, payload, bipartite_map_glb, weights_glb, partial_expandedSIC,
                                                         context_next, degree, i, i-counter, k, step_size_glb, payloadSize*2, half_party_size);
@@ -839,10 +837,12 @@ void serverOperations3therest_obliviousExpansion(EncryptionParameters& enc_param
     for(size_t i = 0; i < lhsCounter.size(); i++){
             evaluator.transform_from_ntt_inplace(lhsCounter[i]);
     }
-    for (int i = 0; i < (int) rhs.size(); i++) {
-        if (rhs[i].is_ntt_form()) {
-            evaluator.transform_from_ntt_inplace(rhs[i]);
-        }
+    for (int c = 0; c < (int) rhs.size(); c++) {
+        for (int i = 0; i < (int) rhs[0].size(); i++) {
+            if (rhs[c][i].is_ntt_form()) {
+	       evaluator.transform_from_ntt_inplace(rhs[c][i]);
+	    }
+	}
     }
     
     counter += numOfTransactions;
@@ -850,22 +850,24 @@ void serverOperations3therest_obliviousExpansion(EncryptionParameters& enc_param
     t2 += chrono::duration_cast<chrono::microseconds>(e2 - s2).count();
 
 
-    cout << "Unpack PV time: " << t1 << endl;
-    cout << "digest encoding time: " << t2 << endl;
+    unpack_pv_time += t1;
+    digest_encode_time += t2;
+    /* cout << "Unpack PV time: " << t1 << endl; */
+    /* cout << "digest encoding time: " << t2 << endl; */
 }
 
-vector<vector<long>> receiverDecodingOMR3_omrtake3(vector<Ciphertext>& lhsCounter, vector<vector<int>>& bipartite_map, vector<Ciphertext>& rhsEnc,
+vector<vector<long>> receiverDecodingOMR3_omrtake3(vector<Ciphertext>& lhsCounter, vector<vector<int>>& bipartite_map, vector<vector<vector<Ciphertext>>>& rhsEnc,
                                                    const size_t& degree, const SecretKey& secret_key, const SEALContext& context,
                                                    const int numOfTransactions, int partySize = 1, int halfPartySize = 1, int slot_per_bucket = 3,
                                                    const int payloadSize = 306) {
     // 1. find pertinent indices
     map<int, pair<int, int>> pertinentIndices;
     decodeIndicesRandom_opt(pertinentIndices, lhsCounter, secret_key, context, partySize, slot_per_bucket);
-    for (map<int, pair<int, int>>::iterator it = pertinentIndices.begin(); it != pertinentIndices.end(); it++)
-    {
-        cout << it->first << "," << it->second.second << "  ";
-    }
-    cout << std::endl;
+    /* for (map<int, pair<int, int>>::iterator it = pertinentIndices.begin(); it != pertinentIndices.end(); it++) */
+    /* { */
+    /*     cout << it->first << "," << it->second.second << "  "; */
+    /* } */
+    /* cout << std::endl; */
 
     // 2. forming lhs
     vector<vector<int>> lhs;
@@ -875,8 +877,11 @@ vector<vector<long>> receiverDecodingOMR3_omrtake3(vector<Ciphertext>& lhsCounte
 
     for (int i = 0; i < halfPartySize; i++) {
         // 3. forming rhs
-        vector<Ciphertext> rhsEncVec{rhsEnc[i]};
-        vector<vector<int>> rhs;
+        vector<Ciphertext> rhsEncVec;
+	for (int c = 0; c < (int) rhsEnc.size(); c++) {
+	  rhsEncVec.push_back(rhsEnc[c][0][i]);
+	}
+	vector<vector<int>> rhs;
         formRhs(rhs, rhsEncVec, secret_key, degree, context, OMRthreeM, payloadSize);
 
         vector<vector<int>> temp_lhs = lhs;
@@ -926,12 +931,12 @@ Ciphertext obtainPackedSIC_dos(SecretKey& sk, vector<srPKECiphertext>& SICPVW, v
     s = chrono::high_resolution_clock::now();
     computeBplusAS_dos(sk, packedSIC, SICPVW, switchingKey, gal_keys, context, params);
     e = chrono::high_resolution_clock::now();
-    cout << "   computeBplusAS_dos time: " << chrono::duration_cast<chrono::microseconds>(e - s).count() << endl;
+    /* cout << "   computeBplusAS_dos time: " << chrono::duration_cast<chrono::microseconds>(e - s).count() << endl; */
 
     for (int i = 0; i < (int) packedSIC.size(); i++) {
       evaluator.mod_switch_to_next_inplace(packedSIC[i]);
     }
-    cout << "** Noise after b-aSK: " << decryptor.invariant_noise_budget(packedSIC[0]) << endl;
+    /* cout << "** Noise after b-aSK: " << decryptor.invariant_noise_budget(packedSIC[0]) << endl; */
 
     // int rangeToCheck = 20; // range check is from [-rangeToCheck, rangeToCheck-1]
     return rangeCheck_dos(sk, packedSIC, relin_keys, degree, context, params);

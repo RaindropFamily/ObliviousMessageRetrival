@@ -20,10 +20,13 @@ void OMR3_opt() {
     // cout << "half_party_size: " << half_party_size << endl;
     int payload_size = 306;
 
+    int num_ct_for_buckets = OMRthreeM / default_bucket_num_glb;
+
+    cout << "Preparing database and paramaters...\n";
     // pack each two message into one bfv ciphertext, since 306*2*50 < ring_dim = 32768, where 50 is the upper bound of # pertinent messages
-    /* createDatabase(numOfTransactions * half_party_size, payload_size*2); */
+    createDatabase(numOfTransactions * half_party_size, payload_size*2);
     /* createDatabase(numOfTransactions * party_size_glb, payload_size); */
-    cout << "Finishing createDatabase\n";
+    /* cout << "Finishing createDatabase\n"; */
 
     // step 1. generate OPVW sk
     // recipient side
@@ -33,20 +36,16 @@ void OMR3_opt() {
     }
 
     auto sk = OPVWGenerateSecretKey(params);
-    
     auto pk = OPVWGeneratePublicKey(params, sk);
-
-    cout << endl;
-    cout << "Finishing generating sk for OPVW cts\n";
 
     // step 2. prepare transactions
     vector<int> pertinentMsgIndices;
     auto expected = preparingTransactionsFormal_opt(pertinentMsgIndices, pk, numOfTransactions, num_of_pertinent_msgs_glb,  params);
     /* vector<vector<uint64_t>> expected = {{0}}; */
-    saveClues_opt_attack(params, 0);
+    /* saveClues_opt_attack(params, 0); */
 
-    cout << expected.size() << " pertinent msg: Finishing preparing messages\n";
-    cout << "Perty: "<< pertinentMsgIndices << endl;
+    /* cout << expected.size() << " pertinent msg: Finishing preparing messages\n"; */
+    cout << "Pertient message indices: "<< pertinentMsgIndices << endl;
 
     // step 3. generate detection key
     // recipient side
@@ -58,7 +57,7 @@ void OMR3_opt() {
                                                                      60, 60, 60, 60,
                                                                      60, 60, 60});
     if (default_param_set) {
-        coeff_modulus = CoeffModulus::Create(poly_modulus_degree, { 40, 60, 60, 60,
+        coeff_modulus = CoeffModulus::Create(poly_modulus_degree, { 40, 55, 60, 60,
                                                                     60, 60, 60, 60,
                                                                     60, 60, 60, 60,
                                                                     60, 60, 30, 60});
@@ -74,7 +73,7 @@ void OMR3_opt() {
     parms.set_random_generator(rng);
 
     SEALContext context(parms, true, sec_level_type::none);
-    cout << "primitive root: " << context.first_context_data()->plain_ntt_tables()->get_root() << endl;
+    /* cout << "primitive root: " << context.first_context_data()->plain_ntt_tables()->get_root() << endl; */
     print_parameters(context); 
     KeyGenerator keygen(context);
     SecretKey secret_key = keygen.secret_key();
@@ -105,9 +104,7 @@ void OMR3_opt() {
     GaloisKeys gal_keys, gal_keys_slotToCoeff, gal_keys_expand;
     vector<int> stepsfirst = {1};
     // only one rot key is needed for full level
-    cout << "Steps: " << stepsfirst << endl;
     keygen.create_galois_keys(stepsfirst, gal_keys);
-    cout << "Created.\n";
 
     /////////////////////////////////////////////////////////////// Rot Key gen
     vector<int> steps = {0};
@@ -115,7 +112,7 @@ void OMR3_opt() {
 	    steps.push_back(i);
     }
 
-    cout << "Finishing generating detection keys\n";
+    /* cout << "Finishing generating detection keys\n"; */
 
     /////////////////////////////////////// Level specific keys
     vector<Modulus> coeff_modulus_next = coeff_modulus;
@@ -162,6 +159,8 @@ void OMR3_opt() {
 
     PublicKey public_key_last;
     keygen_next.create_public_key(public_key_last);
+
+    cout << "Database and parameters prepared.\n\n";
     
     ////////////////////////////////////////////////////
 
@@ -195,20 +194,20 @@ void OMR3_opt() {
         evaluator.transform_to_ntt_inplace(rotated_switchingKey[i]);
     }
     e = chrono::high_resolution_clock::now();
-    cout << "Prepare switching key time: " << chrono::duration_cast<chrono::microseconds>(e - s).count() << endl;
+    cout << "Preprocess switching key time: " << chrono::duration_cast<chrono::microseconds>(e - s).count() << " us." << endl;
 
     time_start = chrono::high_resolution_clock::now();
 
     NTL_EXEC_RANGE(numcores, first, last);
     chrono::high_resolution_clock::time_point s1, e1;
-    int t11 = 0, t22 = 0;
+    int t11 = 0, t22 = 0, bb_to_pv = 0;
     for(int i = first; i < last; i++){
         counter[i] = numOfTransactions/numcores*i;
         
         size_t j = 0;
         while(j < numOfTransactions/numcores/poly_modulus_degree) {
-            if(!i)
-                cout << "Phase 1, Core " << i << ", Batch " << j << endl;
+            /* if(!i) */
+                /* cout << "Phase 1, Core " << i << ", Batch " << j << endl; */
 
             Ciphertext packedSIC_temp;
             s1 = chrono::high_resolution_clock::now();
@@ -222,7 +221,7 @@ void OMR3_opt() {
 		s = chrono::high_resolution_clock::now();
                 packedSIC_temp = obtainPackedSICFromRingLWEClue(secret_key, SICPVW_multicore[i], rotated_switchingKey, relin_keys, gal_keys,
                                                                 poly_modulus_degree, context, params, poly_modulus_degree, default_param_set);
-                cout << "** Noise after phase 1: " << decryptor.invariant_noise_budget(packedSIC_temp) << endl;
+                /* cout << "** Noise after phase 1: " << decryptor.invariant_noise_budget(packedSIC_temp) << endl; */
 
                 /* decryptor.decrypt(packedSIC_temp, pl); */
                 /* batch_encoder.decode(pl, tm); */
@@ -244,12 +243,12 @@ void OMR3_opt() {
             counter[i] += poly_modulus_degree;
             SICPVW_multicore[i].clear();
             e1 = chrono::high_resolution_clock::now();
-            cout << "BB to PV time: " << chrono::duration_cast<chrono::microseconds>(e1 - s1).count() << endl;
+	    bb_to_pv += chrono::duration_cast<chrono::microseconds>(e1 - s1).count();
+            /* cout << "BB to PV time: " << chrono::duration_cast<chrono::microseconds>(e1 - s1).count() << endl; */
         }
     }
 
-    cout << t11 << ", " << t22 << endl;
-    
+    cout << "ClueToPackedPV time: " << bb_to_pv << " us.\n";
     /* decryptor.decrypt(packedSICfromPhase1[0][0], pl); */
     /* batch_encoder.decode(pl, tm); */
     /* for (int c = 0; c < (int) degree; c++) { */
@@ -269,7 +268,10 @@ void OMR3_opt() {
 
     // step 4. detector operations
     vector<vector<Ciphertext>> lhs_multi_ctr(numcores);
-    vector<vector<Ciphertext>> rhs_multi(numcores, vector<Ciphertext>(half_party_size));
+    vector<vector<vector<Ciphertext>>> rhs_multi(num_ct_for_buckets);
+    for (int c = 0; c < (int) num_ct_for_buckets; c++) {
+      rhs_multi[c].resize(numcores, vector<Ciphertext>(half_party_size));
+    }
     vector<vector<vector<int>>> bipartite_map(numcores);
 
     for (auto &i : seed_glb) {
@@ -281,12 +283,12 @@ void OMR3_opt() {
     int encode_bit = ceil(log2(party_size_glb + 1));
     int index_bit = log2(numOfTransactions_glb);
     int acc_slots = ceil(encode_bit * index_bit / (16.0));
-    cout << "Acc slots: " << encode_bit << " " << index_bit << " " << acc_slots << endl;
+    /* cout << "Acc slots: " << encode_bit << " " << index_bit << " " << acc_slots << endl; */
     int number_of_ct = ceil(repetition_glb * (acc_slots+1) * num_bucket_glb / ((poly_modulus_degree_glb / num_bucket_glb / (acc_slots+1) * (acc_slots+1) * num_bucket_glb) * 1.0));
-    cout << "number of ct: " << number_of_ct << endl;
+    /* cout << "number of ct: " << number_of_ct << endl; */
     
     uint64_t inv = modInverse(degree, t);
-    cout << "Inv: " << inv << endl;
+    /* cout << "Inv: " << inv << endl; */
 
     int sq_ct = sqrt(degree/2);
     /* s = chrono::high_resolution_clock::now(); */
@@ -328,10 +330,13 @@ void OMR3_opt() {
 
         while(j < numOfTransactions/numcores/poly_modulus_degree){
             if(!i)
-                cout << "Phase 2-3, Core " << i << ", Batch " << j << endl;
-            loadPackedData(payload_multicore[i], counter[i], counter[i]+poly_modulus_degree, payload_size, half_party_size);
+                /* cout << "Phase 2-3, Core " << i << ", Batch " << j << endl; */
+            loadPackedData(payload_multicore[i], counter[i], counter[i]+poly_modulus_degree, payload_size*2, half_party_size);
             vector<Ciphertext> templhsctr;
-            vector<Ciphertext> temprhs(half_party_size);
+	    vector<vector<Ciphertext>> temprhs(num_ct_for_buckets);
+	    for (int c = 0; c < (int) num_ct_for_buckets; c++) {
+	      temprhs[c].resize(half_party_size);
+	    }
 	    
             Ciphertext curr_PackSIC(packedSICfromPhase1[i][j]);
             s1 = chrono::high_resolution_clock::now();
@@ -352,8 +357,8 @@ void OMR3_opt() {
             
             /* Ciphertext packSIC_coeff = slotToCoeff(context, context_next, packSIC_sqrt_list, U_plain_list, */
             /*                                        gal_keys_slotToCoeff, 128, degree); */
-            Ciphertext packSIC_coeff = slotToCoeff_WOPrepreocess(context, context_next, packSIC_sqrt_list,
-                                                                 gal_keys_slotToCoeff, 128, degree, t, inv);
+            Ciphertext packSIC_coeff = slotToCoeff_WOPrepreocess_time(context, context_next, packSIC_sqrt_list,
+								      gal_keys_slotToCoeff, process_u_time, 128, degree, t, inv);
 
     	    /* Ciphertext packSIC_coeff; */
     	    /* plainInd.data()[i] = 65535; */
@@ -364,18 +369,19 @@ void OMR3_opt() {
     	    /* } */
 
 	    e1 = chrono::high_resolution_clock::now();
-            cout << "SlotToCoeff time: " << chrono::duration_cast<chrono::microseconds>(e1 - s1).count() << endl;
+	    unpack_pv_time += chrono::duration_cast<chrono::microseconds>(e1 - s1).count();
+            /* cout << "SlotToCoeff time: " << chrono::duration_cast<chrono::microseconds>(e1 - s1).count() << endl; */
             /* decryptor.decrypt(packSIC_coeff, pl); */
             /* if (!default_param_set) { */
             /*     evaluator.mod_switch_to_next_inplace(packSIC_coeff); */
             /* } */
-            cout << "** Noise after slotToCoeff: " << decryptor.invariant_noise_budget(packSIC_coeff) << endl;
-            cout << "SIC plaintext after slotToCoeff: ------------------------------ \n";
-	    decryptor.decrypt(packSIC_coeff, pl);
-            for (int c = 0; c < 100; c++) {
-                cout << pl.data()[c] << " ";
-            }
-            cout << endl;
+            /* cout << "** Noise after slotToCoeff: " << decryptor.invariant_noise_budget(packSIC_coeff) << endl; */
+            /* cout << "SIC plaintext after slotToCoeff: ------------------------------ \n"; */
+	    /* decryptor.decrypt(packSIC_coeff, pl); */
+            /* for (int c = 0; c < 100; c++) { */
+            /*     cout << pl.data()[c] << " "; */
+            /* } */
+            /* cout << endl; */
 
             serverOperations3therest_obliviousExpansion(parms_expand, templhsctr, bipartite_map[i], temprhs, packSIC_coeff, payload_multicore[i],
 							relin_keys, gal_keys_expand, sk_expand, public_key_last, poly_modulus_degree, context_next, context_expand,
@@ -383,16 +389,20 @@ void OMR3_opt() {
 
             if(j == 0){
                 lhs_multi_ctr[i] = templhsctr;
-                for (int m = 0; m < (int) temprhs.size(); m++) {
-                    rhs_multi[i][m] = temprhs[m];
-                }
+		for (int c = 0; c < (int) num_ct_for_buckets; c++) {
+		  for (int m = 0; m < (int) temprhs[0].size(); m++) {
+                    rhs_multi[c][i][m] = temprhs[c][m];
+		  }
+		}
             } else {
                 for(size_t q = 0; q < lhs_multi_ctr[i].size(); q++){
                     evaluator.add_inplace(lhs_multi_ctr[i][q], templhsctr[q]);
                 }
-                for (int m = 0; m < (int) temprhs.size(); m++) {
-                    evaluator.add_inplace(rhs_multi[i][m], temprhs[m]);
-                }
+		for (int c = 0; c < (int) num_ct_for_buckets; c++) {
+		  for (int m = 0; m < (int) temprhs[0].size(); m++) {
+                    evaluator.add_inplace(rhs_multi[c][i][m], temprhs[c][m]);
+		  }
+		}
             }
             j++;
             payload_multicore[i].clear();
@@ -406,36 +416,47 @@ void OMR3_opt() {
         for (size_t q = 0; q < lhs_multi_ctr[i].size(); q++) {
             evaluator.add_inplace(lhs_multi_ctr[0][q], lhs_multi_ctr[i][q]);
         }
-        for (int m = 0; m < half_party_size; m++) {
-            evaluator.add_inplace(rhs_multi[0][m], rhs_multi[i][m]);
-        }
+	for (int c = 0; c < (int) num_ct_for_buckets; c++) {
+	  for (int m = 0; m < half_party_size; m++) {
+            evaluator.add_inplace(rhs_multi[c][0][m], rhs_multi[c][i][m]);
+	  }
+	}
     }
 
-    cout << "** FINAL LHS NOISE before mod: " << decryptor.invariant_noise_budget(lhs_multi_ctr[0][0]) << endl;
-    cout << "** FINAL RHS NOISE before mod: " << decryptor.invariant_noise_budget(rhs_multi[0][0]) << endl;
+    /* cout << "Process U time: " << process_u_time << " us.\n"; */
+    cout << "PVUnpack time: " << unpack_pv_time - process_u_time << " us.\n";
+    cout << "ExpandedPVToDigest time: " << digest_encode_time << " us.\n";
+
+
+    /* cout << "** FINAL LHS NOISE before mod: " << decryptor.invariant_noise_budget(lhs_multi_ctr[0][0]) << endl; */
+    /* cout << "** FINAL RHS NOISE before mod: " << decryptor.invariant_noise_budget(rhs_multi[0][0][0]) << endl; */
     while(context.last_parms_id() != lhs_multi_ctr[0][0].parms_id()) {
         for(size_t q = 0; q < lhs_multi_ctr[0].size(); q++){
             evaluator.mod_switch_to_next_inplace(lhs_multi_ctr[0][q]);
         }
     }
-    while(context.last_parms_id() != rhs_multi[0][0].parms_id()) {
+    while(context.last_parms_id() != rhs_multi[0][0][0].parms_id()) {
+      for (int c = 0; c < (int) num_ct_for_buckets; c++) {
         for (int m = 0; m < half_party_size; m++) {
-            evaluator_next.mod_switch_to_next_inplace(rhs_multi[0][m]);
+	  evaluator_next.mod_switch_to_next_inplace(rhs_multi[c][0][m]);
         }
+      }
     }
-    cout << "** FINAL LHS NOISE after mod: " << decryptor.invariant_noise_budget(lhs_multi_ctr[0][0]) << endl;
-    cout << "** FINAL RHS NOISE after mod: " << decryptor.invariant_noise_budget(rhs_multi[0][0]) << endl;
+    /* cout << "** FINAL LHS NOISE after mod: " << decryptor.invariant_noise_budget(lhs_multi_ctr[0][0]) << endl; */
+    /* cout << "** FINAL RHS NOISE after mod: " << decryptor.invariant_noise_budget(rhs_multi[0][0][0]) << endl; */
 
 
     stringstream data_streamdg, data_streamdg2;
     auto digsize = 0;
-    for (int m = 0; m < half_party_size; m++) {
-        digsize += rhs_multi[0][m].save(data_streamdg);
+    for (int c = 0; c < (int) num_ct_for_buckets; c++) {
+      for (int m = 0; m < half_party_size; m++) {
+        digsize += rhs_multi[c][0][m].save(data_streamdg);
+      }
     }
     for(size_t q = 0; q < lhs_multi_ctr[0].size(); q++){
         digsize += lhs_multi_ctr[0][q].save(data_streamdg2);
     }
-    cout << "Digest size: " << digsize << " bytes" << endl;
+    /* cout << "Digest size: " << digsize << " bytes" << endl; */
 
     //////// after switching to the last level, mod down to smaller q before sending the digest ////////
     uint64_t small_p = 268369920;
@@ -459,12 +480,14 @@ void OMR3_opt() {
     RandomToStandardAdapter engine(rng->create());
     uniform_int_distribution<uint32_t> dist(0, 100);
 
-    for (int m = 0; m < half_party_size; m++) {
+    for (int c = 0; c < (int) num_ct_for_buckets; c++) {
+      for (int m = 0; m < half_party_size; m++) {
         for (int i = 0; i < (int) degree; i++) {
-            rhs_multi[0][m].data(0)[i] = manual_mod_down_rounding(rhs_multi[0][m].data(0)[i], dist(engine), small_p+1, large_p+1);
-            rhs_multi[0][m].data(1)[i] = manual_mod_down_rounding(rhs_multi[0][m].data(1)[i], dist(engine), small_p+1, large_p+1);
+	  rhs_multi[c][0][m].data(0)[i] = manual_mod_down_rounding(rhs_multi[c][0][m].data(0)[i], dist(engine), small_p+1, large_p+1);
+	  rhs_multi[c][0][m].data(1)[i] = manual_mod_down_rounding(rhs_multi[c][0][m].data(1)[i], dist(engine), small_p+1, large_p+1);
         }
-	rhs_multi[0][m].parms_id_ = seal_context_small.first_parms_id();
+	rhs_multi[c][0][m].parms_id_ = seal_context_small.first_parms_id();
+      }
     }
     for(size_t q = 0; q < lhs_multi_ctr[0].size(); q++) {
         for (int i = 0; i < (int) degree; i++) {
@@ -478,23 +501,22 @@ void OMR3_opt() {
     //////////// After generating a default small key, we make it aligned with the large key ////////////
     //////////// such that they differ only w.r.t. the modulus                               ////////////
 
-    // above is for confirming the above two primes
-    inverse_ntt_negacyclic_harvey(secret_key.data().data(), context.key_context_data()->small_ntt_tables()[0]);
-    for (int i = 0; i < 10; i++) {
-      cout << secret_key.data()[i] << " ";
-    }
-    cout << endl;
-    seal::util::RNSIter new_key_rns(secret_key.data().data(), degree);
-    ntt_negacyclic_harvey(new_key_rns, coeff_modulus.size(), context.key_context_data()->small_ntt_tables());
+    // below is for confirming the above two primes
+    /* inverse_ntt_negacyclic_harvey(secret_key.data().data(), context.key_context_data()->small_ntt_tables()[0]); */
+    /* for (int i = 0; i < 10; i++) { */
+    /*   cout << secret_key.data()[i] << " "; */
+    /* } */
+    /* cout << endl; */
+    /* seal::util::RNSIter new_key_rns(secret_key.data().data(), degree); */
+    /* ntt_negacyclic_harvey(new_key_rns, coeff_modulus.size(), context.key_context_data()->small_ntt_tables()); */
 
-    inverse_ntt_negacyclic_harvey(secret_key_small.data().data(), seal_context_small.key_context_data()->small_ntt_tables()[0]);
-    for (int i = 0; i < 10; i++) {
-      cout << secret_key_small.data()[i] << " ";
-    }
-    cout << endl;
-    seal::util::RNSIter new_key_rns_small(secret_key_small.data().data(), degree);
-    ntt_negacyclic_harvey(new_key_rns_small, coeff_modulus_small.size(), seal_context_small.key_context_data()->small_ntt_tables());
-
+    /* inverse_ntt_negacyclic_harvey(secret_key_small.data().data(), seal_context_small.key_context_data()->small_ntt_tables()[0]); */
+    /* for (int i = 0; i < 10; i++) { */
+    /*   cout << secret_key_small.data()[i] << " "; */
+    /* } */
+    /* cout << endl; */
+    /* seal::util::RNSIter new_key_rns_small(secret_key_small.data().data(), degree); */
+    /* ntt_negacyclic_harvey(new_key_rns_small, coeff_modulus_small.size(), seal_context_small.key_context_data()->small_ntt_tables()); */
 
     inverse_ntt_negacyclic_harvey(secret_key.data().data(), context.key_context_data()->small_ntt_tables()[0]);
     inverse_ntt_negacyclic_harvey(secret_key_small.data().data(), seal_context_small.key_context_data()->small_ntt_tables()[0]);
@@ -503,7 +525,7 @@ void OMR3_opt() {
       secret_key_small.data()[i] = (secret_key.data()[i] == large_p) ? small_p : secret_key.data()[i];
       /* cout << secret_key_small.data()[i] << endl; */
     }
-    cout << endl;
+    /* cout << endl; */
     seal::util::RNSIter new_key_rns1(secret_key.data().data(), degree);
     ntt_negacyclic_harvey(new_key_rns1, coeff_modulus.size(), context.key_context_data()->small_ntt_tables());
     seal::util::RNSIter new_key_rns_small1(secret_key_small.data().data(), degree);
@@ -515,11 +537,13 @@ void OMR3_opt() {
     
     time_end = chrono::high_resolution_clock::now();
     time_diff = chrono::duration_cast<chrono::microseconds>(time_end - time_start);
-    cout << "\nDetector running time: " << time_diff.count() << "us." << "\n";
+    cout << "\nDetector running time: " << time_diff.count() - process_u_time << " us." << "\n";
 
     digsize = 0;
-    for (int m = 0; m < half_party_size; m++) {
-        digsize += rhs_multi[0][m].save(data_streamdg);
+    for (int c = 0; c < (int) num_ct_for_buckets; c++) {
+      for (int m = 0; m < half_party_size; m++) {
+        digsize += rhs_multi[c][0][m].save(data_streamdg);
+      }
     }
     for(size_t q = 0; q < lhs_multi_ctr[0].size(); q++){
         digsize += lhs_multi_ctr[0][q].save(data_streamdg2);
@@ -529,11 +553,11 @@ void OMR3_opt() {
     // step 5. receiver decoding
     bipartiteGraphWeightsGeneration(bipartite_map_glb, weights_glb, numOfTransactions, OMRthreeM, repeatition_glb, seed_glb);
     time_start = chrono::high_resolution_clock::now();
-    auto res = receiverDecodingOMR3_omrtake3(lhs_multi_ctr[0], bipartite_map[0], rhs_multi[0], poly_modulus_degree, secret_key_small, seal_context_small,
+    auto res = receiverDecodingOMR3_omrtake3(lhs_multi_ctr[0], bipartite_map[0], rhs_multi, poly_modulus_degree, secret_key_small, seal_context_small,
                                              numOfTransactions, party_size_glb, half_party_size, acc_slots+1, payload_size*2);
     time_end = chrono::high_resolution_clock::now();
     time_diff = chrono::duration_cast<chrono::microseconds>(time_end - time_start);
-    cout << "\nRecipient running time: " << time_diff.count() << "us." << "\n";
+    cout << "\nRecipient running time: " << time_diff.count() << " us." << "\n";
 
     /* cout << "EXPECTED -------------------------------------------------------- \n" << expected << endl; */
     /* cout << "RESULT ---------------------------------------------------------- \n" << res << endl; */

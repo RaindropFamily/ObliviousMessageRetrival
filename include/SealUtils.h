@@ -397,7 +397,7 @@ inline vector<Ciphertext> expand(const SEALContext& context, EncryptionParameter
 }
 
 vector<vector<int>> generateMatrixU_transpose(int n, const int q = 65537, const int primitive_root = 3) {
-    cout << "Generating... " << n << endl;
+    // cout << "Generating... " << n << endl;
     vector<vector<int>> U(n,  vector<int>(n));
     for (int i = 0; i < n; i++) {
         for (int j = 0; j < n; j++) {
@@ -410,7 +410,7 @@ vector<vector<int>> generateMatrixU_transpose(int n, const int q = 65537, const 
             }
         }
     }
-    cout << "Generation finished. " << endl;
+    // cout << "Generation finished. " << endl;
     return U;
 }
 
@@ -452,9 +452,73 @@ Ciphertext slotToCoeff(const SEALContext& context, const SEALContext& context_co
 }
 
 
+Ciphertext slotToCoeff_WOPrepreocess_time(const SEALContext& context, const SEALContext& context_coeff, vector<Ciphertext>& ct_sqrt_list, const GaloisKeys& gal_keys,
+					  uint64_t& u_time, const int sq_rt = 128, const int degree=32768, const uint64_t q = 65537, const uint64_t scalar = 1) {
+  Evaluator evaluator(context), evaluator_rotate(context_coeff);
+  BatchEncoder batch_encoder(context_coeff);
+
+  chrono::high_resolution_clock::time_point time_start, time_end;
+  uint64_t total_U = 0;
+
+  time_start = chrono::high_resolution_clock::now();
+  vector<vector<int>> U = generateMatrixU_transpose(degree, q);
+  time_end = chrono::high_resolution_clock::now();
+  total_U += chrono::duration_cast<chrono::microseconds>(time_end - time_start).count();
+  // cout << "after U.\n";
+
+  vector<Ciphertext> result(sq_rt);
+  for (int iter = 0; iter < sq_rt; iter++) {
+    for (int j = 0; j < (int) ct_sqrt_list.size(); j++) {
+
+      time_start = chrono::high_resolution_clock::now();
+      vector<uint64_t> U_tmp(degree);
+      for (int i = 0; i < degree; i++) {
+	int row_index = (i-iter) % (degree/2) < 0 ? (i-iter) % (degree/2) + degree/2 : (i-iter) % (degree/2);
+	row_index = i < degree/2 ? row_index : row_index + degree/2;
+	int col_index = (i + j*sq_rt) % (degree/2);
+	if (j < (int) ct_sqrt_list.size() / 2) { // first half
+	  col_index = i < degree/2 ? col_index : col_index + degree/2;
+	} else {
+	  col_index = i < degree/2 ? col_index + degree/2 : col_index;
+	}
+	U_tmp[i] = ((uint64_t) (U[row_index][col_index] * scalar)) % q;
+      }
+      writeUtemp(U_tmp, j*sq_rt + iter);
+
+      Plaintext U_plain;
+      batch_encoder.encode(U_tmp, U_plain);
+      evaluator.transform_to_ntt_inplace(U_plain, ct_sqrt_list[j].parms_id());
+
+      time_end = chrono::high_resolution_clock::now();
+      total_U += chrono::duration_cast<chrono::microseconds>(time_end - time_start).count();
+
+      if (j == 0) {
+	evaluator.multiply_plain(ct_sqrt_list[j], U_plain, result[iter]);
+      } else {
+	Ciphertext temp;
+	evaluator.multiply_plain(ct_sqrt_list[j], U_plain, temp);
+	evaluator.add_inplace(result[iter], temp);
+      }
+    }
+  }
+
+  for (int i = 0; i < (int) result.size(); i++) {
+    evaluator.transform_from_ntt_inplace(result[i]);
+  }
+  for (int iter = sq_rt-1; iter > 0; iter--) {
+    evaluator_rotate.rotate_rows_inplace(result[iter], 1, gal_keys);
+    evaluator.add_inplace(result[iter-1], result[iter]);
+  }
+
+  u_time += total_U;
+  
+  return result[0];
+}
+
+
 
 Ciphertext slotToCoeff_WOPrepreocess(const SEALContext& context, const SEALContext& context_coeff, vector<Ciphertext>& ct_sqrt_list, const GaloisKeys& gal_keys,
-                                     const int sq_rt = 128, const int degree=32768, const uint64_t q = 65537, const uint64_t scalar = 1) {
+                                     const int sq_rt = 128, const int degree=32768, const uint64_t q = 65537, const uint64_t scalar = 1, uint64_t process_u_time = 0) {
     Evaluator evaluator(context), evaluator_rotate(context_coeff);
     BatchEncoder batch_encoder(context_coeff);
 
@@ -465,7 +529,7 @@ Ciphertext slotToCoeff_WOPrepreocess(const SEALContext& context, const SEALConte
     vector<vector<int>> U = generateMatrixU_transpose(degree, q);
     time_end = chrono::high_resolution_clock::now();
     total_U += chrono::duration_cast<chrono::microseconds>(time_end - time_start).count();
-    cout << "after U.\n";
+    // cout << "after U.\n";
 
     vector<Ciphertext> result(sq_rt);
     for (int iter = 0; iter < sq_rt; iter++) {
@@ -512,7 +576,8 @@ Ciphertext slotToCoeff_WOPrepreocess(const SEALContext& context, const SEALConte
         evaluator.add_inplace(result[iter-1], result[iter]);
     }
 
-    cout << "   TOTAL process U time: " << total_U << endl;
+    process_u_time += total_U;
+    // cout << "   TOTAL process U time: " << total_U << endl;
 
     return result[0];
 }
