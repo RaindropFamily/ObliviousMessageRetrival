@@ -118,13 +118,14 @@ sudo apt-get install libgmp3-dev # if no gmp
 sudo apt-get install libntl-dev=11.4.3-1build1 # if no ntl
 sudo apt-get install unzip # if no unzip
 
-OMRDIR=~/OMR   # change build_path to where you want the dependency libraries installed
-mkdir -p $OMRDIR
-
 # Now put PERFOMR_code.zip file is in ~/OMR
 # For example, if using GCP instance
-# Upload PERFOMR_code.zip and then do: mv PERFOMR_code.zip ~/OMR
+# Upload PERFOMR_code.zip and then do:
+mv PERFOMR_code.zip ~/OMR
 cd $OMRDIR && unzip PERFOMR_code.zip
+
+OMRDIR=~/OMR   # change build_path to where you want the dependency libraries installed
+mkdir -p $OMRDIR
 LIBDIR=$OMRDIR/ObliviousMessageRetrieval/build
 
 cd $OMRDIR && git clone -b v1.11.3 https://gitlab.com/palisade/palisade-release
