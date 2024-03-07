@@ -48,16 +48,64 @@ This code implements PerfOMR schemes (PerfOMR1 in sec 5 and PerfOMR in sec 6) de
 ### Oblivious Message Retrieval
 - Obliviously identify the pertinent messages and pack all their contents into a into a single digest.
 - Schemes benchmarked: OMR1p (Section 7.4) and OMR2p (Section 7.5) in [OMR](https://eprint.iacr.org/2021/1256.pdf)
-- Measured: 
-    - Key sizes: ~129MB
-    - detector running time (1-core, with Intel-HEXL): ~0.145 sec/msg and ~0.155 sec/msg
-    - detector running time (2-core, with Intel-HEXL): ~0.075 sec/msg and ~0.085 sec/msg
-    - detector running time (4-core, with Intel-HEXL): ~0.065 sec/msg and ~0.072 sec/msg
-    - detector running time (1-core, w/o  Intel-HEXL): ~0.215 sec/msg and ~0.246 sec/msg
-    - detector running time (2-core, w/o  Intel-HEXL): ~0.108 sec/msg and ~0.123 sec/msg
-    - detector running time (4-core, w/o  Intel-HEXL): ~0.099 sec/msg and ~0.115 sec/msg
-    - recipient running time: ~0.02 sec and ~0.063 sec
-    - Digest size: ~560KB
+- Measurement: 
+<table class="tg">
+<thead>
+  <tr>
+    <th class="tg" colspan="3"></th>
+    <th class="tg">OMRp1</th>
+    <th class="tg">OMRp2</th>
+  </tr>
+</thead>
+<tbody>
+  <tr>
+    <td class="tg" colspan="3">Key Size (MB)</td>
+    <td class="tg" colspan="2">~129</td>
+  </tr>
+  <tr>
+    <td class="tg" rowspan="6">Detector Runtime<br>(sec/msg)</td>
+    <td class="tg" rowspan="3">With Hexl</td>
+    <td class="tg">1-core</td>
+    <td class="tg-rq3n">~0.145</td>
+    <td class="tg-rq3n">~0.155</td>
+  </tr>
+  <tr>
+    <td class="tg-3xi5">2-core</td>
+    <td class="tg-rq3n">~0.075</td>
+    <td class="tg-rq3n">~0.085</td>
+  </tr>
+  <tr>
+    <td class="tg-3xi5">4-core</td>
+    <td class="tg-rq3n">~0.065</td>
+    <td class="tg-rq3n">~0.072</td>
+  </tr>
+  <tr>
+    <td class="tg-rq3n" rowspan="3">Without Hexl</td>
+    <td class="tg-3xi5">1-core</td>
+    <td class="tg-rq3n">~0.215</td>
+    <td class="tg-rq3n">~0.246</td>
+  </tr>
+  <tr>
+    <td class="tg-3xi5">2-core</td>
+    <td class="tg-rq3n">~0.108</td>
+    <td class="tg-rq3n">~0.123</td>
+  </tr>
+  <tr>
+    <td class="tg-3xi5">4-core</td>
+    <td class="tg-rq3n">~0.099</td>
+    <td class="tg-rq3n">~0.155</td>
+  </tr>
+  <tr>
+    <td class="tg-jbyd" colspan="3">Recipient Runtime <br>(Sec)</td>
+    <td class="tg-88gr">~0.02</td>
+    <td class="tg-rmsp">~0.063</td>
+  </tr>
+  <tr>
+    <td class="tg-jbyd" colspan="3">Digest Size (KB)</td>
+    <td class="tg-88gr" colspan="2">~560</td>
+  </tr>
+</tbody>
+</table>
 
 
 
@@ -83,8 +131,7 @@ This code implements PerfOMR schemes (PerfOMR1 in sec 5 and PerfOMR in sec 6) de
         - PerfOMR1: ~0.037 sec
         - PerfOMR2: ~0.02 sec
     - Detector run time:
-![perfomr_detector](perfomr_detector.png)
-
+<img src="perfomr_detector.png" alt="perfomr_detector" width="700"/>
 
 
 ### Parameters  
