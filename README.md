@@ -49,7 +49,7 @@ This code implements PerfOMR schemes (PerfOMR1 in sec 5 and PerfOMR in sec 6) de
 - Obliviously identify the pertinent messages and pack all their contents into a into a single digest.
 - Schemes benchmarked: OMR1p (Section 7.4) and OMR2p (Section 7.5) in [OMR](https://eprint.iacr.org/2021/1256.pdf)
 - Measurement: 
-  - <img src="omr_measurement.png" alt="omr_measurement" width="700"/>
+  - <img src="omr_measurement.png" alt="omr_measurement" width="400"/>
 
 
 
@@ -59,9 +59,9 @@ This code implements PerfOMR schemes (PerfOMR1 in sec 5 and PerfOMR in sec 6) de
     - main scheme PerfOMR1 (Section 5.3)
     - alternative scheme PerfOMR2 (Section 6)
 - Measurement (with parameters in Section 7):
-    - <img src="perfomr_measurement.png" alt="perfomr_measurement" width="700"/>
+    - <img src="perfomr_measurement.png" alt="perfomr_measurement" width="800"/>
     - Detector run time:
-<img src="perfomr_detector.png" alt="perfomr_detector" width="700"/>
+        - <img src="perfomr_detector.png" alt="perfomr_detector" width="700"/>
 
 
 ### Parameters  
