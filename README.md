@@ -121,11 +121,11 @@ sudo apt-get install unzip # if no unzip
 # Now put PERFOMR_code.zip file is in ~/OMR
 # For example, if using GCP instance
 # Upload PERFOMR_code.zip and then do:
+mkdir -p ~/OMR
 mv PERFOMR_code.zip ~/OMR
 cd ~/OMR && unzip PERFOMR_code.zip
 
 OMRDIR=~/OMR   # change build_path to where you want the dependency libraries installed
-mkdir -p $OMRDIR
 LIBDIR=$OMRDIR/ObliviousMessageRetrieval/build
 
 cd $OMRDIR && git clone -b v1.11.3 https://gitlab.com/palisade/palisade-release
