@@ -49,63 +49,7 @@ This code implements PerfOMR schemes (PerfOMR1 in sec 5 and PerfOMR in sec 6) de
 - Obliviously identify the pertinent messages and pack all their contents into a into a single digest.
 - Schemes benchmarked: OMR1p (Section 7.4) and OMR2p (Section 7.5) in [OMR](https://eprint.iacr.org/2021/1256.pdf)
 - Measurement: 
-<table class="tg">
-<thead>
-  <tr>
-    <th class="tg" colspan="3"></th>
-    <th class="tg">OMRp1</th>
-    <th class="tg">OMRp2</th>
-  </tr>
-</thead>
-<tbody>
-  <tr>
-    <td class="tg" colspan="3">Key Size (MB)</td>
-    <td class="tg" colspan="2">~129</td>
-  </tr>
-  <tr>
-    <td class="tg" rowspan="6">Detector Runtime<br>(sec/msg)</td>
-    <td class="tg" rowspan="3">With Hexl</td>
-    <td class="tg">1-core</td>
-    <td class="tg-rq3n">~0.145</td>
-    <td class="tg-rq3n">~0.155</td>
-  </tr>
-  <tr>
-    <td class="tg-3xi5">2-core</td>
-    <td class="tg-rq3n">~0.075</td>
-    <td class="tg-rq3n">~0.085</td>
-  </tr>
-  <tr>
-    <td class="tg-3xi5">4-core</td>
-    <td class="tg-rq3n">~0.065</td>
-    <td class="tg-rq3n">~0.072</td>
-  </tr>
-  <tr>
-    <td class="tg-rq3n" rowspan="3">Without Hexl</td>
-    <td class="tg-3xi5">1-core</td>
-    <td class="tg-rq3n">~0.215</td>
-    <td class="tg-rq3n">~0.246</td>
-  </tr>
-  <tr>
-    <td class="tg-3xi5">2-core</td>
-    <td class="tg-rq3n">~0.108</td>
-    <td class="tg-rq3n">~0.123</td>
-  </tr>
-  <tr>
-    <td class="tg-3xi5">4-core</td>
-    <td class="tg-rq3n">~0.099</td>
-    <td class="tg-rq3n">~0.155</td>
-  </tr>
-  <tr>
-    <td class="tg-jbyd" colspan="3">Recipient Runtime <br>(Sec)</td>
-    <td class="tg-88gr">~0.02</td>
-    <td class="tg-rmsp">~0.063</td>
-  </tr>
-  <tr>
-    <td class="tg-jbyd" colspan="3">Digest Size (KB)</td>
-    <td class="tg-88gr" colspan="2">~560</td>
-  </tr>
-</tbody>
-</table>
+  - <img src="omr_measurement.png" alt="omr_measurement" width="700"/>
 
 
 
@@ -114,22 +58,8 @@ This code implements PerfOMR schemes (PerfOMR1 in sec 5 and PerfOMR in sec 6) de
 - Schemes benchmarked (in PerfOMR): 
     - main scheme PerfOMR1 (Section 5.3)
     - alternative scheme PerfOMR2 (Section 6)
-- Measured (with parameters in Section 7):
-    - Clue sizes:
-        - PerfOMR1: ~2181 Byte/msg (with v = 8)
-        - PerfOMR2: ~583 Byte/msg (with v = 2)
-    - Clue key sizes:
-        - PerfOMR1: 2.13KB per recipient
-        - PerfOMR2: 0.56KB per recipient
-    - Detection key size:
-        - PerfOMR1: 171 Byte
-        - PerfOMR2: 140 Byte
-    - Digest size:
-        - PerfOMR1: 2.57 Byte/msg (with v = 8)
-        - PerfOMR2: 1.03 Byte (with v = 2)
-    - Recipient run time:
-        - PerfOMR1: ~0.037 sec
-        - PerfOMR2: ~0.02 sec
+- Measurement (with parameters in Section 7):
+    - <img src="perfomr_measurement.png" alt="perfomr_measurement" width="700"/>
     - Detector run time:
 <img src="perfomr_detector.png" alt="perfomr_detector" width="700"/>
 
